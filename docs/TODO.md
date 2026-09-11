@@ -35,8 +35,6 @@ loop*.
 
 - add borders to the whole view when in the scratchpad or make it recognisable
 
-- clipboard should reset the current selection every time it’s opened, starting back from the top.
-
 - clipboard should show an overlay with the complete command and extra informations when the selection is held for a while (or on mouse hover after some time)
 
 ## Features

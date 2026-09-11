@@ -7,6 +7,80 @@ once it is verified.
 
 ---
 
+## Reset the clipboard tab every time the panel opens
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** ccf5477 clipboard: reset selection, filter and scroll every time the panel opens
+- **Original TODO:** clipboard should reset the current selection every time it's opened, starting back from the top.
+
+### What was asked
+Every time the notification panel is opened on the Clipboard tab, it
+should start from a clean state: no leftover search filter, the first
+entry selected, scrolled to the top — not whatever was left over from the
+last time it was open.
+
+### What was done
+Found the cause in `Panels/Sidebar.qml`: the tab content is a `Loader`
+whose `sourceComponent` only changes when the active tab index changes —
+opening and closing the whole panel just toggles `PanelWindow.visible`
+upstream, it does not touch the Loader, so the Clipboard tab's `Item` is
+never destroyed by a plain show/hide. That means `Component.onCompleted`
+(where the reset already happened) only ever ran the very first time the
+Clipboard tab was opened in a session; every later reopen — panel closed,
+then reopened while still parked on that tab — kept the old search text,
+selection and scroll offset.
+
+`Panels/tabs/Clipboard.qml`: moved the existing reset logic into a
+`reset()` function, called from `Component.onCompleted` as before, and
+now also from a `Connections { target: Services.NotificationPanel;
+function onShownChanged() { ... } }` block that fires on the `shown`
+transition to `true` — the same `Connections`/`onXChanged` shape already
+used the same way in `Settings.qml`, `Spotlight.qml` and `Launcher.qml`,
+so nothing new was introduced stylistically. Also added `list.contentY =
+0` to the reset (`list` is the id given to the entry `Flickable`, which
+previously had no id) — nothing previously reset the scroll position, only
+`highlightedIndex`, so "starting back from the top" was only half true
+even within a single session.
+
+### Honest assessment
+- **Cannot verify visually** — phi-shell's own rule: "you cannot run
+  this," every visual result needs the user's own screenshot. This is a
+  logic fix (state reset on a property-changed signal), not a visual one,
+  so it was reviewed by reading the surrounding code and cross-checking
+  the `Connections` pattern against four other files that already use it
+  the same way, not by running it.
+- One behaviour to be aware of, not a bug: opening the panel straight onto
+  the Clipboard tab (`Super+Shift+V`, which sets the tab index *and*
+  `shown` together) can run `reset()` twice in a row (once from
+  `Component.onCompleted` as the Loader creates the item, once from the
+  `Connections` handler as `shown` becomes true right after) — harmless
+  since `reset()` is idempotent, just a redundant `Services.Clipboard.refresh()`
+  call, not a state problem.
+- Switching tabs away from Clipboard and back while the panel stays open
+  already reset correctly before this change (a tab switch gives the
+  Loader a new `sourceComponent`, so a fresh `Item` is created either
+  way) — untouched by this fix, still works the same way.
+
+### How to test it
+1. Build `phi-shell` from this branch and reload Quickshell (`pkill -x qs;
+   qs -p ~/.config/quickshell/phi`), or just save any `.qml` file to
+   trigger its hot reload.
+2. Copy two or three different things to the clipboard so there's more
+   than one entry.
+3. Open the panel onto the Clipboard tab (`Super+Shift+V`), type a few
+   characters into the filter box, and press Down/Tab a couple of times so
+   a later entry (not the first) is highlighted.
+4. Close the panel (click outside it, or `Super+N`) without selecting
+   anything.
+5. Reopen it onto the Clipboard tab again (`Super+Shift+V`). Before this
+   fix: the filter text and the previously-highlighted entry were still
+   there. After this fix: the filter box is empty, the first entry
+   (topmost, pinned entries first) is highlighted, and if the list had
+   been scrolled, it is back at the top.
+
+---
+
 ## Recognise phi verbs in the launcher without the "phi " prefix
 
 - **Date:** 2026-09-11
