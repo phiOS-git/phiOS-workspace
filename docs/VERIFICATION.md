@@ -7,6 +7,41 @@ once it is verified.
 
 ---
 
+## Animate the brightness icon between sun and moon on night mode
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** a208dab bar: animate the brightness icon between sun and moon on night mode, 4d3867d merge: animate the brightness icon between sun and moon on night mode
+- **Original TODO:** one clause of the bundled "rework status bar buttons..." Style entry — specifically: "brightness amount (sun/moon icon that fills up, based on either night mode on or not, with an animation from sun to moon)". The rest of that entry (box-button rework, animated volume/bluetooth/wifi/notifications/battery icons, isle backgrounds) is still open — see the entry itself in docs/TODO.md.
+
+### What was asked
+Asked directly (not just from the TODO wording) mid-session: the brightness icon should transition between a sun and a moon depending on night mode, and the transition itself should be a genuine "fill/eclipse styled" animation — the user's own words ruled out a crossfade specifically: "I don't think crossfade is enough, I want subtle but smooth animations... don't be cheap on them."
+
+### What was done
+Before writing anything, checked what "SVG animations" (the bundled entry's own wording) would actually mean in this codebase: there are zero SVG assets or vector-shape rendering anywhere in phi-shell — every icon is a Nerd Font glyph character rendered as plain text (`Widgets/StyledIcon.qml`). Surfaced that architecture gap to the user directly rather than silently picking an approach; they confirmed they want a real, non-crossfade transition and left the implementation technique to my judgement.
+
+Built a genuine eclipse-style transition on a `Canvas`, not an SVG (`Widgets/SunMoonIcon.qml`, new file): a solid "body" disc plus a same-size "shadow" disc painted with `globalCompositeOperation = "destination-out"` — a true alpha cutout that works correctly against any background this icon sits on (hover state, active state, whatever the bar's ambient colour is), not a colour-matched fake shadow that would only look right against one specific background. The shadow disc's horizontal offset from the body's centre is a linear function of a `dayness` value (0 = moon, 1 = sun): far enough away to have zero overlap at dayness=1 (the full sun-disc, undisturbed) and close enough to eat most of the disc at dayness=0 (a crescent moon). Sliding that offset smoothly is the actual eclipse — the icon changes SHAPE through the transition, not just colour or opacity, which is what makes it read as more than a crossfade. Eight short rays ring the disc, their length and opacity both tracking the same `dayness` value, so they retract and fade in lockstep with the eclipse rather than as a separate effect.
+
+Wiring this in required extending `Widgets/Segment.qml` (the shared base every bar module and panel tab button is built on) with a new `iconDelegate` slot — the existing `glyph` property is just a font-symbol string and can't carry a custom animated icon. Went carefully here since this file has a lot of existing consumers: added a `Loader` alongside the existing `StyledIcon`, sized and positioned so it behaves exactly like the glyph would if a caller sets `iconDelegate` and leaves `glyph` empty — traced all three places that needed to account for the new branch (the `layout` Item's `implicitWidth`/`implicitHeight` calculations, and the label's `anchors.left` logic) to confirm every EXISTING consumer (every other bar module, still glyph-based) evaluates identically to before this change, since `iconDelegate` defaults to `null` and every new expression collapses back to the old one in that case.
+
+`Bar/modules/Brightness.qml` now sets `iconDelegate` to a `Widgets.SunMoonIcon`, with a `dayness` property driven off `Services.NightShift.enabled` and wrapped in a `Behavior` (`NumberAnimation`) using motion category B — `PHI_MOTION_B_DURATION`/`_EASING` (120ms, ease-out) — `design/tokens.common.sh`'s own §6.5 note that "the four categories are binding" ruled out inventing a slower one-off duration; category C is explicitly restricted to exactly two named effects (typing, scramble) and category D forbids animation by default, so B (state transition — the same category notifications and toasts use) is the only one that actually fits a discrete, user-toggled state change like this.
+
+### Honest assessment
+- **Untested against a real compositor** — `phi-shell/CLAUDE.md`: "You cannot run this." This is the most custom, least-precedented piece of QML written in this repo this session (a from-scratch Canvas eclipse animation on a widely-shared base widget), and I genuinely cannot see whether it looks the way the geometry math says it should.
+- **120ms is short.** At that duration, mandated by the binding motion-category system, the eclipse will read as a fast, clean switch — not a lingering, dramatic one. That's what the design system calls for at this category, and it's the honest answer to "subtle": if it reads as too quick once seen on real hardware, that's a token change (`PHI_MOTION_B_DURATION`, `phios-dotfiles/design/tokens.common.sh`) or a documented category exception, not something I should have pre-empted by inventing my own duration.
+- Caught and fixed three real bugs during an advisor review before landing, worth knowing about since they were close calls: (1) the original `dayness` binding (`property real dayness: NightShift.enabled ? 0 : 1`) would NOT have animated at all — a binding re-evaluation writes a property directly rather than being intercepted by `Behavior`, which would have collapsed the whole eclipse into the one-frame jump the user explicitly said not to do; fixed by setting `dayness` imperatively from a `Connections` handler instead. (2) The ray geometry had the shadow disc clipping the tip of one ray even at "full sun" (dayness=1) — the zero-overlap math only accounted for the body disc, not the rays reaching further out; fixed by widening the sun-state shadow offset. (3) An initial `Loader.implicitWidth`/`implicitHeight` binding I'd added was fighting Qt's own internal auto-forwarding (`Loader` already propagates a loaded item's implicit size, confirmed by reading Qt's `qquickloader.cpp`) — removed rather than left to silently conflict with it.
+- Only the brightness icon's sun/moon transition is built. The rest of the bundled Style entry (removing the box-button look from all bar buttons, similar animated treatments for volume/bluetooth/wifi/notifications/battery, and background isles) is real, substantial remaining work, not implied-done by this entry.
+
+### How to test it
+1. On razer or zotac (needs `backlight` capability — the module is gated on that), pull the updated `phi-shell` `dev` branch (Quickshell hot-reloads `.qml` on save).
+2. Look at the brightness icon in the status bar's right isle. Confirm it actually appears (not a blank gap where the icon should be — a real failure mode this change could have, if the icon's implicit-size chain came out to zero) and that it's roughly the same visual size as the neighbouring bluetooth/wifi/battery glyph icons.
+3. Open the notification panel and toggle night mode (the display-toggles row there, per `Bar/modules/NightMode.qml`'s own header — not a bar button, the toggle isn't on the bar itself).
+4. Watch the brightness icon specifically, not just the end states: it should visibly SWEEP from a full sun disc (with small rays around it) into a crescent moon shape (rays gone) over about 120ms, not snap instantly between the two. A snap instead of a sweep means either the `Behavior` isn't actually running or the Canvas isn't repainting every animation frame — the one thing this whole approach depends on and the one thing I could not verify myself.
+5. Toggle night mode off again — the reverse sweep (crescent back to full sun with rays reappearing) should look the same, just in reverse.
+6. If night mode was already on when the shell started, expect one brief sun-to-moon sweep shortly after the bar first appears (not a bug — see "Honest assessment": setting the correct initial state deliberately goes through the same animated path rather than snapping silently).
+
+---
+
 ## Add a clipboard icon to the status bar
 
 - **Date:** 2026-09-11
