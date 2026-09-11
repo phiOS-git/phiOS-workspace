@@ -19,6 +19,8 @@ loop*.
 
 - the clipboard shows "(empty)" when the content is too long, it should get trimmed
 
+- steam icon in the status bar is using a phone glyph, it should use the steam one from font nerd
+
 - super+n should open notification (focus the right tab), super+shit+v should not only open but also close the clipboard panel
 
 - the magnifier glass currently does not zoom in since the border where removed. It has to do with inconsistencies with the screen capture method. Needs to be solved. Reference this: https://github.com/Horizon0427/Glasscope 
