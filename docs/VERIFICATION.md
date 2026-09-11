@@ -7,6 +7,27 @@ once it is verified.
 
 ---
 
+## Steam workspace icon: fixed wrong glyph codepoint
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 5be5304 bar: fix the Steam workspace glyph codepoint, 02868e3 merge: fix the Steam workspace glyph codepoint
+- **Original TODO:** "steam icon in the status bar is using a phone glyph, it should use the steam one from font nerd"
+
+### What was asked
+The workspace icon meant to show Steam (workspace 9's glyph in the bar's workspace strip) renders as a phone icon instead.
+
+### What was done
+`Bar/glyphs.js` defined `steam` as codepoint `0xF03F7`. I downloaded nerd-fonts' own `glyphnames.json` (`gh api repos/ryanoasis/nerd-fonts/contents/glyphnames.json`, the authoritative name→codepoint table for the exact font this project patches against) and looked up both directions: `0xF03F7` is `nf-md-phone_incoming` — literally a phone glyph, matching your report exactly — and the real `nf-md-steam` is `0xF04D3`. Simple wrong-constant bug, not a missing/unpatched glyph, which is why it silently rendered as a real (wrong) icon instead of a tofu box or an obviously broken one. Fixed the one definition; confirmed via `grep` that nothing else in the repo referenced the old codepoint directly.
+
+### Honest assessment
+Clean — this is a one-line data fix confirmed against the authoritative source for what the codepoint should be, not a guess. The only thing I can't confirm myself is that the installed font on your machines actually is a nerd-fonts build recent enough to include Material Design Icons at the new `0xF0001+` codepoint range (nerd-fonts v3.0+ moved MDI off the old `0xF500-0xFD46` range) — if it's an older patched font, `Glyphs.monitor` (btop's icon, same range) would already be showing the same symptom, so if btop's icon has looked correct this whole time, this fix will too.
+
+### How to test it
+Look at workspace 9 in the bar's workspace strip (or wherever Steam is currently pinned — see the separate open TODO about renumbering it to 11). It should show the Steam icon (the stylized "S" in a circle), not a phone icon.
+
+---
+
 ## Super+N always lands on Notifications; Super+Shift+V now toggles the clipboard panel closed too
 
 - **Date:** 2026-09-11
