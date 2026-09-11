@@ -19,8 +19,6 @@ loop*.
 
 - steam icon in the status bar is using a phone glyph, it should use the steam one from font nerd
 
-- [taken] super+n should open notification (focus the right tab), super+shit+v should not only open but also close the clipboard panel
-
 - the magnifier glass currently does not zoom in since the border where removed. It has to do with inconsistencies with the screen capture method. Needs to be solved. Reference this: https://github.com/Horizon0427/Glasscope 
 
 - the ai agent a1 always fails starting. Running `phi agent broker —instance a1` shows it binds it correctly on “127.0.0.1:8789” (after the second time it shows the address occupied). — investigated 2026-09-11: read `phi/internal/agent/broker.go` (bind/shutdown logic looks correct, no stale-socket handling gap for TCP), `phi/internal/cli/agent.go` (SIGINT/SIGTERM → graceful `srv.Shutdown`, looks correct), `phi-shell/Services/Agent.qml` (only ever issues one `systemctl start phi-agent-a1.service`, guarded against re-entrancy), and `phi-agent-broker@.service`/`phi-agent-a1.service` (no code bug found, but `Type=simple` with no readiness sync between the broker binding its socket and `phi-agent-a1.service` starting is a plausible source of a *different* failure mode — connection-refused, not the reported address-in-use). Could not find a concrete code defect, and did not want to guess at a fix to the credential-broker's systemd unit without being able to observe the actual failure — this needs the real machine. Next time it happens: `ss -ltnp | grep 8789` and `systemctl --user status phi-agent-broker@a1.service` to see what actually holds the port.

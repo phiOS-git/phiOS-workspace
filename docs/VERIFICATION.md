@@ -7,6 +7,40 @@ once it is verified.
 
 ---
 
+## Super+N always lands on Notifications; Super+Shift+V now toggles the clipboard panel closed too
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev, phios-dotfiles / dev
+- **Commits:** phi-shell: 2ff299e notifications: make the per-tab open actions toggle-aware, fb2b4a4 merge: make the per-tab open actions toggle-aware — phios-dotfiles: 5ce78eb hyprland: bind Super+N to the notifications-tab action, not plain toggle, 87795bc merge: bind Super+N to the notifications-tab action
+- **Original TODO:** "super+n should open notification (focus the right tab), super+shit+v should not only open but also close the clipboard panel"
+
+### What was asked
+Two related complaints about the notification/clipboard panel's two keyboard entry points: Super+N should always land you on the Notifications tab (not wherever the panel was last left), and Super+Shift+V — which opens straight onto the Clipboard tab — should also close the panel on a second press, the way a toggle normally would.
+
+### What was done
+Found both bugs exactly where the TODO describes them, in `Services/NotificationPanel.qml` and `phios-dotfiles`' `hyprland.lua.tmpl`:
+
+- **Super+Shift+V**: bound to `ipc call notifications clipboard` → `openClipboard()` → the old `openTab(1)`, which unconditionally does `tab = 1; shown = true`. There was no branch that ever set `shown = false` — a second press while already open on the Clipboard tab was a no-op, so it could only open, never close.
+- **Super+N**: bound to `ipc call notifications toggle` — the *plain* `toggle()` (`shown = !shown`), which never touches `tab` at all. If the panel was last left open on the Clipboard tab and then closed, pressing Super+N reopened it back onto the Clipboard tab, not Notifications — "focus the right tab" never actually happened. (A `notifications()` ipc function calling `openNotifications()`/`openTab(0)` already existed in `Panels/Sidebar.qml`'s IpcHandler, just not wired to any keybind — Super+Shift+V's `clipboard()` counterpart was already bound, `notifications()` wasn't.)
+
+Fix: added `toggleTab(i)` to `Services/NotificationPanel.qml` — switches to tab `i` (opening the panel if it was closed, or switching tabs if it was open elsewhere), and closes the panel only if it was already open on that exact tab. `openClipboard()` and `openNotifications()` both now go through it. Then rebound Super+N in `hyprland.lua.tmpl` from `qsIpc("notifications", "toggle")` to `qsIpc("notifications", "notifications")`, so it goes through the same tab-aware path Super+Shift+V already used. Super+Shift+V's own hyprland.lua bind needed no change — it already called `clipboard()`, which inherited the new toggle-close behavior automatically once `openClipboard()` was rewired.
+
+The bar's notification bell (`Bar/modules/Notifications.qml`) still calls the plain `toggle()` directly, untouched — clicking it isn't tab-specific the way a keybind aimed at one particular tab is, so its "just flip visibility, stay wherever the tab was" behavior is still the right one.
+
+### Honest assessment
+Untested — this is QML and a Hyprland Lua config I cannot run (`phi-shell/CLAUDE.md`: "You cannot run this. Every visual result is verified by the user with a screenshot"). The logic is small and I traced every call site of the changed functions (`grep -rn "NotificationPanel\."` across the whole `phi-shell` tree) to confirm nothing else relies on the old unconditional-open behavior of `openClipboard()`/`openNotifications()` — only the two IpcHandler entries in `Panels/Sidebar.qml` call them, and both are exactly the keybinds this TODO is about.
+
+### How to test it
+This needs `phios-install` to re-render the templated Hyprland config and reload it — either run `bin/phios-install` from `phios-dotfiles` and then `hyprctl reload`, or however you normally pick up a `hyprland.lua.tmpl` change.
+1. With the notification/clipboard panel closed, press Super+N. It should open on the Notifications tab.
+2. Press Super+Shift+V. It should switch to the Clipboard tab (panel stays open, just switches tab) — not close.
+3. Press Super+Shift+V again, with the panel still open on the Clipboard tab. It should now close the panel.
+4. Reopen with Super+N. It should open straight on Notifications again (not Clipboard, even though Clipboard was the last tab shown).
+5. Press Super+N again while already on the Notifications tab. It should close the panel.
+6. Regression check: click the bell icon in the status bar. It should still just toggle the panel open/closed, staying on whatever tab was last active — unaffected by this change.
+
+---
+
 ## Clipboard: long pastes no longer preview as "(empty)"
 
 - **Date:** 2026-09-11
