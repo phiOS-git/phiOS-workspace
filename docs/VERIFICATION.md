@@ -127,6 +127,153 @@ visible state that survives a close/reopen looks broken.
 
 ---
 
+## Align tailscale/vpn overlay and connectivity buttons
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** c2534c0 shell: align popout buttons and connectivity spacing
+- **Original TODO:** tailscale/vpn overlay should align its content better. Connectivity as well (especially the buttons)
+
+### What was asked
+The tailscale/VPN overlay (the "network" popout under the bar) and the
+Connectivity settings section have content and buttons that look
+misaligned. Buttons in particular.
+
+### What was done
+Two sets of fixes in phi-shell:
+
+1. **`Panels/BarPopout.qml`** — every `SmallButton` in the popout sections
+   (volume "Sound settings…", brightness "Display settings…", wifi
+   "Manage networks…" / "Show in settings…", bluetooth "Manage
+   devices…" / "Show in settings…", network "Show in settings…") now has
+   `width: parent.width`. Previously they rendered at natural content
+   width, left-aligned, floating under the full-width `ListRow` /
+   `ToggleRow` rows above them — the network (tailscale/VPN) card was the
+   worst case with a single orphaned small button. Now every button
+   stretches to the card width and aligns flush with the rows above.
+
+2. **`Settings/sections/Connectivity.qml`** — the four hardcoded `spacing:
+   4` / `spacing: 6` (bluetooth device list, the VPN import row, the
+   firewall "Open ports" column, the "Recently blocked" column) were
+   replaced with `root._gap` (the section's 2ch rhythm already used
+   everywhere else in the same file). This makes the button rows and
+   lists share one consistent vertical rhythm.
+
+### Honest assessment
+I could not view the reference images (the model has no image input) and
+cannot run the compositor, so the fix is based on code reading, not on a
+screenshot. The most visible change is the popout buttons stretching to
+full card width — that is a deliberate visual change, and if the desired
+look was compact left-flushed buttons instead, it can be reverted. The
+spacing unification only affects the four named columns in the
+Connectivity section; `Theme.qml` and other sections retain their own
+hardcoded small spacings (out of scope here). QML is not compiled in
+this environment; syntax is trivially verifiable by eye, but a runtime
+QML parse error is only checkable on the machine.
+
+### How to test it
+- Reload the shell (Quickshell hot-reloads on save; otherwise restart the
+  session) so the new QML is live.
+- Click the network bar button to open the tailscale/VPN popout: the
+  "Show in settings…" button at the bottom should now span the full card
+  width, aligned with the Tailscale and VPN rows above it.
+- Open the volume/brightness/wifi/bluetooth popouts: each section's
+  buttons should likewise span the full card width.
+- Open Settings › Connectivity: vertical gaps inside the bluetooth list,
+  the VPN import row, the "Open ports" column and the "Recently blocked"
+  list should be even and match the pitch of the rest of the section
+  (previous: two visibly tighter pitches, 4px and 6px).
+- If the shell fails to load (black screen / no bar), tell me — a QML
+  parse regression is possible and must be fixed.
+
+---
+
+## Make printed manual steps copy-pasteable
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phios-dotfiles / master
+- **Commits:** 1c5a4cd install: drop profile suffix from printed manual steps
+- **Original TODO:** Manual steps: remove the "(base)" as i can't copy-paste-run
+
+### What was asked
+The installer prints manual steps annotated with the owning profile as a
+trailing suffix, e.g. `  sudo install -Dm644 .../issue /etc/issue  (base)`.
+Pasting such a line fails because bash parses `(base)` as a subshell
+running the command `base`. The suffix must go so the printed steps are
+directly runnable.
+
+### What was done
+`phios_manual_report()` in `bin/lib/system.sh:107` now prints each step
+bare (`printf '  %s\n' "$step"`), dropping the `  (%s)` profile suffix.
+The root cause was in the installer, not in the manual.txt files — those
+were already clean. Only the manual-steps emitter was touched; the
+services and "no longer declared" reports keep their suffix because they
+print unit/file names, not runnable commands. The profile variables and
+loop order are unchanged, so the section order is still deterministic.
+
+### Honest assessment
+Clean and minimal. One behaviour to be aware of: with the suffix gone,
+the printed manual-steps output no longer shows which profile each step
+came from. Commands are self-contained paths so this is a cosmetic loss,
+and it is exactly what the user asked for. I chose not to also strip the
+same suffix from the services report (`system foo.service (base)`), since
+those lines are unit names, not paste-to-run commands; say the word if
+the consistency matters.
+
+### How to test it
+- From any machine with the dotfiles checkout,
+  run `bin/phios-install --dry-run` (read-only, touches nothing).
+- In the `manual steps` section of the output, confirm every line is now
+  the bare command with no trailing `(base)`-style suffix.
+- Copy one of those lines into a shell and run it — it must not fail with
+  a `base: command not found` / subshell parse error.
+
+---
+
+## Make overlay button borders visible
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phios-dotfiles / master
+- **Commits:** 34e8d91 design: increase borderWidth from 1px to 2px for visible button borders
+- **Original TODO:** the overlay use the buttons with borders that are notte visible, so the text appears not aligned.
+
+### What was asked
+Buttons in the overlay panels ("the overlay") have borders that are barely
+visible, which makes the text inside them look misaligned. The borders
+should be perceivable.
+
+### What was done
+Changed `PHI_BORDER_WIDTH` in `phios-dotfiles/design/tokens.common.sh` from
+`1px` to `2px`. This is the token consumed by StyledButton, SmallButton
+(chrome states), Segment, TextField, Toggle and every other stroke-width
+consumer, so the fix is global and stays inside the token system. No QML
+or widget code changed.
+
+### Honest assessment
+This width token also affects non-overlay controls (toggles, text fields,
+the launcher, the lock screen). The user's complaint was specifically
+about the overlay buttons, but the token is intentionally global ("a
+universal UI constant"), so a whole-class change was the least invasive
+fix within the rules. If 2px feels too heavy elsewhere, the alternative
+is a button-specific border token — but that would overrule the
+deliberate universality documented at that token. The perceived
+misalignment itself is unchanged (text stays centred in the full
+control); a wider border is expected to make the outline read correctly.
+Cannot verify visually without a running compositor.
+
+### How to test it
+- Run `phi theme set dark` (or `phi theme set light`) to regenerate
+  `Config/Tokens.qml` from the updated tokens.
+- Open any overlay panel that has buttons (notification sidebar, a bar
+  popout like volume/brightness, the agent panel).
+- Buttons that previously had a 1px hairline (or none, for SmallButton at
+  rest) should now show a clearly visible 2px outline.
+- Check that text inside buttons still looks aligned to the border.
+- Also glance at non-overlay controls (toggles in Settings, launcher) for
+  any regressions from the wider stroke.
+
+---
+
 ## Reduce overlay panel gap from status bar
 
 - **Date:** 2026-09-11
