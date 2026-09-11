@@ -50,7 +50,7 @@ loop*.
 
 - the speedtest feature in the wifi settings and overlay does not work, it always show 1-5 kb/s. Also make the visual more like the reference: https://github.com/programmersd21/flow
 
-
+- the calendar flip clock effect looks nice but it folds the number from both top and bottom, it should only be the top part folding over the bottom. also add some thin border to make it look more like a flip clock
 
 ## Features
 
@@ -114,6 +114,8 @@ loop*.
 - add status bar icons for active sensors (microphone, camera), the overlay should show a list of apps with the sensor they are using and killswitches. Also add settings for killswitches and permission rules
 
 - terminal panels should have larger padding. reference to references/panel-reference-1.JPG and references/panel-reference-2.JPG
+
+- in yazi config replace the Development icon with one that is not VSC and the "Games" folder with a non default one. Also apply a different color for folders and subdirectories that are not part of $HOME. Finally reconsider the coloring to match the system palette: it shouldn't use accent for common elements like the selection highlight, as accent is for the details, and it uses a blue (it might be the info color) which makes no sense, it uses green for folders like Documents/Videos/Pictures/Downloads/Development, etc.
 
 ## Ideas (not to be implemented, have to be discussed)
 
