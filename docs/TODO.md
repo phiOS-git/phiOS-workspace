@@ -52,6 +52,8 @@ loop*.
 
 - the calendar flip clock effect looks nice but it folds the number from both top and bottom, it should only be the top part folding over the bottom. also add some thin border to make it look more like a flip clock
 
+- the status bar overlays (those that open with the status bar icons) are still lower that they should be. This has been fixed many times but changes never worked. Clean up the whole feature and make it so that the overlay is few px below the bar.
+
 ## Features
 
 - add a setting to invert the scroll wheel (mouse/trackpad)
@@ -97,7 +99,7 @@ loop*.
 
 - there should always be at least 1 workspace (other then the special ones), also there should always be at lest an empty workspace (so if i ope)
 
-- add a quick note: when clicking the bottom right corder a quick floating editor window appears, it persists (save it in a specific folder in Documents). Positioning the mouse in the corner should have show a small transition (inspired by macos corner note)
+- add a quick note: when clicking the bottom right corder a quick floating editor window appears, it persists (save it in a specific folder in Documents). Positioning the mouse in the corner should have show a small transition (inspired by macos corner note) * this can be built using the default editor, however an improved version might be provided by the note app
 
 - currently opening a image just opens a terminal window that then immediatly closes. Images should instead persist, start in floating state instead of tiled and use the layout shown in references/floating-panels-reference.JPG .
 
@@ -106,6 +108,10 @@ loop*.
 ## Style
 
 - many elements and options don't have basic UX features. a quick lists: chat panel has no settings button, wallpaer list has no "browse wallpaper folder", most options don't have hover effects, cursor never changes state on clickable elements or fields, tabs are indistinguishable from buttons, some elements are clickable without any feature (eg. the bluetooth elements in the list),  the lock screen has no "locked" state with timer after too many failed attempts, no wrong password visual feedback, no clean button for searchbars, accordions don't differentiate the body, accordions sometimes have the arrow icon sometimes they dont, often time the accordions don't align content with the title (when the arrow is present, they should compensate for it), many elements that have the same behavior don't have the same visual grammar, trigger buttons don't bring loading states or result feedbacks, there are no skeleton loading or loading in general, the settings panel should have options better organised, grouped and ordered in meaningful ways, the settings chat and notification pannels they all use terrible spacings and layout. There are many more issues that can be found, this task requires you to act as an expert UI/UX designer, being critically honest about each feature and every detail, and polish out the system UI/UX to optimal levels, focusing on functionality. No element in the current state has a definitive style, everything can be reworked, but all elements should be coherent and follow the same grammar, possibly using the same styling options. Also as many variable as possible should be mapped in the theme settings. I also added references/settings-layout-reference.PNG as a nice reference layout (see how options are displayed using the space, it's larger, sections are well spaced with separators, advanced options switch to make navigation easier, x button not aligned with the search bar, title, etc.).
+
+- add/replace to the design system: checkbox (square border with inner x), radio (square border with inner small filled square), switch (it's too wide, also the color transition is faster then the switch moving), highlighter effect (similar to the status bar hover effect, but applied to texts, not to full button or element background, it should only highlight the text, with a transition L to R, the text should change color but following the highlight like a mask, it can be used on hoverable texts. add also a highlighter-out effect closing L to R to use for triggered highlights like the search results. when unhovering it just goes back R to L)
+
+- the status bar overlays (those that open with the status bar icons) should be reworked, as they don't fit the system style. They also have layout issues (the vpn goes out of bound and is not aligned, it should show VPN and the toggle switch, then the list of configs to pick)
 
 - the hyprland scratchpad should slde in from below, have slighlty more out spacing than other workspace and have a accent-colored border all around the screen. I think an old change made windows in the scratchpad had thiink borders, that has to be removed (i can't even see which one is focused) and restored to default, the border should be at the edge of the screen, like the whole workspace is bordered.
 
