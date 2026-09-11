@@ -39,7 +39,7 @@ loop*.
 
 - add a timer and alarm feature to phi, also add tools to the runner to quicky setup timers and alarms. They should have a custom overlay that requires to be turned off, on the higher Z index in the system. It should have a ringtone. The two features must be customisable in the settings.
 
-- start-hyprland should be automated on startup
+- [taken] start-hyprland should be automated on startup
 
 - phi agent should run automatically as the panel is opened for the first time (or on startup). It should not waste resources when not used
 
