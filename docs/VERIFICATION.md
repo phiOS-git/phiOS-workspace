@@ -7,6 +7,36 @@ once it is verified.
 
 ---
 
+## Identified and fixed the mystery "f" icon: wrong codepoint, not a missing glyph
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** fa5e57a glyphs: fix scratchpad icon codepoint (was rendering nf-md-function)
+- **Original TODO:** "there is an icon \"f\" in the status bar (after btop) that does nothing, define what it is, if it's the scratchpad it does not work (make the icon something obvious)"
+- **Note:** a second, concurrent `[taken]` claim for this same entry landed in `docs/TODO.md` around the same time as this one (commit `318c004`, author Flavio on `razer`) — resolved cleanly on merge (both made the identical text edit), same as the flip-clock entry earlier in this file. If a second fix for this same icon lands separately, this entry's commit (`fa5e57a`, one line in `Bar/glyphs.js`) is the one to reconcile it against.
+
+### What was asked
+Identify what the unlabelled "f"-looking icon after the btop button in the status bar actually is, and if it turns out to be the scratchpad toggle, fix it so the icon is something recognisable.
+
+### What was done
+Confirmed it is the scratchpad toggle button (`Bar/modules/Workspaces.qml`, the last `Widgets.Segment` in the workspace strip, right after btop/Steam — `glyph: Glyphs.console`). `Bar/glyphs.js` defined `console = _c(0xF0295)  // nf-md-console`, but `0xF0295` is not `nf-md-console` at all: downloaded Nerd Fonts' own authoritative `glyphnames.json` (`raw.githubusercontent.com/ryanoasis/nerd-fonts/master/glyphnames.json`) and looked it up directly — `0xF0295` is `md-function`, an italic mathematical-function icon (which is exactly why it read as a plain "f"), while the real `md-console` codepoint is `0xF018D`. Not a missing/unmapped glyph falling back to nothing — a genuinely wrong codepoint pointing at a real, different, unrelated icon. This is the identical class of bug `Bar/glyphs.js` already had (and had already fixed) for the Steam workspace glyph, noted in this same file's own comment a few lines above (a prior "steam icon ... using a phone glyph" TODO entry, fixed the same way).
+
+Changed the codepoint to `0xF018D` (confirmed against the same `glyphnames.json` lookup). The icon now renders the actual `nf-md-console` terminal glyph — "something obvious" for a scratchpad toggle, per the request.
+
+Also checked whether the underlying toggle itself is broken (the entry's "if it's the scratchpad it does not work" clause): the button dispatches `Services.HyprlandBridge.dispatch("togglespecialworkspace scratch")`, which matches `hyprland.lua`'s own real MOD+A keybind (`hl.dsp.workspace.toggle_special("scratch")`) exactly — no discrepancy found. The bar button and the keybind drive the identical Hyprland dispatcher.
+
+### Honest assessment
+The icon identity and the wrong-codepoint fix are both directly verified against an authoritative external source (Nerd Fonts' own `glyphnames.json`), not guessed — high confidence there, same method already validated by the prior Steam-glyph fix in this same file. Not verified on hardware that the corrected glyph actually renders as a recognisable console icon in "Symbols Nerd Font Mono" specifically (`phi-shell/CLAUDE.md`: "You cannot run this") — the codepoint is now correct per the font's own naming data, but font coverage of that exact codepoint on the installed version was not independently confirmed.
+
+The "if it's the scratchpad it does not work" clause: no functional defect found in the dispatch itself (it matches the real keybind exactly), so nothing was changed there. If "does not work" instead meant "toggling it shows no visible effect," the most likely explanation is that nothing had ever been moved into the scratchpad yet (`Services.HyprlandBridge.dispatch(...)` on an empty special workspace has nothing to show) — `Bar/modules/Workspaces.qml`'s own header comment already documents, by design (ADR 134), that this button carries no "active" highlight state, so it gives no feedback either way. That's a pre-existing, deliberate design decision, not something this fix touched or was asked to touch.
+
+### How to test it
+1. On `razer` or `zotac` with `phi-shell` running, look at the status bar's workspace strip: after the numbered workspaces, btop's monitor icon, and Steam's icon, there is one more button.
+2. Expected now: that button shows a recognisable console/terminal glyph, not a lowercase italic "f".
+3. Move a window into the scratchpad first (Super+Shift+A on a focused window), then click the (now console-glyph) button. Expected: the scratchpad opens, showing that window — confirming the dispatch itself still works exactly as MOD+A already does.
+
+---
+
 ## Status bar buttons: touchscreen taps no longer cancel after a highlight
 
 - **Date:** 2026-09-11
