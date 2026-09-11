@@ -7,6 +7,37 @@ once it is verified.
 
 ---
 
+## Cheat sheet: bindings now render in two columns
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** b38801e cheatsheet: render binding groups in two columns, ae98036 merge: render cheatsheet binding groups in two columns
+- **Original TODO:** "the cheathsheet shell should have 2 columns"
+
+### What was asked
+The cheat sheet (Super+Shift+/) rendered every keybinding group stacked in one long vertical scrolling column. Wanted: two columns, presumably to use the panel's width better and shorten the scroll.
+
+### What was done
+`Cheatsheet/Cheatsheet.qml` previously had one `Column` (inside a `Flickable`) with a single `Repeater` over `root.grouped`, each group rendering its own header + hairline + Repeater of bind rows. Split `root.grouped` into `groupedLeft`/`groupedRight` by index parity (even index → left, odd → right) — not a straight first half / second half split, since `Services.Keybinds.groups` gives no guarantee groups are ordered by size, and alternating spreads the risk of one column ending up visibly taller more evenly than a blind split would.
+
+The per-group renderer (header, hairline, its own Repeater of bind rows) is now a shared `Component` (`groupBlock`), instantiated by two separate `Repeater`s — one per column — instead of appearing inline once. Its own root `Column`'s `width` binding changed from a specific named outer Column to `parent.width`, since it's now instantiated by two different parent Columns and needs to resolve correctly under either. The two columns sit in a `Row` inside the same single `Flickable` as before; `Row`'s own `implicitHeight` (the taller of its two children — standard Qt Quick behavior) drives the Flickable's scroll extent, so nothing here has to compare the two columns' heights itself.
+
+`keyColW` (the shared key-column width all rows align to, so `[ SUPER + ... ]`-style key chips line up) stays computed across the *full* `root.filtered` list, unchanged — both columns needed to agree on the same width for the alignment to still read as one coherent sheet, not two separately-aligned halves.
+
+### Honest assessment
+- Went through an advisor review before landing: it flagged that `keyColW`'s own comment says it's "capped... so a single very long binding cannot push the description column off to the right," and asked whether that cap was proportional to panel width (which would now be halved) or absolute. Checked: the cap is `(min(longest-key-chars, 34) + 1) * chWidth` — a fixed character-cell count, completely independent of panel width — and the cheat sheet panel itself is `parent.width * 0.6`, so each half-column is comfortably wider than the cap's ~35-cell budget. Confirmed fine, not just assumed.
+- **A real, inherent side effect worth knowing about, not a bug**: `groupedLeft`/`groupedRight` are derived from `root.filtered`, which changes with every keystroke in the search field. Since the split is by index parity over the *filtered* list, typing a search query that removes a group can shift every later group's parity — visible as groups hopping between the left and right column while you type. This is inherent to any index-based alternating split reacting to a filtered list, not something worth building around for a read-only cheat sheet, but you should expect to see it rather than read it as broken.
+- Untested against a real compositor — `phi-shell/CLAUDE.md`: "You cannot run this."
+
+### How to test it
+1. Open the cheat sheet (Super+Shift+/).
+2. It should now show two side-by-side columns of keybinding groups (each with its own context header and hairline), not one long single column.
+3. Scroll — both columns should scroll together as one unit, and the shorter column's empty space at the bottom is expected (matches the taller one's extent), not a bug.
+4. Type into the search field and watch closely: as groups get filtered out, some remaining groups may visibly swap from the left column to the right or vice versa. Expected — see the honest assessment above — not a rendering glitch.
+5. Regression check: key chip alignment (`[ SUPER + N ]` style) should still look correct within each column, and every row should still show key → arrow → description exactly as before, just narrower per column.
+
+---
+
 ## Steam moved to workspace 11, btop to workspace 12
 
 - **Date:** 2026-09-11
