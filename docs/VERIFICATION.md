@@ -7,6 +7,42 @@ once it is verified.
 
 ---
 
+## Play a sound when the charger is plugged in
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 396b2f8 power: play a sound when the charger is plugged in, f967035 merge: play a sound when the charger is plugged in
+- **Original TODO:** "add a sound on charging plugged in"
+
+### What was asked
+Play a sound the moment the laptop charger is plugged in — a discrete audio cue for a discrete event.
+
+### What was done
+This one is a Features-section item, not bug fixing: with the Bug Fixing section now down to hardware-blocked entries and feature-sized ones (see the h/j/k/l and scratchpad-border entries above, and the phi-agent-auto-start entry below), I moved to the smallest well-scoped Features item rather than stopping — flagging that here in case a straight bug-fixing continuation was expected instead.
+
+In `phi-shell/Services/PowerBridge.qml` (the one file outside `Config/` sanctioned to touch the UPower service surface), added a `chargingSoundEnabled` property (default **on** — this is a small, deliberate difference from `Services/Notifications.qml`'s own sound toggle, which defaults off; a plug-in event happens once, not in bursts, and the user asked for this directly). Detection reuses the file's own existing `discharging` property (already `root.present && device.state === Discharging`) and watches for it flipping from `true` to `false` while `root.present` stays true — a charger being plugged in while running on battery. The `root.present` condition on the trigger matters concretely: without it, the UPower device disappearing entirely (e.g. a re-enumeration around suspend/resume) would ALSO read as a discharging→false transition and fire the sound with no charger involved — and this project has two separate, still-open, unexplained hibernation bugs on razer, the exact machine this targets, so that edge case felt worth guarding against rather than assuming away. A `_chargeSoundInit` guard also makes sure the very first state read (whenever UPower's device becomes ready, on shell startup) never itself counts as a "transition" and fires a sound at boot.
+
+The sound plays via `pw-play` against `/usr/share/sounds/freedesktop/stereo/power-plug.oga` — same mechanism `Services/Notifications.qml` already uses for its own sound. Before picking that filename, checked (not recalled) that it's real: fetched the actual Arch `extra` package file listing for `sound-theme-freedesktop` (`archlinux.org/packages/extra/any/sound-theme-freedesktop/files/`) and confirmed `power-plug.oga` is genuinely shipped, and that the package itself is in `profiles/desktop/packages.txt` (so present on every machine that runs `phi-shell` — `mini` is headless and never renders this). A failed `pw-play` call now sets a `chargingSoundError` string (mirroring `Services/Notifications.qml`'s own `soundError` pattern) instead of failing silently.
+
+A toggle to turn the sound off lives in Settings › Devices › Battery (new `SettingsGroup`, gated on `Config.Capabilities.battery` like the existing battery-stats group), persisted through `Config.Settings` (`phi state`) under the key `power.chargingSound`. Deliberately NOT placed in Settings › General's existing Battery group: that file's own header explicitly documents itself as read-only, "does not configure anything (§9.12 perimeter)" — tried putting the toggle there first and amending that documented invariant to carve out an exception, an advisor review called that out as rewriting the rule to fit the change rather than respecting it, which was the right call; moved the toggle to Devices (which already hosts other editable device/sound behaviour) and reverted the General.qml edit back to a clean no-op. Added "battery charging plug sound" to Devices' own search keywords in `Settings/sections.json` since Devices had no battery-related keywords before this.
+
+### Honest assessment
+- **Untested against a real compositor** — `phi-shell/CLAUDE.md`: "You cannot run this." Everything here (the UPower `discharging` edge-detection, the `pw-play` invocation, the Settings toggle wiring) is verified by reading source and, for the sound file itself, checking the real upstream package listing — not by hearing it play.
+- **On by default.** The first time this lands, the user will hear a sound the next time they plug in the charger without having enabled anything — worth knowing going in, not discovering by surprise. Settings › Devices › Battery turns it off.
+- **By design, this only fires on an actual discharging→charging transition while the device stays present** — it will NOT play at shell startup even if already plugged in at boot, and will NOT play across a suspend/resume cycle (the `root.present` guard exists specifically to prevent that). If it doesn't sound when the machine boots already on AC, that's the intended behavior, not a bug.
+- Did not add any equivalent "unplugged" sound (`power-unplug.oga` also exists in the same theme) — not asked for, so not built.
+
+### How to test it
+1. On razer, pull the updated `phi-shell` `dev` branch (Quickshell hot-reloads `.qml` on save).
+2. Unplug the charger if it's currently connected, wait a moment so the shell registers `discharging: true` (check Settings › General › Battery, which already shows "(discharging)"/"(charging)" next to the charge percentage).
+3. Plug the charger back in — within a second or two you should hear the freedesktop "power-plug" chime once.
+4. Open Settings › Devices, scroll to the new "Battery" group, and confirm the "Play a sound when the charger is plugged in" toggle is ON.
+5. Turn it off, unplug and replug the charger again — confirm no sound plays this time.
+6. Turn it back on, close and reopen the Settings panel (or restart the shell) to confirm the toggle's state survives — it's persisted via `phi state get power.chargingSound`.
+7. If no sound plays at all even with the toggle on, check Settings › Devices › Battery's caption for a "Last sound error" message, and confirm `sound-theme-freedesktop` is actually installed (`pacman -Q sound-theme-freedesktop`).
+
+---
+
 ## Auto-start the phi agent a1 service when the agent panel opens
 
 - **Date:** 2026-09-11
