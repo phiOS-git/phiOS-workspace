@@ -79,7 +79,7 @@ loop*.
 
 - the overlay use the buttons with borders that are notte visible, so the text appears not aligned.
 
-- overlay panels are still way too distant from the status bar: they should be few pc below the bar
+- [taken] overlay panels are still way too distant from the status bar: they should be few pc below the bar
 
 
 ## Ideas (not to be implemented, have to be discussed)
