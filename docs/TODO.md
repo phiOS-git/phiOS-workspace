@@ -102,7 +102,7 @@ loop*.
 
 - the clock in the status bar should change like a flip clock
 
-- add the clipboard icon to the status bar (with animation for when an element is added)
+- [taken] add the clipboard icon to the status bar (with animation for when an element is added)
 
 - add status bar icons for active sensors (microphone, camera), the overlay should show a list of apps with the sensor they are using and killswitches. Also add settings for killswitches and permission rules
 
