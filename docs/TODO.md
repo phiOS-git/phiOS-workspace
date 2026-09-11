@@ -109,7 +109,7 @@ loop*.
 
 - add status bar icons for active sensors (microphone, camera), the overlay should show a list of apps with the sensor they are using and killswitches. Also add settings for killswitches and permission rules
 
-- [taken] terminal panels should have larger padding. reference to references/panel-reference-1.JPG and references/panel-reference-2.JPG
+- terminal panels should have larger padding. reference to references/panel-reference-1.JPG and references/panel-reference-2.JPG
 
 - yazi's folder colouring only distinguishes /mnt and /srv from $HOME (the two non-home locations this project actually uses today) — a general "anything outside $HOME" rule isn't portable in yazi's static theme.toml (no ~/$HOME expansion in its own path matching, and this repo's template renderer deliberately leaves $HOME untouched). If a real per-user $HOME path becomes available to templates some other way, extend profiles/base/templates/.config/yazi/theme.toml.tmpl's prepend_globs to match generally instead of by fixed path.
 
