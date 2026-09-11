@@ -23,7 +23,7 @@ loop*.
 
 - holding the volume up key (fn+f3 on the razer) should reach a top of 100%. To increase over 100% it requires a double click + hold.
 
-- [taken] add an icon icon in the list of desktop to toggle the hyprland scratchpad
+
 
 - add borders to the whole view when in the scratchpad or make it recognisable
 

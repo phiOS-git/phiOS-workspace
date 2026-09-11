@@ -7,6 +7,61 @@ once it is verified.
 
 ---
 
+## Scratchpad toggle icon in the workspace strip
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** ea7a883 bar: add a scratchpad toggle at the end of the workspace strip
+- **Original TODO:** add an icon icon in the list of desktop to toggle the hyprland scratchpad
+
+### What was asked
+Add a small icon at the end of the workspace list in the status bar that
+toggles the Hyprland scratchpad (the same thing MOD+A does in
+hyprland.lua).
+
+### What was done
+Two edits in phi-shell, both in the workspace strip module:
+
+1. `Bar/modules/Workspaces.qml` — a `Widgets.Segment` (same isle style as
+   the workspace digits: squared, bare glyph on the wallpaper) appended to
+   the strip's `Row`, after the workspace Repeater. Clicking it calls
+   `Services.HyprlandBridge.dispatch("togglespecialworkspace scratch")` —
+   the same `special:scratch` workspace `hyprland.lua` toggles with MOD+A.
+   Uses the compositor's own IPC socket, no subprocess.
+
+2. `Bar/glyphs.js` — added `glyph: Glyphs.console` (nf-md-console).
+
+**Deliberately no active-state highlight.** ADR 134 records why the old
+specialWorkspaces module failed: a numeric workspace and the special one
+could both read as "active" at once, so a lit toggle lied half the time.
+This button only ever dispatches; it never claims to show whether the
+scratchpad is open.
+
+### Honest assessment
+- The nf-md-console codepoint is unverified against the font on hardware —
+  the existing glyphs.js entries carry the exact same caveat ("renders as
+  a box on real hardware" = one-line fix). If it shows a box, swap the
+  codepoint.
+- No state indicator (by design, see above). If you want a "scratchpad is
+  open" light, it needs a correctly-detected monitor/visibility signal,
+  not the workspace `active` flag.
+- QML not runnable here; syntax verified by eye against the adjacent
+  delegate.
+
+### How to test it
+- The shell hot-reloads on save in that directory; otherwise restart with
+  `pkill -x qs; qs -p ~/.config/quickshell/phi`.
+- On the bar, look at the right end of the numbered workspace strip: a
+  console glyph button should sit after the workspace digits.
+- Click it: the scratchpad window (or empty special workspace) should
+  appear/disappear, exactly like pressing MOD+A. Press MOD+A and confirm
+  the button does the same.
+- Send a window there: focus a window and press MOD+SHIFT+A, then click
+  the button — the window should appear. Click again — it should hide.
+- The glyph should render as an icon, not a replacement box (□).
+
+---
+
 ## Screenshot: dim area no longer trimmed below the status bar
 
 - **Date:** 2026-09-11
