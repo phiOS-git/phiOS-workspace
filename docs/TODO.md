@@ -25,7 +25,7 @@ loop*.
 
 - add specific settings for the “ambient effect”. Add more “screensaver” type of “ambient effect” (always only played in the lock screen). Also add a live preview of the effect when one is selected
 
-- holding the volume up key (fn+f3 on the razer) should reach a top of 100%. To increase over 100% it requires a double click + hold.
+- [taken] holding the volume up key (fn+f3 on the razer) should reach a top of 100%. To increase over 100% it requires a double click + hold.
 
 - super+shit+left/right do not change active workspace
 
@@ -101,7 +101,11 @@ loop*.
 
 - the dim from the notification, chat panel and scratchpad should not overlay the status bar, while the dim from screenshot, overview (alt+tab) and warning/alert (eg. battery, to be introduced) should cover it. Have the 2 types of dim have different intensity as well (the one that overlays should be stronger)
 
-- rework status bar buttons: they should not have a box button but be ju
+- rework status bar buttons: they should not have a box button but be just icons, with hover and active states. Apply SVG animations to icon when changing within states (eg. volume amount and muted, bluetooth activation, wifi strenght/activation/searching, brightness amount (sun/moon icon that fills up, based on either night mode on or not, with an animation from sun to moon)), notifications (DND state as well), battery states. Apply the background to the isles in the status bar (noo trasparency).
+
+- the clock in the status bar should change like a flip clock
+
+- add the clipboard icon to the status bar (with animation for when an element is added)
 
 ## Ideas (not to be implemented, have to be discussed)
 
