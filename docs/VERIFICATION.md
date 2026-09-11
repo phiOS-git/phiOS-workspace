@@ -7,6 +7,34 @@ once it is verified.
 
 ---
 
+## btop workspace button relaunches btop instead of leaving an empty workspace
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** e212214 bar: relaunch btop from its workspace button when it's not running
+- **Original TODO:** "if btop is closed in its workspace, the button just brakes. the btop button in the status bar should simply set the workspace 12 and open btop if it's not open"
+
+### What was asked
+Clicking the pinned btop icon in the status bar's workspace strip should always leave the user looking at a running btop — if btop was closed, the button should relaunch it, not just switch to an empty workspace.
+
+### What was done
+Workspace 12 is declared `persistent` in `hyprland.lua` specifically so the button stays in the bar even after btop closes (its own comment: "the workspace, and its bar icon, outlive btop being closed") — so the button was never disappearing. The actual gap: clicking it only ever called the workspace model's `activate()`, which just switches focus; nothing re-launched btop if it wasn't running, so a closed btop meant landing on a permanently empty workspace 12 with no way back except a manual relaunch outside the shell.
+
+`Bar/workspace-icons.json` (the existing id → pinned-glyph data file, ADR 078: type is code, instance is data) gained an optional third field, `ensure` — an idempotent shell command. Workspace 12's is `pgrep -x btop >/dev/null || kitty --class phios-btop -e btop`, the exact same guard `hyprland.lua`'s own session-start hook already uses for the initial launch, just made re-runnable from a click. `Bar/modules/Workspaces.qml` parses it into a small `ensureMap` alongside the existing `iconMap`, and each workspace button's `onActivated` now runs the mapped command via `Quickshell.execDetached(["sh", "-c", ensureCmd])` (same shell-wrapping convention already used in `Launcher/Launcher.qml`) right after the existing `activate()` call, if that workspace has one. Steam's entry (id 11) has no `ensure` and is unaffected.
+
+Data-driven rather than a hardcoded `if (modelData.id === 12)` in the component, matching how the pinned-glyph mapping already works — so the same mechanism is available to any future pinned workspace without touching `Workspaces.qml` again.
+
+### Honest assessment
+Clean and scoped to exactly what was asked. Not verified on hardware (`phi-shell/CLAUDE.md`: "You cannot run this") — in particular the `pgrep -x btop` guard assumes btop's process name is exactly `btop` (true on Arch's `btop` package) and that a stray non-`phios-btop`-classed btop process elsewhere wouldn't cause the guard to think it's "already running" and skip relaunch; this mirrors an assumption `hyprland.lua`'s own existing session-start hook already makes, not a new one introduced here.
+
+### How to test it
+1. On `razer` or `zotac` with `phi-shell` running and btop already on its usual persistent workspace 12: close btop (`q` inside it, or close its kitty window).
+2. Click the btop icon (the monitor glyph, right end of the workspace strip in the bar). Expected: the view switches to workspace 12 AND a new kitty window running btop appears there within about a second — same as it does at session start.
+3. Click the btop icon again while btop is already running there. Expected: only the workspace switch happens (it was already the active workspace, so nothing visibly changes) — no second btop window is spawned, confirming the `pgrep` guard prevents duplicates.
+4. Click the Steam icon (id 11, unaffected by this change). Expected: same behavior as before — a plain workspace switch, no relaunch logic attached.
+
+---
+
 ## Calendar overlay closes itself when another overlay opens
 
 - **Date:** 2026-09-11
