@@ -17,8 +17,6 @@ loop*.
 
 - the clipboard preview should be on the left of the sidebar, rather than inside. Also it's very low, it should be vertically aligned with the relative entry (beware of the position in the screen, so that it does not go out of the screen area).
 
-- [taken] the clipboard shows "(empty)" when the content is too long, it should get trimmed
-
 - steam icon in the status bar is using a phone glyph, it should use the steam one from font nerd
 
 - super+n should open notification (focus the right tab), super+shit+v should not only open but also close the clipboard panel

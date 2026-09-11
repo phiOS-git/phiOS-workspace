@@ -7,6 +7,34 @@ once it is verified.
 
 ---
 
+## Clipboard: long pastes no longer preview as "(empty)"
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 0ac1225 clipboard: bound the list preview by bytes, not by line, d96f8d0 merge: bound the clipboard list preview by bytes, not by line
+- **Original TODO:** "the clipboard shows \"(empty)\" when the content is too long, it should get trimmed"
+
+### What was asked
+A long clipboard entry shows "(empty)" as its card preview in the sidebar instead of a trimmed snippet of its actual content.
+
+### What was done
+Root cause, in `Services/Clipboard.qml`'s `listProcess`: the per-entry preview was extracted with `head -n1 "$dir/$id.data" | cut -c1-200` — take the first physical line, then truncate to 200 characters. `cut -c` has to buffer an *entire line* into memory before it can emit anything, because it needs to find the line boundary before it knows what "characters 1-200" even means. For a long paste with no embedded newline (one big unbroken line — a long URL, a minified blob, a paragraph copied without hard wraps), that's the *entire* multi-megabyte content that `cut` has to hold before producing 200 characters of output.
+
+I reproduced the scaling behavior directly (this part needs no hardware — it's plain shell, and I ran it locally): on a 50MB single-line file, `head -n1 | cut -c1-200` took ~1.9s; a 500KB version was fast but already meaningfully slower than the alternative. On the real machine, that per-entry cost lands inside `listProcess`'s for-loop over *every* clipboard entry on every refresh, so a single large paste sitting in history degrades (or, for a large enough paste, could plausibly stall long enough to produce no output for that row at all) every subsequent list rebuild — which is what "(empty)" looks like from the UI's side, since `entries[].preview` ends up `""` for that entry and the card falls back to the literal string `"(empty)"`.
+
+Fixed by switching to `head -c 200`, which reads exactly 200 bytes directly off disk regardless of line length — reproduced this as ~10ms flat regardless of file size (50MB or 500KB, no measurable difference). Since `head -c` no longer stops at the first newline, the extracted snippet can now itself span multiple lines; the `tr` pass was changed from stripping `\0`/`\r`/`\t` to *folding* `\n`/`\r`/`\t`/`\0` into spaces instead, so an embedded newline can't split the shell loop's `id<TAB>mime<TAB>preview` row into two lines and break the TSV parsing on the QML side.
+
+### Honest assessment
+- The performance regression (slow/possibly-empty preview for one huge single-line entry) is something I could measure directly in isolation — the shell pipeline runs the same on any machine — but I could not reproduce the *exact* "(empty)" symptom inside the actual running shell (QML I cannot run, `phi-shell/CLAUDE.md`). I'm confident in the mechanism (a `cut`-buffers-the-whole-line cost that scales with content size, in the hot path of every clipboard list refresh) and that removing it can only help, but I can't rule out there being a second, unrelated cause also contributing to what you saw.
+- Byte-bounded truncation (`head -c 200`) can in principle split a multi-byte UTF-8 character at the 200-byte boundary for non-ASCII content, which `cut -c` (locale-aware on GNU coreutils) mostly avoided. Worst case this shows as a single stray replacement character at the tail of a non-ASCII preview — cosmetic, not another "(empty)" case — and only on the short card preview; the separate hold/hover full-text preview (`previewFullText` in `Panels/tabs/Clipboard.qml`) already truncates correctly on decoded-string length, unaffected by this change.
+
+### How to test it
+1. Copy something very long with no line breaks at all — e.g. `python3 -c "print('x'*2000000, end='')" | wl-copy` (or paste a long unbroken URL/blob from a browser).
+2. Open the clipboard panel (Super+Shift+V) and find that entry in the list. Its card should show a trimmed snippet of the actual content (a couple hundred `x`s, or the start of your text), not "(empty)".
+3. Regression check: a short, normal paste (a sentence, a code snippet) should preview exactly as before — first line(s), truncated at 200 characters, wrapped over up to 2 lines on the card.
+
+---
+
 ## Bar: Tailscale/VPN module no longer disappears when idle
 
 - **Date:** 2026-09-11
