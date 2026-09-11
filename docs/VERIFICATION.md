@@ -7,6 +7,31 @@ once it is verified.
 
 ---
 
+## Bar: Tailscale/VPN module no longer disappears when idle
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 211720a bar: keep the network module visible with an off state, ae8fa0c merge: keep the network module visible with an off state
+- **Original TODO:** "tailscale/VPN in the status bar completely disappear, it used to be next to the wifi in previous versions and needs to be restored. Even when neither of the 2 are active, the icon should still exist (with a custom state, not empty)"
+
+### What was asked
+The Tailscale/VPN module in the status bar was gone entirely — you said it used to sit next to the wifi module and should come back, and that even with neither Tailscale nor a WireGuard tunnel up, the icon should stay put with a distinct "off" state instead of vanishing.
+
+### What was done
+Its position was never the problem: `Bar/modules.json` already places `network` at position 30, right before `wifi` at 40 — same slot it's always had. The bug was in `Bar/modules/Network.qml`: `visible: root.ts || root.vpn` hid the whole segment whenever both Tailscale and every VPN tunnel were down, which on a machine with neither active reads as "the module is broken," not "idle." A `vpnOff` glyph already existed in `glyphs.js` (comment: "tailscale down"), unused — a leftover from before that `visible` line was added.
+
+Removed the `visible` binding (Segment defaults to visible) and made the module follow the same grammar `Wifi.qml`/`Bluetooth.qml` already use: glyph swaps to `Glyphs.vpnOff`, label reads `"off"`, and `tone: "warn"` when neither Tailscale nor any VPN tunnel is up; otherwise unchanged (glyph `Glyphs.vpn`, label `"<tailscale host> | <vpn tunnel>"`, joined only from whichever side is actually up). The bar popout (`Panels/BarPopout.qml`, `which === "network"`) already renders a sensible idle state (Tailscale's own state string, "VPN · no tunnels") — it needed no change, and is now actually reachable by click when the module is idle, which it wasn't before.
+
+### Honest assessment
+Untested — this is QML I cannot run (`phi-shell/CLAUDE.md`: "You cannot run this. Every visual result is verified by the user with a screenshot"). The fix is small and mirrors an existing, working pattern (Wifi/Bluetooth modules) exactly, so I'm confident in the logic, but I have not seen it rendered.
+
+### How to test it
+1. On a host where Tailscale is down and no WireGuard tunnel is up, look at the right island of the status bar, just left of the wifi icon. The network module should now be visible showing a dimmed/warn-toned icon and the label "off" — previously nothing was there at all.
+2. Click it — the bar popout should open under it showing "Tailscale: <state>" (e.g. "Stopped") and "VPN · no tunnels" (or your configured tunnels, toggleable), same as before.
+3. Bring Tailscale up (or start a WireGuard tunnel) and check the module switches back to the active glyph/tone with the hostname/tunnel name as the label, still in the same position.
+
+---
+
 ## Screenshot: area captures were always tinted pink
 
 - **Date:** 2026-09-11
