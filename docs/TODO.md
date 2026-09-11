@@ -46,7 +46,7 @@ loop*.
 
 - add a power icon to the left isle of the status bar, it's overlay should have power options (suspend, logout, shutdown, lock, hibernate, reboot) and "settings". add log out, lock, suspend, hibernate, reboot, shutdown commands so that they can be quickly referenced in the runner bar as well. Reboot and Shutdown should require confirmation.
 
-- new terminal windows should start at the same position as the last focused one
+- new terminal windows should start at the same directory as the last focused one
 
 - color picker (maybe compatible with the magnifying glass)
 
@@ -94,7 +94,7 @@ loop*.
 
 - many elements and options don't have basic UX features. a quick lists: chat panel has no settings button, wallpaer list has no "browse wallpaper folder", most options don't have hover effects, cursor never changes state on clickable elements or fields, tabs are indistinguishable from buttons, some elements are clickable without any feature (eg. the bluetooth elements in the list),  the lock screen has no "locked" state with timer after too many failed attempts, no wrong password visual feedback, no clean button for searchbars, accordions don't differentiate the body, accordions sometimes have the arrow icon sometimes they dont, often time the accordions don't align content with the title (when the arrow is present, they should compensate for it), many elements that have the same behavior don't have the same visual grammar, trigger buttons don't bring loading states or result feedbacks, there are no skeleton loading or loading in general, the settings panel should have options better organised, grouped and ordered in meaningful ways. There are many more issues that can be found, this task requires you to act as an expert UI/UX designer, being critically honest about each feature and every detail, and polish out the system UI/UX to optimal levels, focusing on functionality. No element in the current state has a definitive style, everything can be reworked, but all elements should be coherent and follow the same grammar, possibly using the same styling options. Also as many variable as possible should be mapped in the theme settings.
 
-- the hyprland scratchpad should slde in from below, have slighlty more out spacing than other workspace and have a accent-colored border all around the screen
+- the hyprland scratchpad should slde in from below, have slighlty more out spacing than other workspace and have a accent-colored border all around the screen. I think an old change made windows in the scratchpad had thiink borders, that has to be removed (i can't even see which one is focused) and restored to default, the border should be at the edge of the screen, like the whole workspace is bordered.
 
 - the dim from the notification, chat panel and scratchpad should not overlay the status bar, while the dim from screenshot, overview (alt+tab) and warning/alert (eg. battery, to be introduced) should cover it. Have the 2 types of dim have different intensity as well (the one that overlays should be stronger)
 
@@ -102,8 +102,9 @@ loop*.
 
 - the clock in the status bar should change like a flip clock
 
-
 - add status bar icons for active sensors (microphone, camera), the overlay should show a list of apps with the sensor they are using and killswitches. Also add settings for killswitches and permission rules
+
+- terminal panels should have larger padding. reference to references/panel-reference-1.JPG and references/panel-reference-2.JPG
 
 ## Ideas (not to be implemented, have to be discussed)
 
