@@ -7,6 +7,38 @@ once it is verified.
 
 ---
 
+## Hover sweep: bottom-to-top direction, fix the hover→active flicker
+
+- **Date:** 2026-09-12
+- **Repo / branch:** phi-shell / dev
+- **Commits:** cf29d63 bar: hover sweep goes bottom-to-top, fix hover→active flicker / merge
+- **Original TODO:** none — direct follow-up on the hover sweep from the "Status bar polish pass" entry immediately below, same day.
+
+### What was asked
+Two things after trying the new hover sweep: change its direction from left-to-right to bottom-to-top, and fix a flicker where clicking a hovered button briefly showed the hover effect visibly transitioning OUT before the selection colour came in.
+
+### What was done
+Direction: the sweep `Rectangle` in `Widgets/Segment.qml` now grows its `height` from the bottom edge upward (`anchors.bottom`, `height: parent.height * hoverAmount`) instead of its `width` from the left.
+
+Flicker root cause: hover and "normal" (non-accent) active already render pixel-identical — `WidgetStates.js`'s isle `hover` and `active` cases shared the same `colorOpposite`/`colorMain` pair — but through TWO different rectangles: hover via the sweep (already at full coverage from being hovered), active via the base Rectangle's own `bg`, independently fading in from transparent via its existing `Behavior on color`. Clicking an already-hovered button made the sweep shrink back out at the same moment the base rectangle was fading in from scratch — for a frame in the middle of that crossfade, neither rectangle was at full coverage, reading as a dimmer, torn seam.
+
+Fix: the isle `active` case in `WidgetStates.js` now also returns a transparent `bg` (border unchanged, still `colorOpposite`) — the base Rectangle no longer independently animates a fill for active, so the sweep alone carries it for both hover and active. `Segment.qml`'s trigger (`_sweepOn`) now covers both `resolvedState === "hover"` and `resolvedState === "active"`, explicitly excluding PhiAgent's `accentWhenActive` path (which bypasses this mechanism entirely via its own ternary in `stateColors` and must keep rendering its own accent colour on the base Rectangle, unaffected by this change). A hover-then-click now has nothing to visually settle — the sweep was already fully in and just stays there.
+
+### Honest assessment
+- **Untested against a real compositor**, same as every entry above.
+- **Flagged by a second advisor pass, not yet checked on hardware:** a button with a `tone` set (e.g. battery at low charge showing `tone: "error"`, a notification bell with `tone: "info"`) keeps its tone colour on hover/active — `contentColor`'s own precedence puts tone ahead of the resolved state's `fg`. This was already true for active before this change; it just now applies to more buttons in more states (hover included) since the sweep unification. If the tone colour (e.g. error red) isn't legible against the sweep's `colorOpposite` fill in your actual theme, that's a real follow-up (tone would need to lose to the inverted pair specifically while `_sweepOn` is true) — but I did not make that change blind, since it's a real precedence decision, not an obvious bug.
+- **Also flagged, not yet checked:** at a small `hoverAmount` (early in the sweep-in animation), the growing rectangle is very short with full corner radius on all four corners — it may read as a thin rounded lozenge sitting at the bottom edge rather than a rising fill, more noticeable now that growth is vertical (the button is far shorter than it is wide) than it was for the horizontal version. If it looks wrong, scaling the radius down during partial coverage is the fix; left alone for now since it can't be judged without seeing it.
+
+### How to test it
+1. On razer or zotac, pull the updated `phi-shell` `dev` branch (Quickshell hot-reloads `.qml` on save).
+2. Hover any bar button — the highlight should now rise from the BOTTOM edge upward, not sweep in from the left.
+3. While still hovering that button, click it (or trigger whatever makes it "active" — e.g. click brightness/volume to open their popout, or switch to a workspace while hovering its button) — the fill should stay solid and continuous through the click, with no visible flash, dim seam, or flicker.
+4. Also check clicking a button WITHOUT hovering it first (e.g. switch workspace via a keybinding while the mouse is elsewhere) — the sweep should still play its rise-from-bottom entrance animation in that case.
+5. Specifically look at the battery icon when it's showing an anomaly tone (low charge / high discharge rate, coloured text) — hover and click it, and check whether that tone colour stays legible against the sweep's fill. Same for the notification bell when it has a pending badge (`tone: "info"`).
+6. Look closely at the very start of the sweep animation (may need to hover briefly and look at a screen recording, since it's quick) — does the rising fill look like a growing bar, or a strange rounded blob sitting at the bottom edge?
+
+---
+
 ## Status bar polish pass — feedback from real hardware testing
 
 - **Date:** 2026-09-11

@@ -38,6 +38,20 @@ loop*.
 - hyprland resize does not seem to work — investigated 2026-09-11: checked whether `hl.bind("left", hl.dsp.exec_cmd("hyprctl dispatch resizeactive -40 0"))` (and h/j/k/l/arrows siblings, `phios-dotfiles/profiles/desktop/templates/.config/hypr/hyprland.lua.tmpl`'s "resize" submap, entered via Super+R) has a shell-quoting bug — it's the only dispatch call in the file with a space inside an unquoted argument, unlike every other `hyprctl dispatch X Y` call which uses a single token. Confirmed NOT a bug: pulled `hyprctl`'s actual CLI parser (`hyprctl/src/main.cpp`, `main()`), which has an explicit exception for exactly this shape — an argument starting with `-` is only treated as a hyprctl flag if it does NOT parse as a number (the code's own comment: "For stuff like -2 or -2,"), so `-40` correctly falls through to the joined dispatcher request string instead of being misread as a flag. The submap's dispatch syntax is correct. Did not find another concrete defect in the submap definition (entry bind, four direction binds, three ways out via Escape/Return/catchall all look structurally sound) and could not reproduce or observe the actual failure without the real compositor. This entry and the "windows management keybinding (move, resize) do not work *to be checked first" entry look like the same underlying report — worth checking together. Next time this happens: confirm Super+R actually enters the submap at all (`hyprctl` has no direct "am I in a submap" query, but the cheat sheet / `hyprctl binds -j` can confirm the binds are registered), and try running the exact `hyprctl dispatch resizeactive -40 0` command directly in a terminal while the submap is NOT involved, to isolate submap-entry vs. dispatcher-execution as the failure point.
 
 
+- opening a panel on a special workspase (11, 12) should automatiically open it in the highest possible panel up to 10
+
+- if btop is closed in its workspace, the button just brakes. the btop button in the status bar should simply set the workspace 12 and open btop if it's not open
+
+- there is an icon "f" in the status bar (after btop) that does nothing, define what it is, if it's the scratchpad it does not work (make the icon something obvious)
+
+- calendar overlay persists when openeing other overlays, it's the only one doing that and it should be exactly the same as the others
+
+- when in full screen, the status bar does not appear by moving the cursor on the top edge
+
+- the speedtest feature in the wifi settings and overlay does not work, it always show 1-5 kb/s. Also make the visual more like the reference: https://github.com/programmersd21/flow
+
+
+
 ## Features
 
 - add a setting to invert the scroll wheel (mouse/trackpad)
@@ -83,31 +97,9 @@ loop*.
 
 - there should always be at least 1 workspace (other then the special ones), also there should always be at lest an empty workspace (so if i ope)
 
-- opening a panel on a special workspase (11, 12) should automatiically open it in the highest possible panel up to 10
-
-- if btop is closed in its workspace, the button just brakes. the btop button in the status bar should simply set the workspace 12 and open btop if it's not open
-
-- there is an icon "f" in the status bar (after btop) that does nothing, define what it is, if it's the scratchpad it does not work (make the icon something obvious)
-
-- calendar overlay persists when openeing other overlays, it's the only one doing that and it should be exactly the same as the others
+- add a quick note: when clicking the bottom right corder a quick floating editor window appears, it persists (save it in a specific folder in Documents). Positioning the mouse in the corner should have show a small transition (inspired by macos corner note)
 
 - 
-
-## Custom apps and services
-
-- Notes app
-
-- Cloud storage [server]
-
-- Music indexing + download [server]
-
-- Music client
-
-- Movies/Series indexing + download [server]
-
-- Jellyfin hidden library feature [server]: have the option to add storages for hidden content, which gets indexed (actors, categories, titles, tags) only to users that have access, only when toggled on (client side option)
-
-- Jellyfin client
 
 ## Style
 
@@ -141,6 +133,23 @@ loop*.
 
 - translate tool: add a translate command that takes an input string and translates it, implemented in the runner bar. It should accept optional arguments for “from” and “to” language, otherwise the language is automatically detected and the “to” language is by default the system language. The case the “from” language is the system language the default translation should return not be handled now (throws an error that must not block the runner). The runner bar should also have a custom layout for that result, showing the from and to translation and languages. (Translation and vocabulary tools can work together in the runner).
 
+
+## Custom apps and services
+
+- Notes app
+
+- Cloud storage [server]
+
+- Music indexing + download [server]
+
+- Music client
+
+- Movies/Series indexing + download [server]
+
+- Jellyfin hidden library feature [server]: have the option to add storages for hidden content, which gets indexed (actors, categories, titles, tags) only to users that have access, only when toggled on (client side option)
+
+- Jellyfin client
+
 ## Dotfiles improvements:
 
 - Better separation
@@ -148,8 +157,6 @@ loop*.
 - Cleanup + Optimisation
 
 - Remove AI shenanigans
-
-
 
 - place all phios locals in ~/.local/share/phios/{phi|dotfiles|phi-agent}
 
