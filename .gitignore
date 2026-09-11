@@ -1,3 +1,5 @@
 *.asc
 .env
 phi-repo
+
+.DS_Store
