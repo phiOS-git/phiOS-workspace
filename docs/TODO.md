@@ -40,9 +40,9 @@ loop*.
 
 - when in full screen, the status bar does not appear by moving the cursor on the top edge
 
-- [taken] the speedtest feature in the wifi settings and overlay does not work, it always show 1-5 kb/s. Also make the visual more like the reference: https://github.com/programmersd21/flow
-
 - the status bar overlays (those that open with the status bar icons) are still lower that they should be. This has been fixed many times but changes never worked. Clean up the whole feature and make it so that the overlay is few px below the bar.
+
+- confirm the wifi speed graph (settings + bar overlay) now reads real numbers on hardware, and make its visual match the reference more closely: https://github.com/programmersd21/flow
 
 ## Features
 

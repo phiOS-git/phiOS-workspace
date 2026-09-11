@@ -7,6 +7,36 @@ once it is verified.
 
 ---
 
+## Wifi speed graph: fixed a real under-reporting bug, but the "always 1-5 kb/s" report may not be fully resolved
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** f5915a7 netstats: measure real elapsed time instead of assuming 1000ms
+- **Original TODO:** "the speedtest feature in the wifi settings and overlay does not work, it always show 1-5 kb/s. Also make the visual more like the reference: https://github.com/programmersd21/flow"
+
+### What was asked
+The wifi throughput numbers shown in Settings → Connectivity and the wifi bar overlay are stuck low (1-5 kb/s) regardless of actual network activity, and the graph's visual should look more like the referenced `flow` project.
+
+### What was done
+There is no active bandwidth test anywhere in this repo — the feature is `Services/NetStats.qml`, which polls `/proc/net/dev` once a second and reports the byte-count delta as a rate. Checked what `flow` (the cited reference) actually is before assuming this needed to become an active link-saturation test: confirmed via its own README that it is *also* a passive live-traffic monitor ("reads current network throughput directly from the operating system without generating test traffic") — so the existing architecture here is the right kind of thing, the "speedtest" name is just informal.
+
+Found a real, concrete defect in the rate math: `NetStats.qml` computed `(byteDelta * 8 / 1000)` and treated that directly as kilobits-per-second, trusting the polling `Timer` landed exactly 1000ms after the previous sample — nothing ever measured that. Every tick also spawns a `ping -c1 -W1` process alongside the `/proc/net/dev` read (up to a full second on packet loss, and DNS resolution for its "one.one.one.one" fallback isn't bounded by `-W1` at all), and this same file's own header already documents a real Quickshell `Process`-lifecycle landmine (`Services/Tailscale.qml`) affecting exactly this pattern of repeated polling `Process`es. Any tick that lands later than 1000ms after the last one spans more real elapsed time than the fixed divisor assumes, so the reported rate is silently too low by whatever multiple the real gap exceeded 1 second by — with nothing in the UI to reveal it.
+
+Added `_lastSampleT` (`Date.now()`), so the elapsed time between two successful samples is measured and divided out properly instead of assumed to be exactly 1 second, floored at 0.1s so two samples landing back-to-back can't spike the rate toward infinity.
+
+### Honest assessment
+<span style="color:red">**NOT DONE:**</span> two parts of the original request were not completed. (1) The under-reporting bug just described is real, sourced directly from the code, and worth fixing regardless — but it is a magnitude-scaling defect (rates read too low by whatever factor a tick was delayed), and the reported symptom was numbers "always" pinned in a narrow 1-5 kb/s band. That specific, narrow, consistent range is at least as well explained by this simply being a genuinely idle link at the moment it was checked (background chatter only) as by tick-timing drift — the two explanations are not mutually exclusive, and this fix cannot rule the first one out from source alone. Whether wifi throughput now reads correctly during actual active transfer needs checking on real hardware; if it is still wrong, the timing fix did not find the whole bug. (2) The visual-reference request ("make the visual more like the reference") was not attempted at all — matching a specific look (waveform rendering, gradients, a glowing activity indicator, per `flow`'s own description) needs a compositor to verify and was out of scope for a source-only pass; re-added to `docs/TODO.md` as its own entry, bundled with confirming the numeric fix on hardware since both need the same on-device check.
+
+What is clean: the elapsed-time fix itself is unambiguously more correct than what it replaced (measuring real time instead of assuming a fixed interval is strictly better), it is a small, low-risk, single-file change, and the interface-resolution and byte-column-parsing logic elsewhere in the same file were checked and found correct (no units bug, no bit/byte confusion, no wrong-interface read).
+
+### How to test it
+1. On `razer` or `zotac` with `phi-shell` running, open Settings → Connectivity and look at the "Speed & latency" row (or open the wifi bar overlay).
+2. Start an actual large transfer in the background (e.g. download a large file, or run a real speed test in a browser) and watch the numbers while it's in progress.
+3. Expected: the reported download/upload rate should now track real activity — climbing toward the link's actual throughput while the transfer runs, not staying pinned near zero.
+4. If it is still stuck low during genuinely active transfer, the root cause is something this fix did not find — see the re-added `docs/TODO.md` entry.
+
+---
+
 ## Identified and fixed the mystery "f" icon: wrong codepoint, not a missing glyph
 
 - **Date:** 2026-09-11
