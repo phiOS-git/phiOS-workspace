@@ -7,6 +7,78 @@ once it is verified.
 
 ---
 
+## Recognise phi verbs in the launcher without the "phi " prefix
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi / dev
+- **Commits:** 3e7d49a query: recognise phi's own verbs without the leading "phi "
+- **Original TODO:** runner bar should read phi commands without writing the phi prefix (eg. "theme set dark" is recognised as "phi theme set dark")
+
+### What was asked
+Typing a `phi` verb straight into the launcher, e.g. `theme set dark`,
+should be recognised as if `phi ` had been typed first, and offered as a
+result that runs `phi theme set dark`.
+
+### What was done
+Added `PhiCommandProvider` (`internal/query/phicommand.go`): it fires when
+the query's first word matches one of phi's own verb names, and offers a
+result whose action runs `phi <the whole query>` in a terminal — the same
+`ActionExecTerminal` action `CommandProvider` already uses for "phi theme
+set dark" typed in full (so it fires because `phi` itself resolves as a
+PATH binary), so output stays visible either way.
+
+The verb list comes from `view.Commands` — the single list `phi help`,
+zsh completion and the man page already render from — so a verb added
+there needs nothing else touched. It's passed in by `internal/cli` rather
+than imported straight into `internal/query.Providers`, because
+`internal/view` already imports `internal/query` (to render
+`QueryResults`); the reverse import would be a cycle. `Providers()` picked
+up a second parameter for this (`phiVerbs map[string]bool`); it has
+exactly one call site (`internal/cli/query.go`), now updated.
+
+Placed in the same `tierAction` band as `CommandProvider`, `system`, `ssh`
+and `directory` (from the ranking fix earlier in this same session — see
+the entry above).
+
+### Honest assessment
+- **Verb match is on the first word only**, case-insensitive, with no
+  minimum query length — typing just `doctor` recognises `phi doctor`
+  exactly as `theme set dark` recognises `phi theme set dark`. But for a
+  *bare single-word* verb with no other candidate competing (an app, a
+  file, a window), a **pre-existing, unrelated quirk in the calculator
+  engine** (`internal/mathx`) often wins instead: it treats any single
+  unrecognised word as a one-variable expression and offers to *plot* it
+  (`evalNumeric` in `internal/mathx/engine.go` — "if there is exactly one
+  free variable... the useful answer is a plot of it"). E.g. `phi query
+  doctor` today ranks `y = doctor` (a spurious plot) above `phi doctor`,
+  because that path sits in this session's own math tier, above the
+  action tier `phi doctor` sits in. Multi-word verb invocations like
+  `theme set dark` are unaffected — the calculator's parser doesn't treat
+  three bare words as one plottable expression, so it produces nothing
+  there. Left alone rather than fixed here: it's a mathx behaviour with
+  its own separate cause, not something this TODO entry named, and
+  narrowing what mathx treats as "one free variable worth plotting" is a
+  bigger, riskier change than this entry asked for. Worth its own backlog
+  entry if it bothers you in practice.
+- Not run against `phi-shell`'s actual launcher UI (no compositor here) —
+  verified with `go build ./...`, `go vet ./...`, `go test ./...`, and
+  manual `phi query "<text>"` runs from a terminal.
+
+### How to test it
+1. From a terminal, on a machine with this branch: `phi query "theme set
+   dark"` (or, with the shell running, type the same into the launcher).
+   Confirm a result titled `phi theme set dark` appears, and selecting it
+   opens a terminal running `phi theme set dark`.
+2. Try a few more: `phi query "vpn status"`, `phi query "firewall status"`
+   — each should offer to run the equivalent full `phi …` command.
+3. Try a bare single-word verb, e.g. `phi query "doctor"` — see the
+   Honest Assessment above: today this may rank a spurious calculator
+   plot above the `phi doctor` result rather than putting it first.
+4. Try a word that is not a phi verb, e.g. `phi query "firefox"` — no `phi
+   …` result should appear at all.
+
+---
+
 ## Rank launcher results by category before match quality
 
 - **Date:** 2026-09-11

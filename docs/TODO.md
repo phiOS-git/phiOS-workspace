@@ -53,8 +53,6 @@ loop*.
 
 - phi agent should run automatically as the panel is opened for the first time (or on startup). It should not waste resources when not used
 
-- [taken] runner bar should read phi commands without writing the phi prefix (eg. “theme set dark” is recognised as “phi theme set dark”)
-
 - clicking on the wifi icon should show the list of available wifi to connect. Same in the settings.
 
 - spotlight cursor: super+super (double tap hold) * blocked by issue on hyprland 0.56
