@@ -1,12 +1,12 @@
 [submodule "phi"]
 	path = phi
-	url = https://github.com/phiOS-git/phi.git
+	url = git@github.com:phiOS-git/phi.git
 [submodule "phi-shell"]
 	path = phi-shell
-	url = https://github.com/phiOS-git/phi-shell.git
+	url = git@github.com:phiOS-git/phi-shell.git
 [submodule "phi-packages"]
 	path = phi-packages
-	url = https://github.com/phiOS-git/phi-packages.git
+	url = git@github.com:phiOS-git/phi-packages.git
 [submodule "phios-dotfiles"]
 	path = phios-dotfiles
-	url = https://github.com/phiOS-git/phios-dotfiles.git
+	url = git@github.com:phiOS-git/phios-dotfiles.git
