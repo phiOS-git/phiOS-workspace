@@ -15,7 +15,7 @@ loop*.
 
 - windows management keybinding (move, resize) do not work *to be checked first
 
-- the clipboard preview should be on the left of the sidebar, rather than inside. Also it's very low.
+- the clipboard preview should be on the left of the sidebar, rather than inside. Also it's very low, it should be vertically aligned with the relative entry (beware of the position in the screen, so that it does not go out of the screen area).
 
 - the clipboard shows "(empty)" when the content is too long, it should get trimmed
 
@@ -55,7 +55,7 @@ loop*.
 
 - add suspension/hibernation settings in the settings panel
 
-- add a power icon to the left isle of the status bar, it's overlay should have power options (suspend, logout, shutdown, reboot) and "settings"
+- add a power icon to the left isle of the status bar, it's overlay should have power options (suspend, logout, shutdown, lock, hibernate, reboot) and "settings". add log out, lock, suspend, hibernate, reboot, shutdown commands so that they can be quickly referenced in the runner bar as well. Reboot and Shutdown should require confirmation.
 
 - new terminal windows should start at the same position as the last focused one
 
@@ -79,6 +79,14 @@ loop*.
 
 - consideration: usare alt come super, così avrei 2 super invece che 2 alt. Da valutare con software che usano alt [TBD]
 
+- add gestures to open the chat and notifications panel: 2 finger swipe from edge (touchpad) or swipe from screen edge (touchpad). Make the inverted gesture to close the panel as well. It should move progressively with the scroll, not only a toggable state.
+
+- full screen alert should appear when battery level is low (2 thresholds warn and danger, configurable)
+
+- add a sound on charging plugged in
+
+- have a battery saving mode, it automatically kicks in when not in charge and lower then 20% battery (or notifies the user to  do so), configurable. automatically disabled when plugged in and over the threshold. It must have visual feedback on the battery in the status bar and settings. The battery overlay must have the switch.
+
 ## Custom apps and services
 
 - Notes app
@@ -97,11 +105,11 @@ loop*.
 
 ## Style
 
+- many elements and options don't have basic UX features. a quick lists: chat panel has no settings button, wallpaer list has no "browse wallpaper folder", most options don't have hover effects, cursor never changes state on clickable elements or fields, tabs are indistinguishable from buttons, some elements are clickable without any feature (eg. the bluetooth elements in the list),  the lock screen has no "locked" state with timer after too many failed attempts, no wrong password visual feedback, no clean button for searchbars, accordions don't differentiate the body, accordions sometimes have the arrow icon sometimes they dont, often time the accordions don't align content with the title (when the arrow is present, they should compensate for it), many elements that have the same behavior don't have the same visual grammar, trigger buttons don't bring loading states or result feedbacks, there are no skeleton loading or loading in general, the settings panel should have options better organised, grouped and ordered in meaningful ways. There are many more issues that can be found, this task requires you to act as an expert UI/UX designer, being critically honest about each feature and every detail, and polish out the system UI/UX to optimal levels, focusing on functionality. No element in the current state has a definitive style, everything can be reworked, but all elements should be coherent and follow the same grammar, possibly using the same styling options. Also as many variable as possible should be mapped in the theme settings.
 
+- the hyprland scratchpad should slde in from below, have slighlty more out spacing than other workspace and have a accent-colored border all around the screen
 
-
-
-
+- the dim from the notification, chat panel and scratchpad should not overlay the status bar, while the dim from screenshot, overview (alt+tab) and warning/alert (eg. battery, to be introduced) should cover it. Have the 2 types of dim have different intensity as well (the one that overlays should be stronger)
 
 ## Ideas (not to be implemented, have to be discussed)
 
