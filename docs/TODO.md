@@ -9,7 +9,7 @@ loop*.
 
 - on razer the trackpad does not work after hibernation
 
-- after hibernation, the screen automatically suspend after 1 minute which is not the normal behavior (it should take longer)
+- after hibernation, the screen automatically suspend after 1 minute which is not the normal behavior (it should take longer) — investigated 2026-09-11: searched all of `phios-dotfiles` for anything that could set an idle-timeout/auto-lock/DPMS policy (`grep -rl "idle\|suspend\|hibernate\|sleep"`). Found only `profiles/laptop/system/etc/systemd/logind.conf.d/10-lid.conf` (`HandleLidSwitch`/`HandleSuspendKey` — LID CLOSE and the physical suspend key, unrelated to an idle *timeout*) and `hypridle` listed in `profiles/desktop/packages.txt` with an explicit comment that its config is "deferred" — **no `hypridle.conf` (or any other idle-timeout config) exists anywhere in this repository, committed or templated.** So this project sets no idle-timeout policy at all; the observed "suspends after 1 minute post-hibernation" cannot be something `phios-dotfiles` configures, since there's nothing here to misconfigure. Did not attempt a guess-based fix. Next time this happens, on the real machine (not from this repo): `systemctl --user status hypridle` (is it even running, and does `~/.config/hypr/hypridle.conf` exist there outside the repo — if hypridle IS running with some config, where did it come from), `loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}')` (an `IdleActionUSec` or similar systemd-logind-level timeout, separate from hypridle entirely), and specifically whether the 1-minute timer only starts counting fresh right after a hibernation *resume* (a session/idle-timer reset on wake, which would point at a resume-hook or systemd-logind interaction rather than a normal idle timeout misconfiguration) versus being the ordinary idle timeout just being reached faster than expected around the same time as a hibernation resume.
 
 - windows management keybinding (move, resize) do not work *to be checked first
 
@@ -101,7 +101,7 @@ loop*.
 
 - add the clipboard icon to the status bar (with animation for when an element is added)
 
-- add status bar icons for active sensors (microphone, camera), the overlay should show the apps using the sensor 
+- add status bar icons for active sensors (microphone, camera), the overlay should show a list of apps with the sensor they are using and killswitches. Also add settings for killswitches and permission rules
 
 ## Ideas (not to be implemented, have to be discussed)
 
