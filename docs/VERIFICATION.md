@@ -7,6 +7,38 @@ once it is verified.
 
 ---
 
+## Screenshot: dim area no longer trimmed below the status bar
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** f31cc43 screenshot: raise the selection overlay to WlrLayer.Overlay
+- **Original TODO:** when applying an area screenshot, the dim area is trimmed below the status bar
+
+### What was asked
+When selecting an area to screenshot, the dimmed backdrop doesn't reach the strip where the status bar sits — it looks cut off / trimmed right at the bar.
+
+### What was done
+`Screenshot/Screenshot.qml`'s `PanelWindow` was never raised off the default `Top` layer-shell layer — every other modal-style overlay in this repo (`Settings.qml`, `Launcher.qml`, `Cheatsheet.qml`, `AltTab.qml`, `Sidebar.qml`, `AgentPanel.qml`) explicitly sets `WlrLayershell.layer = WlrLayer.Overlay` in its own `Component.onCompleted`, and this file was the one outlier. On the default `Top` layer, the bar's own `exclusiveZone` (`Bar/Bar.qml`: reserves `bar.height` while not auto-hidden) reduces this surface's *available region* to stop short of the bar strip — this is a region/geometry effect, not a z-order occlusion, so neither the dim `Widgets.Scrim` nor the selection `MouseArea` could ever reach that strip at all (you also couldn't drag a selection starting there). `AltTab/AltTab.qml` already carries a header comment documenting the identical symptom and fix on real hardware: "raised to `WlrLayer.Overlay` + `exclusiveZone -1` ... so the dim covers the status bar too" — this commit applies the same pairing (both the layer bump AND `exclusiveZone: -1`, not the layer alone) to `Screenshot.qml`.
+
+`Screenshot/ColorPicker.qml` (the separate colour-picker surface, no TODO entry of its own) had the identical gap — same `PanelWindow` shape, same missing layer bump, same consequence (a click anywhere under the bar strip couldn't reach its `MouseArea`). Fixed in the same commit rather than left for a second bug report, since it's the exact same one-line pattern.
+
+The grim capture geometry math itself (`root.screen.x/y + selectionRect...`, already hardware-verified separately — see below) is untouched and unaffected: `root.screen` reflects the Wayland output's own bounds, not this surface's available region, so this change only extends how much of that output the selection UI can actually reach and dim.
+
+### Honest assessment
+**Untested — this is QML I cannot run** (`phi-shell/CLAUDE.md`: "You cannot run this. Every visual result is verified by the user with a screenshot"). The whole mechanism here is compositor region allocation (how Hyprland divides output space between layer-shell surfaces based on `exclusiveZone`), which I can reason about from this repo's own prior hardware-verified fixes (`AltTab.qml`'s identical case) but cannot verify myself.
+
+**One thing worth specifically checking:** before this fix, the selection `MouseArea` could never reach the bar strip, so a drag starting *at* the very top of the screen was never exercised there. With `exclusiveZone: -1`, that's now possible. The grim math should handle it correctly (it's output-relative, not region-relative), but it's the one way this change could surface a latent offset bug — worth a test.
+
+**Found, not touched: the OCR/QR offset TODO looks already fixed.** While reading this code I found `df4298d` ("fix: verification round 2 (screenshot offset, spotlight, launcher, chroma)"), already on `dev`, authored directly by you. Its message quotes the exact symptom from the other open TODO entry ("area selection in screenshot, OCR and QR reading is never right. The offset changes as the size and position of the area change") almost verbatim, and the fix (removing an incorrect `devicePixelRatio` multiplication in the same `_captureGeometry` calculation this task's code sits next to) reads as a direct, hardware-verified fix for it. I didn't touch that TODO entry or do any work toward it — since I didn't do that work, it's not mine to close out — but it looks stale. Worth checking whether it's already resolved for you and can just be deleted.
+
+### How to test it
+1. Trigger an area screenshot (`qs ipc call screenshot area`, or whatever keybind/launcher entry triggers it) and start dragging a selection so it visually overlaps where the status bar sits.
+2. Before this fix: the dim backdrop stops short right at the bar, leaving that strip undimmed/uncovered. After: the dim should extend all the way to the true top edge of the screen, behind/through the bar strip too.
+3. Drag a selection that starts exactly at the very top edge of the screen (in the bar's strip) and release. Open the resulting PNG (in `~/Pictures/Screenshots` or `$XDG_PICTURES_DIR/Screenshots`) and confirm its top edge lines up with where you started dragging, not with where the bar visually ends.
+4. Trigger the colour picker (`qs ipc call colorpicker pick`) and click a pixel under/near the bar strip — before this fix that click could not be registered at all; after, it should read and copy that pixel's hex value normally.
+
+---
+
 ## ESC closes the agent panel, but blurs a focused field first
 
 - **Date:** 2026-09-11
