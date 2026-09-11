@@ -7,6 +7,43 @@ once it is verified.
 
 ---
 
+## Reduce overlay panel gap from status bar
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phios-dotfiles / master
+- **Commits:** 57e0595 design: reduce panelGap from 4px to 2px
+- **Original TODO:** overlay panels are still way too distant from the status bar: they should be few pc below the bar
+
+### What was asked
+The overlay panels (sidebar, agent panel, calendar, bar popouts) sit too
+far below the status bar. The user wants them closer — "few pc below the
+bar."
+
+### What was done
+Changed `PHI_PANEL_GAP` in `phios-dotfiles/design/tokens.common.sh` from
+`4px` to `2px`. This is the single design token that all four overlay
+panels read for their `anchors.topMargin` offset below the bar's visible
+content bottom. No QML logic was changed — the panels already consume the
+token correctly via `Services.BarMetrics.contentBottom +
+Config.Appearance.panelGap`.
+
+### Honest assessment
+Clean. The change is data-only (one token value). The four panels all
+consume the same token so the fix is uniform. Cannot verify visually
+without a running compositor — needs `phi theme set dark` (or light) on
+hardware to confirm the gap looks right.
+
+### How to test it
+- Run `phi theme set dark` (or `phi theme set light`) to regenerate
+  `Config/Tokens.qml` from the updated tokens.
+- Open any overlay panel (e.g. notification sidebar, bar popout, calendar).
+- Visually confirm the panel top edge sits closer to the bar's drawn
+  content than before (previously ~8 logical px at 2× scale, now ~4 logical
+  px).
+- The gap should be small but present — panels should not touch the bar.
+
+---
+
 ## Shrink the launcher to fit its results, top edge held fixed
 
 - **Date:** 2026-09-11
