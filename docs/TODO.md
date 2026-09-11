@@ -9,7 +9,15 @@ loop*.
 
 - on razer the trackpad does not work after hibernation
 
+- after hibernation, the screen automatically suspend after 1 minute which is not the normal behavior (it should take longer)
+
 - windows management keybinding (move, resize) do not work *to be checked first
+
+- the clipboard preview should be on the left of the sidebar, rather than inside. Also it's very low.
+
+- the clipboard shows "(empty)" when the content is too long, it should get trimmed
+
+- super+n should open notification (focus the right tab), super+shit+v should not only open but also close the clipboard panel
 
 - the magnifier glass currently does not zoom in since the border where removed. It has to do with inconsistencies with the screen capture method. Needs to be solved. Reference this: https://github.com/Horizon0427/Glasscope 
 
@@ -23,11 +31,27 @@ loop*.
 
 - holding the volume up key (fn+f3 on the razer) should reach a top of 100%. To increase over 100% it requires a double click + hold.
 
+- super+shit+left/right do not change active workspace
 
+- make steam workspace 11 and btop workspace 12
+
+- tailscale/VPN in the status bar completely disappear, it used to be next to the wifi in previous versions and needs to be restored. Even when neither of the 2 are active, the icon should still exist (with a custom state, not empty)
+
+- hyprland resize does not seem to work
+
+- the cheathsheet shell should have 2 columns
 
 - add borders to the whole view when in the scratchpad or make it recognisable
 
 ## Features
+
+- "theme auto" which changes automatically on evening time (automatic/manual time). Consider "phi theme set" restarts the qs and that cannot happen automatically, the change should be smooth and non destructive.
+
+- add suspension/hibernation settings in the settings panel
+
+- add a power icon to the left isle of the status bar, it's overlay should have power options (suspend, logout, shutdown, reboot) and "settings"
+
+- new terminal windows should start at the same position as the last focused one
 
 - color picker (maybe compatible with the magnifying glass)
 
@@ -39,7 +63,7 @@ loop*.
 
 - add a timer and alarm feature to phi, also add tools to the runner to quicky setup timers and alarms. They should have a custom overlay that requires to be turned off, on the higher Z index in the system. It should have a ringtone. The two features must be customisable in the settings.
 
-
+- add option for automated night mode (automatic time at nighttime or manual hours range)
 
 - phi agent should run automatically as the panel is opened for the first time (or on startup). It should not waste resources when not used
 
