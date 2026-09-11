@@ -41,6 +41,8 @@ loop*.
 
 - color picker (maybe compatible with the magnifying glass)
 
+- three finger gestures on trackpad and touchscreen: up/down (open/closes overview), left/right (change workspace). Add more if not too error-prone.
+
 - add trash feature (package to be picked). Options (to be checked if they work as expected): CliFM (cli), ... * check the list on archlinux.org file manager
 
 - system file picker required
