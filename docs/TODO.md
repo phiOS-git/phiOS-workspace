@@ -74,7 +74,12 @@
 
 ## Style
 
-- tailscale/vpn overlay should be better aligned
+- tailscale/vpn overlay should align its content better. Connectivity as well (especially the buttons)
+
+- the overlay use the buttons with borders that are notte visible, so the text appears not aligned.
+
+- overlay panels are still way too distant from the status bar: they should be few pc below the bar
+
 
 ## Ideas (not to be implemented, have to be discussed)
 
