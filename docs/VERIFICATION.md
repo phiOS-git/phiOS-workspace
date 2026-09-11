@@ -7,6 +7,35 @@ once it is verified.
 
 ---
 
+## Status bar buttons: touchscreen taps no longer cancel after a highlight
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 877955e segment: switch tap recognition to ReleaseWithinBounds for touch
+- **Original TODO:** "the status bar icon don't always work with touchsreen: sometimes the highlight effect is triggered but not the click, this means that the hoverable area is different from the clickable area, or the highlight blocks the click, and that should not happen."
+
+### What was asked
+On a touchscreen, tapping a status bar icon sometimes shows the highlight/press visual but the click itself doesn't register — diagnose whether the hover and click hit-areas differ (or the highlight is somehow blocking the click) and fix it.
+
+### What was done
+Read `Widgets/Segment.qml` (the shared button every status bar icon is built from): its `HoverHandler` and `TapHandler` are both plain, unsized children of the root `Item`, so their hit-test areas are identical — the "hoverable area differs from the clickable area" half of the user's own hypothesis does not hold.
+
+The actual mechanism, confirmed against Qt's own `qquicktaphandler_p.h` and its official docs: `TapHandler.gesturePolicy` defaults to `DragThreshold`, which cancels the tap — `onTapped` never fires — if the pointer moves more than roughly 10px between press and release. A mouse click rarely drifts that far; a finger on a touchscreen does, routinely. Compounding it: `WidgetStates.resolve()` already maps `pressed` (true the instant a finger lands, independent of whether the tap ultimately completes) straight to the full inverted "active" visual — so the highlight always fires on touch-down, and if the gesture then gets silently cancelled on release, the click never lands. That combination is exactly the reported symptom.
+
+Set `gesturePolicy: TapHandler.ReleaseWithinBounds` on `Widgets/Segment.qml`'s `TapHandler` — it only cancels a tap if the release itself lands outside the button, ignoring in-between jitter entirely. This is Qt's own documented recommendation for touch-friendly tap recognition. One file, one property.
+
+### Honest assessment
+Not verified on hardware — `phi-shell/CLAUDE.md`: "You cannot run this," and this one specifically needs a touchscreen, not just a compositor, to exercise at all. The reasoning is sourced directly against Qt's own C++ header and official docs (not inferred), and the "pressed → active visual" mechanism is confirmed by reading `WidgetStates.js` directly, so confidence is high, but the fix is unverified in the one way that actually matters for a touch bug.
+
+Scoped to `Widgets/Segment.qml` only, since that is what the report names ("the status bar icon") and what every status bar button is built from. Several other widgets in this repo also use a bare, default-policy `TapHandler` and would carry the identical latent issue on a touchscreen — `Widgets/ListRow.qml`, `Widgets/StyledButton.qml`, `Widgets/SmallButton.qml`, `Widgets/Toggle.qml`, `Widgets/ColorField.qml`, `Widgets/Accordion.qml`, `Widgets/KeyboardMap.qml`, plus a few panel-local ones (`Settings/sections/Theme.qml`, `Launcher/Launcher.qml`, `Panels/tabs/Notifications.qml`, `Panels/tabs/Clipboard.qml`, `AltTab/AltTab.qml`, `Overview/Overview.qml`) — none of those were touched, since this entry named the status bar specifically. If touch taps elsewhere in the shell show the same symptom, the fix is the identical one-line change repeated per file.
+
+### How to test it
+1. On `razer` (the machine with a touchscreen) with `phi-shell` running, tap any status bar icon with a finger several times in a row, including deliberately slightly imprecise/dragging taps.
+2. Expected, every time: the button highlights AND the click action fires (the panel/popout opens, the workspace switches, whichever that icon does) — no more taps where the highlight flashes but nothing happens.
+3. As a control, confirm mouse clicks on the same icons still work exactly as before (this change only affects when a tap gesture is considered cancelled, not whether `onTapped` fires for a normal click).
+
+---
+
 ## Calendar flip-clock digits fold only from the top, gain a card border
 
 - **Date:** 2026-09-11
