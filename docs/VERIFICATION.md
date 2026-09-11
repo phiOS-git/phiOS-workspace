@@ -7,6 +7,32 @@ once it is verified.
 
 ---
 
+## Status-bar clock: flip like a flip clock
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 5f32121 bar: make the status-bar clock flip like a digit clock; ae4f01d merge: status-bar flip clock
+- **Original TODO:** "the clock in the status bar should change like a flip clock"
+
+### What was asked
+The small clock in the status bar should animate like a flip clock, not just render static "HH:MM" text — the same effect the calendar overlay clock now has.
+
+### What was done
+`Bar/modules/Clock.qml` still is a `Widgets.Segment` and still toggles the calendar panel on click and tracks `Services.Calendar.shown` for the active state, but the label is now content driven: a new `labelDelegate` slot on `Widgets/Segment.qml` (the label-side mirror of the existing `iconDelegate` slot, defaults to null so no existing consumer is affected) hosts a `Row` of four `Widgets.FlipDigit` cells plus a static mono colon, reading "HH:MM" with each cell flipping independently and only when the character it actually shows changes.
+
+Because the status bar crams "HH:MM" into sizeStep 0 (fontSize0, 11px), the calendar clock's 13px bordered card would have dwarfed the bar and unsettled its tight rhythm — so `Widgets/FlipDigit.qml` gains a `showCard` opt-out (default `true`, calendar unchanged): `showCard: false` drops both the border frame and the padding it justified, leaving the cell exactly its digit and letting the flip read as the value snapping over.
+
+### Honest assessment
+All clean as far as it can be checked without running the shell. Verified by reading only — `phi-shell/AGENTS.md` forbids running it — so the flip animation, the alignment of the four cells with the static colons, and how the spell sits in the bar visually all need the user's screenshot. Design decisions taken without asking, all reversible: the bar digits are card-less (bordered cards would have inflated the bar's height), the flip uses the same squash-and-swap motion category B as the calendar clock, and the colon itself is deliberately static (it never changes, nothing to flip).
+
+### How to test it
+1. On `razer` (or any machine running this shell): `pkill -x qs; qs -p ~/.config/quickshell/phi`.
+2. Watch the clock in the status bar during a minute boundary. Expected: only the rightmost (minutes) cells flip — squash to a sliver, swap, unsquash — once per minute; the hours cells and the colon stay put. At a hour change, both HH:MM pairs flip.
+3. Click the clock. Expected: the calendar panel still opens (the active/accent state and click behavior are untouched), and its overlay clock still shows the six bordered HH:MM:SS cells as before.
+4. Hover the clock. Expected: the digits and colon tint with the segment's hover/active colour handling just like the old label did.
+
+---
+
 ## Yazi: token-driven colours for folder icons, non-VSC Development icon, new Games icon, hover off accent
 
 - **Date:** 2026-09-11

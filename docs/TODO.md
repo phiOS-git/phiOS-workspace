@@ -107,8 +107,6 @@ loop*.
 
 - the dim from the notification, chat panel and scratchpad should not overlay the status bar, while the dim from screenshot, overview (alt+tab) and warning/alert (eg. battery, to be introduced) should cover it. Have the 2 types of dim have different intensity as well (the one that overlays should be stronger)
 
-- [taken] the clock in the status bar should change like a flip clock
-
 - add status bar icons for active sensors (microphone, camera), the overlay should show a list of apps with the sensor they are using and killswitches. Also add settings for killswitches and permission rules
 
 - terminal panels should have larger padding. reference to references/panel-reference-1.JPG and references/panel-reference-2.JPG
