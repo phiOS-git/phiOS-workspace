@@ -52,7 +52,7 @@ loop*.
 
 - add suspension/hibernation settings in the settings panel
 
-- add a power icon to the left isle of the status bar, it's overlay should have power options (suspend, logout, shutdown, lock, hibernate, reboot) and "settings". add log out, lock, suspend, hibernate, reboot, shutdown commands so that they can be quickly referenced in the runner bar as well. Reboot and Shutdown should require confirmation.
+- [taken] add a power icon to the left isle of the status bar, it's overlay should have power options (suspend, logout, shutdown, lock, hibernate, reboot) and "settings". add log out, lock, suspend, hibernate, reboot, shutdown commands so that they can be quickly referenced in the runner bar as well. Reboot and Shutdown should require confirmation.
 
 - new terminal windows should start at the same directory as the last focused one
 
