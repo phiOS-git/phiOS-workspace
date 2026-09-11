@@ -46,7 +46,7 @@ loop*.
 
 - the status bar overlays (those that open with the status bar icons) are still lower that they should be. This has been fixed many times but changes never worked. Clean up the whole feature and make it so that the overlay is few px below the bar.
 
-- the status bar icon don't always work with touchsreen: sometimes the highlight effect is triggered but not the click, this means that the hoverable area is different from the clickable area, or the highlight blocks the click, and that should not happen.
+- [taken] the status bar icon don't always work with touchsreen: sometimes the highlight effect is triggered but not the click, this means that the hoverable area is different from the clickable area, or the highlight blocks the click, and that should not happen.
 
 ## Features
 
