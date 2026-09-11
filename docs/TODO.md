@@ -105,7 +105,7 @@ loop*.
 
 - Remove AI shenanigans
 
-- Manual steps: remove the "(base)" as i can't copy-paste-run
+- [taken] Manual steps: remove the "(base)" as i can't copy-paste-run
 
 - place all phios locals in ~/.local/share/phios/{phi|dotfiles|phi-agent}
 
