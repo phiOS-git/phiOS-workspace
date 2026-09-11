@@ -73,7 +73,7 @@ loop*.
 
 ## Style
 
-- [taken] tailscale/vpn overlay should align its content better. Connectivity as well (especially the buttons)
+
 
 
 
