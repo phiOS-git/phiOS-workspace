@@ -7,6 +7,33 @@ once it is verified.
 
 ---
 
+## Calendar flip-clock digits fold only from the top, gain a card border
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 3634233 flipdigit: fold only the top half, add a static card border
+- **Original TODO:** "the calendar flip clock effect looks nice but it folds the number from both top and bottom, it should only be the top part folding over the bottom. also add some thin border to make it look more like a flip clock"
+- **Note:** a second, concurrent `[taken]` claim for this same entry landed in `docs/TODO.md` around the same time as this one (commit `8ea0265`, author Flavio on `razer`) — the two claims resolved cleanly on merge since both made the identical text edit, but if a second implementation of this same fix lands separately, this entry's commit is the one to reconcile it against.
+
+### What was asked
+The calendar's flip-clock digits (`Widgets/FlipDigit.qml`) currently squash symmetrically from both the top and bottom edges toward the center on every flip; it should look like only the top half is folding down over a static bottom half, and each digit should get a thin border so it reads more like an actual flip-clock card.
+
+### What was done
+`Widgets/FlipDigit.qml`'s flip is one `Scale` transform on the digit cell (`yScale` animated toward near-zero, text swapped at the fully-squashed midpoint, then unsquashed — see the file's own header for why this is a deliberate simplification of a true two-piece split-flap). The `Scale`'s origin was `cell.height / 2` (the vertical center), so both the top and bottom edges moved inward symmetrically as it squashed. Changed `origin.y` to `cell.height` (the bottom edge): the bottom now stays fixed in place and only the top collapses down onto it, which is what "only the top part folding over the bottom" describes, without rebuilding this into an actual two-piece flap (a materially bigger change this entry did not ask for).
+
+Added `cardBorder`, a plain `Rectangle` (no fill, `Config.Appearance.border` / `borderWidth` / `radiusSmall` — all existing design tokens, nothing hardcoded) anchored to `cell`'s bounds. It is a *sibling* of `cell`, not a child, specifically so the border frame itself never squashes along with the flip animation — only the digit inside it does, matching how a real flip-clock's outer card stays put while its flap moves. Also added a small `_padding` (via the same `chToPixels(space-token, chWidth)` pattern `Widgets/Panel.qml` and `Widgets/Segment.qml` already use) so the border reads as a card around the digit instead of hugging the glyph's edges tightly, and grew `root`'s `implicitWidth`/`implicitHeight` to include it so the `Row` in `Panels/Calendar.qml` still lays the six digits and two colons out correctly.
+
+### Honest assessment
+Not verified on hardware (`phi-shell/CLAUDE.md`: "You cannot run this") — this is a pure visual/motion change, and "looks like a flip clock" is ultimately a judgment call only a screenshot can settle. The bottom-pinned single-transform approach is a deliberate, smaller-scope reading of "only the top part folding" rather than building a true independently-animated two-piece split-flap (separate static bottom card + a hinged top flap that reveals the new character partway through its own rotation) — if the single-transform version doesn't read convincingly as a flip clock once seen, the real two-piece version is a larger follow-up, not a tweak to this one. See the Note above re: the concurrent claim on this same TODO entry.
+
+### How to test it
+1. On `razer` or `zotac` with `phi-shell` running, click the bar clock to open the calendar card.
+2. Watch the seconds digit (rightmost) flip on its next tick. Expected: the bottom half of the digit cell stays visually still; only the top half visibly collapses down and back, unlike before where both the top and bottom moved toward the middle at once.
+3. Look at any digit at rest (no flip in progress). Expected: a thin outline box now frames each digit (a "card"), where before it was bare text with no border — six boxed digits total (HH:mm:ss), colons unboxed between them.
+4. Confirm the border colour/thickness matches the current theme's border tokens (should look identical in dark and light variants, same as every other bordered element in the shell) and doesn't visibly clip or overlap the digit glyph inside it.
+
+---
+
 ## btop workspace button relaunches btop instead of leaving an empty workspace
 
 - **Date:** 2026-09-11
