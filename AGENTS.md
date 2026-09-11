@@ -139,7 +139,10 @@ remembers how it worked.
 
 1. **Branch locally. Only `main` and `dev` go on a remote.** Feature work
    lives on local branches and merges into `dev`; `main` is the known-good
-   state. Never push a topic branch.
+   state. Never push a topic branch. **`dev` is the only branch you touch
+   unless the user clearly asks to move changes onto `main`** — merging
+   `dev` into `main`, or committing on `main` directly, is a user decision,
+   not a default step of finishing a task.
 2. **Only official Arch packages** — `core`, `extra`, `multilib`. No AUR, no
    manual builds, no vendored binaries. Rootless containers on the server
    are the sole exception. Anything outside this is not accepted — ask
