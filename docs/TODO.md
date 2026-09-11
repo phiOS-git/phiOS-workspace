@@ -38,7 +38,7 @@ loop*.
 
 - opening a panel on a special workspase (11, 12) should automatiically open it in the highest possible panel up to 10
 
-- there is an icon "f" in the status bar (after btop) that does nothing, define what it is, if it's the scratchpad it does not work (make the icon something obvious)
+- [taken] there is an icon "f" in the status bar (after btop) that does nothing, define what it is, if it's the scratchpad it does not work (make the icon something obvious)
 
 - when in full screen, the status bar does not appear by moving the cursor on the top edge
 
