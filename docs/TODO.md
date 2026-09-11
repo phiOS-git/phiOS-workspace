@@ -60,7 +60,6 @@ loop*.
 
 - add option for automated night mode (automatic time at nighttime or manual hours range)
 
-- [taken] phi agent should run automatically as the panel is opened for the first time (or on startup). It should not waste resources when not used
 
 - clicking on the wifi icon should show the list of available wifi to connect. Same in the settings.
 
