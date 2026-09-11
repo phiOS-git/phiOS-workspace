@@ -71,7 +71,7 @@ loop*.
 
 - full screen alert should appear when battery level is low (2 thresholds warn and danger, configurable)
 
-- add a sound on charging plugged in
+- [taken] add a sound on charging plugged in
 
 - have a battery saving mode, it automatically kicks in when not in charge and lower then 20% battery (or notifies the user to  do so), configurable. automatically disabled when plugged in and over the threshold. It must have visual feedback on the battery in the status bar and settings. The battery overlay must have the switch.
 
