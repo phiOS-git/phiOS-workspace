@@ -39,7 +39,7 @@ loop*.
 
 - make steam workspace 11 and btop workspace 12
 
-- tailscale/VPN in the status bar completely disappear, it used to be next to the wifi in previous versions and needs to be restored. Even when neither of the 2 are active, the icon should still exist (with a custom state, not empty)
+- [taken] tailscale/VPN in the status bar completely disappear, it used to be next to the wifi in previous versions and needs to be restored. Even when neither of the 2 are active, the icon should still exist (with a custom state, not empty)
 
 - hyprland resize does not seem to work
 
