@@ -127,6 +127,48 @@ visible state that survives a close/reopen looks broken.
 
 ---
 
+## Make printed manual steps copy-pasteable
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phios-dotfiles / master
+- **Commits:** 1c5a4cd install: drop profile suffix from printed manual steps
+- **Original TODO:** Manual steps: remove the "(base)" as i can't copy-paste-run
+
+### What was asked
+The installer prints manual steps annotated with the owning profile as a
+trailing suffix, e.g. `  sudo install -Dm644 .../issue /etc/issue  (base)`.
+Pasting such a line fails because bash parses `(base)` as a subshell
+running the command `base`. The suffix must go so the printed steps are
+directly runnable.
+
+### What was done
+`phios_manual_report()` in `bin/lib/system.sh:107` now prints each step
+bare (`printf '  %s\n' "$step"`), dropping the `  (%s)` profile suffix.
+The root cause was in the installer, not in the manual.txt files — those
+were already clean. Only the manual-steps emitter was touched; the
+services and "no longer declared" reports keep their suffix because they
+print unit/file names, not runnable commands. The profile variables and
+loop order are unchanged, so the section order is still deterministic.
+
+### Honest assessment
+Clean and minimal. One behaviour to be aware of: with the suffix gone,
+the printed manual-steps output no longer shows which profile each step
+came from. Commands are self-contained paths so this is a cosmetic loss,
+and it is exactly what the user asked for. I chose not to also strip the
+same suffix from the services report (`system foo.service (base)`), since
+those lines are unit names, not paste-to-run commands; say the word if
+the consistency matters.
+
+### How to test it
+- From any machine with the dotfiles checkout,
+  run `bin/phios-install --dry-run` (read-only, touches nothing).
+- In the `manual steps` section of the output, confirm every line is now
+  the bare command with no trailing `(base)`-style suffix.
+- Copy one of those lines into a shell and run it — it must not fail with
+  a `base: command not found` / subshell parse error.
+
+---
+
 ## Make overlay button borders visible
 
 - **Date:** 2026-09-11
