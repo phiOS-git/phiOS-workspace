@@ -7,6 +7,41 @@ once it is verified.
 
 ---
 
+## Clipboard preview: floats beside the sidebar, aligned to the entry
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 9e66140 clipboard: float the hold/hover preview beside the sidebar, aligned to the entry, 77f4721 merge: float the hold/hover preview beside the sidebar, aligned to the entry
+- **Original TODO:** "the clipboard preview should be on the left of the sidebar, rather than inside. Also it's very low, it should be vertically aligned with the relative entry (beware of the position in the screen, so that it does not go out of the screen area)."
+
+### What was asked
+The clipboard tab's hold/hover preview (shown after dwelling on an entry) was rendering as a full-width bar docked to the bottom of the sidebar's own content area — inside the panel, low on screen, and not related to which entry triggered it. Wanted: a floating panel to the LEFT of the sidebar, vertically lined up with the specific entry that's being previewed, and never allowed to run off any screen edge.
+
+### What was done
+`Panels/tabs/Clipboard.qml`'s preview was `anchors.left/right/bottom: parent...` — a bar glued to the tab's own bottom edge, unrelated to any card. The original author had deliberately avoided tracking a specific card's position, flagging per-card `mapToItem` tracking as "unverifiable without a compositor" (their own comment, still in the file's history).
+
+Rebuilt it as a properly positioned floating panel, following the same one-shot-`mapToItem`-at-a-known-moment shape `Widgets/Segment.qml`'s `rightX()` already uses for the bar's popouts (called imperatively from a handler, not left inside a live declarative binding — confirmed `mapToItem` isn't tracked as a binding dependency by Qt's meta-object system anyway, so a continuous binding through it wouldn't reliably update):
+
+- Every `entryCard` delegate now registers itself into `root._cardItems` (id → Item) on creation and unregisters on destruction, since the pinned/rest split means there's no single flat Repeater index to look a card up by.
+- When the dwell timer fires (right before the preview becomes visible), `_updatePreviewPosition()` reads three absolute screen positions once: the dwelled card's Y (center), the sidebar dock's own left edge (via a new `dockItem` reference `Sidebar.qml` now passes down — the tab's own root sits inset inside the dock by `Widgets/Panel.qml`'s own padding, so root's own position is NOT the dock's visible edge), and root's own absolute Y (needed to convert the preview's y into root-relative terms, since the preview stays root's own child rather than being reparented to the window's top item).
+- The preview panel's `x`/`y` are computed in absolute screen terms from those three numbers, each axis independently clamped to `[panelGap, screen edge − panel's own size − panelGap]` — the TODO's explicit "does not go out of the screen area" — then converted back to root-relative coordinates.
+- `Sidebar.qml` now hands the Clipboard tab its own actual screen size (`screenWidth`/`screenHeight`) and the `dock` Item reference, since the tab's own width/height was only ever the dock's own right-hand strip, not the screen.
+- Narrowed the preview to 80% of the dock's own width (previously exactly the dock's own width): at full width, a screen narrower than usual would push the panel far enough left that the screen-edge clamp wins and the preview slides *under* the dock instead of beside it — silently wrong-looking, not an error, so worth avoiding rather than accepting.
+
+### Honest assessment
+This went through a real review pass before landing, not just a single draft: an advisor review (I use one for substantive changes) caught two things I'd gotten wrong the first time — the preview's X position was computed from root's own absolute position instead of the dock's, which would have overlapped the sidebar's left border by about one padding's worth instead of sitting beside it; and a `Component.onDestruction` handler read `card.modelData.id` directly, a known QML footgun where `modelData` can already be `undefined` on an about-to-be-destroyed Repeater delegate. Both are fixed in what actually landed (the id is now captured into its own property at creation, read by both the register and unregister paths). The width-narrowing tradeoff is a judgment call, not a correctness fix — noted above so you can weigh in if 80% reads wrong once you see it.
+
+Still genuinely untested against a real compositor — `phi-shell/CLAUDE.md`: "You cannot run this. Every visual result is verified by the user with a screenshot." This is meaningfully more involved QML than most of this session's other fixes (new cross-component state, coordinate-space conversion, delegate lifecycle), so it deserves a closer look than a glance.
+
+### How to test it
+1. Open the clipboard panel (Super+Shift+V) with several entries in history.
+2. Hover over an entry card (not the very top or bottom one) and hold still for about 700ms. The preview panel should appear as a floating panel to the LEFT of the sidebar dock — not inside it, not docked to the bottom — vertically centred roughly on the row you're hovering.
+3. Move to a different card (or use arrow keys to change the keyboard selection) and dwell again — the preview should reposition to align with the new entry.
+4. Hover/select an entry very near the TOP of the screen, and separately one very near the BOTTOM. In both cases the preview panel should stay fully on-screen (clamped), not spill off the top or bottom edge, even though it's no longer perfectly centred on the entry in those cases.
+5. If your output is on the narrower side, check the preview doesn't end up sitting underneath the dock instead of beside it — if it does, the 80%-width judgment call above needs revisiting.
+
+---
+
 ## Volume-up key now caps at 100%
 
 - **Date:** 2026-09-11
