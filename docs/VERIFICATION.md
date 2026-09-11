@@ -7,6 +7,42 @@ once it is verified.
 
 ---
 
+## Add working h/j/k/l alternatives for the broken super+shift/ctrl+arrow binds
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phios-dotfiles / dev
+- **Commits:** fb70812 hyprland: add h/j/k/l alternatives for move-window and workspace prev/next, 4e0beff merge: add h/j/k/l alternatives for move-window and workspace prev/next
+- **Original TODO:** "super+shit+left/right do not change active workspace" (clarified by the user during this session: neither Super+Shift+Left/Right nor Super+Ctrl+Left/Right do anything at all — not workspace change, not window move, not window focus. Only bare Super+Left/Right, which changes the focused window, works. The user does not care which exact keys end up bound, just that moving a window and switching workspace both work somehow.)
+
+### What was asked
+Super+Shift+Left/Right (move window) and Super+Ctrl+Left/Right (prev/next workspace) are both dead on the user's hardware (razer). Fix it — any working binding is acceptable.
+
+### What was done
+Spent real effort trying to find an actual root cause before resorting to a workaround, since "the arrow binds are broken" implied a possible config or Hyprland bug worth fixing at the source. Checked, against Hyprland's own upstream source (`gh api` against `hyprwm/Hyprland` and `hyprwm/hyprutils`, not guessed):
+1. `keybinds/Bind.cpp` (`CBind::make`, modifier/key parsing, `matches`/`matchesContext`) — modifier tokens and multi-key binds are parsed and matched correctly; `Super+Shift+Left` and bare `Super+Left` have different modmasks and don't collide.
+2. `keybinds/Resolver.cpp` (`modifierFromString`, `CResolver::resolveKeycode`) — "SHIFT"/"CTRL"/"SUPER" are all valid modifier names; `xkb_keysym_from_name` resolving "left"/"right" is case-insensitive and unrelated to which modifiers are also held.
+3. `config/lua/bindings/LuaBindingsToplevel.cpp`'s `hlBind` (the actual C function behind `hl.bind` in this project's `.lua.tmpl` config) — nothing suspicious in how it builds the bind from the Lua call.
+4. `hlBind`'s own `parseKeyString`, which splits the bind string on `+` via `hyprutils`' `CVarList2` and trims each token — verified (by reading `CVarList2::construct` in `hyprutils/src/string/VarList2.cpp`) that it trims every token both there and again in `parseKeyString`, so `"SUPER + SHIFT + left"` tokenizes to `["SUPER","SHIFT","left"]` correctly regardless of spacing. This ruled out a specific hypothesis (a naive splitter leaving a stray leading space that would make `xkb_keysym_from_name` fail to resolve "left" but not single-character keys) that looked plausible before checking.
+
+None of these four checks turned up a defect. Given the user's explicit "I don't care about the exact bindings, I just want it to work," stopped trying to root-cause and instead added working alternative bindings, additively (nothing existing removed or changed) in `profiles/desktop/templates/.config/hypr/hyprland.lua.tmpl`:
+- `Super+Shift+h/j/k/l` → move window left/down/up/right (`hyprctl dispatch movewindow l/d/u/r`)
+- `Super+Ctrl+h/l` → previous/next workspace (`hyprctl dispatch workspace m-1/m+1`)
+
+Checked for modmask collisions before adding: the existing "resize" submap's own bare `h/j/k/l` binds are submap-scoped (only active inside Super+R's submap) so they don't collide; `Super+L` (lock) has a different modmask than `Super+Shift+L` or `Super+Ctrl+L`, and Hyprland's bind matcher requires an exact modmask match (`Bind.cpp`'s `matchesContext`), so no collision there either.
+
+### Honest assessment
+This is a workaround, not a root-cause fix — the original Super+Shift/Ctrl+Left/Right binds are still declared in the config and, per the user's report, still don't do anything on real hardware. I could not reproduce the failure myself (no compositor access — `phios-dotfiles/CLAUDE.md` and workspace rules keep the three machines off-limits to agents), so I could not narrow down whether the binds are failing to register at all or registering but never firing (an input-layer/app-stealing-the-shortcut issue, or something keyboard/hardware-specific to razer). Left a detailed note with a concrete next diagnostic step (`hyprctl binds -j | grep -i left`, which discriminates "not registered" from "registered but not firing") in the TODO.md entry rather than closing it, since the real bug is still open.
+
+### How to test it
+1. On razer, pull the updated `phios-dotfiles` `dev` branch and re-run the install (`bin/phios-install`) so the template re-renders.
+2. Reload the Hyprland config (or log out/in).
+3. Focus a window, then press `Super+Shift+h`, `Super+Shift+l`, `Super+Shift+k`, `Super+Shift+j` — the focused window should move left, right, up, down respectively (equivalent to what `Super+Shift+Left/Right` was supposed to do and doesn't).
+4. Press `Super+Ctrl+h` and `Super+Ctrl+l` — the active workspace should switch to the previous/next one (equivalent to what `Super+Ctrl+Left/Right` was supposed to do and doesn't).
+5. Also still try the original `Super+Shift+Left/Right` and `Super+Ctrl+Left/Right` and confirm whether they remain non-functional — if this has changed, that's new information for the still-open root-cause investigation in TODO.md, not something this fix addresses.
+6. If you have a moment, `hyprctl binds -j | grep -i left` and share the output — it tells us whether the original arrow binds are even registering, which is the open question.
+
+---
+
 ## Cheat sheet: bindings now render in two columns
 
 - **Date:** 2026-09-11
