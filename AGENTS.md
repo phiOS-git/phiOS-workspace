@@ -101,6 +101,23 @@ A change with no matching TODO entry still gets a `docs/VERIFICATION.md`
 section — the file is the record of everything awaiting a human check,
 backlog-tracked or not. A one-line typo fix or a docs-only change does not.
 
+**Partial completion never stays in `docs/TODO.md` as a note.** If only
+part of an entry's request was actually done — a workaround instead of a
+root-cause fix, one clause of a multi-part ask, a scope cut — the entry
+is still removed from `docs/TODO.md` in full, exactly as if it were
+completely done, and written up in `docs/VERIFICATION.md` the normal way.
+The write-up's own "What was done" / "Honest assessment" sections carry
+the nuance, with **what was NOT done from the original request marked in
+bold, in red** (e.g. `<span style="color:red">**NOT DONE:** ...</span>`)
+so the gap cannot be missed at a glance. If a genuine remainder of the
+original request is still open and worth tracking, re-add *that* to
+`docs/TODO.md` as its own clean, bare entry describing only the still-open
+task — never carrying a "was fixed"/"done as of"/"see VERIFICATION.md"
+annotation baked into its text. `docs/TODO.md` holds only entries that are
+`[taken]` or not yet handled at all; a record of what has already been
+finished belongs solely to `docs/VERIFICATION.md`, never to a note
+sitting alongside an open task.
+
 ### VERIFICATION.md entry template
 
 ```
@@ -122,7 +139,9 @@ that the user did not spell out.
 Everything that is not clean: known issues, anything cut or deferred,
 questions you need answered, anything you could not verify (say why — e.g.
 needs hardware), anything you are unsure about. If it is all clean, say so
-plainly.
+plainly. If part of the original request was not done, lead with it in
+bold, in red (see *Partial completion* above) — never bury a real gap in
+ordinary prose.
 
 ### How to test it
 Step by step, assuming no prior context.

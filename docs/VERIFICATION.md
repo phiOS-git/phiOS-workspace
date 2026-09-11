@@ -7,6 +7,38 @@ once it is verified.
 
 ---
 
+## Clean up partial-completion notes left in docs/TODO.md, codify the rule
+
+- **Date:** 2026-09-12
+- **Repo / branch:** phiOS-workspace / dev (superproject/docs only — no submodule touched)
+- **Commits:** (this commit)
+- **Original TODO:** none — direct instruction.
+
+### What was asked
+Verbatim: "remove from docs/TODO.md any task that was done but stated with notes, instead that should be reported in docs/VERIFICATION.md and it should show (in red and bold) what was not done from the main request. The TODO file should ever only keep tasks that are either currently taken or not handled. Add this to the Agent rules as well."
+
+### What was done
+Searched `docs/TODO.md` for entries where real work had already been done (a fix, a workaround, a partial implementation) but the entry stayed in the file with an inline note about it, instead of being cleanly removed and written up in `docs/VERIFICATION.md`. Grepped for `VERIFICATION.md`/`DONE`/`Worked around`/`fixed` and cross-checked every hit against the file's own full content read — found exactly two, both from 2026-09-11:
+
+1. The volume-up-key entry: the "(was: ... the 100% cap is fixed, see VERIFICATION.md)" annotation plus a "Not attempted as part of the cap fix: ..." trailer, wrapped around the still-open remainder (the double-tap-past-100% gesture).
+2. The super+shift/ctrl+arrow-keys entry: a "Worked around 2026-09-11 by adding ... — see VERIFICATION.md" sentence embedded in the middle of the still-open bug report and its root-cause investigation notes.
+
+For both: stripped the "here's what was already done" narrative from `docs/TODO.md`, leaving only the genuinely still-open task (bare, for #1; the bug description plus its still-relevant root-cause investigation/diagnostic notes, for #2 — that investigation guidance stays because the underlying bug is still unresolved, not because it documents completed work). Added a red-bold `**NOT DONE:**` callout (`<span style="color:red">`) to the "Honest assessment" section of each entry's EXISTING `docs/VERIFICATION.md` write-up ("Add working h/j/k/l alternatives..." and "Volume-up key now caps at 100%") stating plainly what was not completed from the original request — both entries already discussed this in prose, but not with the unmissable visual marker now asked for.
+
+Did not find any other candidates on a full pass of the file — every other entry with an "investigated..." note has NO actual fix behind it (pure investigation, nothing shipped), which already correctly qualifies as "not handled" under the user's own rule and belongs in `docs/TODO.md` as-is.
+
+Added the rule itself to `AGENTS.md` (root `CLAUDE.md` is a symlink to it) — a new paragraph right after step 4 of *The TODO / VERIFICATION loop* ("Partial completion never stays in `docs/TODO.md` as a note...") codifying: partial work is removed from TODO in full and written up in VERIFICATION like any other completed change; what wasn't done goes in bold, in red, in the Honest assessment section; a genuine remainder gets re-added to TODO as its own bare, undecorated entry. Also added a one-line pointer to this rule inside the VERIFICATION.md entry template's own "Honest assessment" guidance, so it's visible right where an agent is about to write that section, not just in the loop's prose above.
+
+### Honest assessment
+Clean — this is a mechanical, low-ambiguity cleanup exactly matching the instruction, with no code touched and no submodule involved. The one judgment call: for the arrow-keys entry, I kept the root-cause investigation notes and diagnostic next-steps in `docs/TODO.md` rather than treating them as "notes about done work" to strip — they're guidance for the STILL-OPEN underlying bug (the arrow binds remain broken), not a record of what was finished, so they belong with the open task under the same rule that already keeps other pure-investigation entries (e.g. the magnifier, the a1 agent) in `docs/TODO.md` as-is.
+
+### How to test it
+1. Open `docs/TODO.md` — the volume-gesture entry and the arrow-keys entry should read as clean, bare (or investigation-only) task descriptions, with no "was fixed"/"Worked around"/date-stamped completion note mixed in.
+2. Open `docs/VERIFICATION.md` — the "Add working h/j/k/l alternatives..." and "Volume-up key now caps at 100%" entries should each show a red, bold "NOT DONE:" line near the top of their "Honest assessment" section, stating what's still missing from the original ask.
+3. Open `AGENTS.md` (or `CLAUDE.md`, the same file via symlink) — *The TODO / VERIFICATION loop* section should have a new "Partial completion never stays in `docs/TODO.md` as a note" paragraph after step 4, and the VERIFICATION.md template's "Honest assessment" guidance should reference it.
+
+---
+
 ## Separate hover from active entirely, accent text for selection
 
 - **Date:** 2026-09-12
@@ -389,7 +421,9 @@ None of these four checks turned up a defect. Given the user's explicit "I don't
 Checked for modmask collisions before adding: the existing "resize" submap's own bare `h/j/k/l` binds are submap-scoped (only active inside Super+R's submap) so they don't collide; `Super+L` (lock) has a different modmask than `Super+Shift+L` or `Super+Ctrl+L`, and Hyprland's bind matcher requires an exact modmask match (`Bind.cpp`'s `matchesContext`), so no collision there either.
 
 ### Honest assessment
-This is a workaround, not a root-cause fix — the original Super+Shift/Ctrl+Left/Right binds are still declared in the config and, per the user's report, still don't do anything on real hardware. I could not reproduce the failure myself (no compositor access — `phios-dotfiles/CLAUDE.md` and workspace rules keep the three machines off-limits to agents), so I could not narrow down whether the binds are failing to register at all or registering but never firing (an input-layer/app-stealing-the-shortcut issue, or something keyboard/hardware-specific to razer). Left a detailed note with a concrete next diagnostic step (`hyprctl binds -j | grep -i left`, which discriminates "not registered" from "registered but not firing") in the TODO.md entry rather than closing it, since the real bug is still open.
+<span style="color:red">**NOT DONE:** the original ask was to fix Super+Shift/Ctrl+Left/Right. They are still broken — this entry only adds working alternative bindings (Super+Shift+h/j/k/l, Super+Ctrl+h/l) alongside them. The root cause of why the arrow-key binds themselves don't fire was never found.</span>
+
+This is a workaround, not a root-cause fix — the original Super+Shift/Ctrl+Left/Right binds are still declared in the config and, per the user's report, still don't do anything on real hardware. I could not reproduce the failure myself (no compositor access — `phios-dotfiles/CLAUDE.md` and workspace rules keep the three machines off-limits to agents), so I could not narrow down whether the binds are failing to register at all or registering but never firing (an input-layer/app-stealing-the-shortcut issue, or something keyboard/hardware-specific to razer). The still-open root-cause investigation, with a concrete next diagnostic step (`hyprctl binds -j | grep -i left`, which discriminates "not registered" from "registered but not firing"), stays in `docs/TODO.md` as its own bare entry — describing only the still-open task, not this fix.
 
 ### How to test it
 1. On razer, pull the updated `phios-dotfiles` `dev` branch and re-run the install (`bin/phios-install`) so the template re-renders.
@@ -511,7 +545,9 @@ Only the first half. `hyprland.lua.tmpl` binds `XF86AudioRaiseVolume` straight t
 Deliberately did **not** attempt the second half (a double-tap-and-hold gesture to intentionally exceed 100%) as part of this fix, and left it behind as its own, narrower `docs/TODO.md` entry rather than silently dropping it. Reasons: Hyprland's Lua bind system has no built-in double-tap primitive — it would need custom timer/state logic in `hyprland.lua.tmpl` — and this exact file already documents a cautionary precedent for that shape of gesture: SUPER+G's cursor-spotlight bind went through several rounds (ROUNDS FOUR/FIVE/SIX, all in this same file) trying a double-/triple-tap gesture before landing on a documented, real compositor bug (`hyprwm/Hyprland#6946`) and reverting to a plain press/release bind. That precedent is specifically about a bare-modifier-keysym bind (`SUPER_L`), which doesn't directly apply to an ordinary key like `XF86AudioRaiseVolume` — but building a new custom-timed gesture on a volume key still deserves its own deliberate design pass, not a guess bolted onto this fix.
 
 ### Honest assessment
-The 100% cap is a config-only fix using a documented, real `wpctl` flag — I'm confident in it, though untestable without the real machine (`phios-dotfiles`' `CLAUDE.md`: no `pacman`/`systemctl`/hardware access). The deferred half is a genuine scope cut, not an oversight — flagged clearly rather than either guessing at a fragile implementation or silently deleting the ask.
+<span style="color:red">**NOT DONE:** the second half of the original ask — a deliberate double-tap-and-hold gesture to intentionally exceed 100% — was not attempted. Only the 100% cap itself is done.</span>
+
+The 100% cap is a config-only fix using a documented, real `wpctl` flag — I'm confident in it, though untestable without the real machine (`phios-dotfiles`' `CLAUDE.md`: no `pacman`/`systemctl`/hardware access). The deferred half is a genuine scope cut, not an oversight — flagged clearly rather than either guessing at a fragile implementation or silently deleting the ask; it stays in `docs/TODO.md` as its own bare entry.
 
 ### How to test it
 This needs `phios-install` to re-render the templated Hyprland config and reload it — either run `bin/phios-install` from `phios-dotfiles` on `razer` and then `hyprctl reload`, or however you normally pick up a `hyprland.lua.tmpl` change.
