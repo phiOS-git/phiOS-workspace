@@ -120,13 +120,27 @@ sitting alongside an open task.
 
 ### VERIFICATION.md entry template
 
+The title names the original issue — the problem as the user would describe
+it — never the fix or the implementation. Keep it to one short line; a
+title is not a changelog entry, the detail belongs in the sections below.
+(`Auto-start the phi agent a1 service when the agent panel opens` names the
+fix; `Agent panel requires a manual service start` names the issue — the
+latter is what a title should look like.)
+
+If the change touches the `phi` repo, add the **Requires phi rebuild**
+line naming the git tag — either one already pushed, or one that still
+needs creating (rule 3: an agent may create and push the tag; only the
+user builds, signs and publishes the package). Omit the line entirely for
+a change that doesn't touch `phi`.
+
 ```
-## <short imperative title>
+## <short title naming the issue, not the fix>
 
 - **Date:** 2026-09-11
 - **Repo / branch:** phi-shell / dev
 - **Commits:** <hash> <subject line>   — one line per commit
 - **Original TODO:** <the entry verbatim, or "none — outside the backlog">
+- **Requires phi rebuild:** <tag, e.g. v0.17.0 — omit if this doesn't touch phi>
 
 ### What was asked
 Restate the task in your own words so the user can confirm you understood it.

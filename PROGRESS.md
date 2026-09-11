@@ -41,16 +41,22 @@ point (`phi`), one visual identity.
 | Dotfiles foundation (installer, profiles, tokens, `/etc` boundary, capability detection) | **Working**, in daily use on all three hosts |
 | `phi` CLI — theme, state, doctor, pkg, completions | **Working**, packaged, installed on all three hosts |
 | `phi` CLI — vpn, firewall, wallpaper, query, update | **Built**, in use; some paths only exercised on `razer` |
-| `phi-shell` — bar, session integration, Hyprland autostart | **Working** on `razer` and `zotac` |
-| `phi-shell` — panels, launcher, lock, overview, screenshot, notifications, settings, magnifier, OSD | **Built and in use**, refined over four restyle rounds + a settings overhaul; a few effects unverified on hardware |
+| `phi-shell` — bar, session integration, Hyprland autostart | **Working** on `razer` and `zotac`, but a 2026-09-11 hardware verification round found real bugs still open: overlay panels sit lower than the bar, the scratchpad icon doesn't call the scratchpad, the bar doesn't reveal on a top-edge hover in fullscreen, touchscreen taps near an icon's top edge hover instead of activating — tracked in `docs/TODO.md` |
+| `phi-shell` — panels, launcher, lock, overview, screenshot, notifications, settings, magnifier, OSD | **Built and in use**, refined over four restyle rounds + a settings overhaul, but the same verification round found Alt-Tab "completely broken" (no focus, no close-on-release, no workspace change), the magnifier still doesn't zoom, and screenshot/OCR/QR area-selection offset is still wrong — tracked in `docs/TODO.md` |
 | Identity & advanced styling — final palette, typography, motion, Plymouth, cursor theme | **Built**, pending a clean end-to-end verification pass |
-| AI agent (`phi agent` + shell agent panel + containment) | **Built**, hardware verification in progress on `razer` |
+| AI agent (`phi agent` + shell agent panel + containment) | **Built**, hardware verification run on `razer` 2026-09-11 and **failed end-to-end** — the broker binds and the systemd units report active, but the shell's agent panel reports the containment failed to start, and `phi agent code .` (A2) fails on a missing `run/phi-agent/net/proxy.sock`; raw session log at `docs/ai-agent.output`, tracked in `docs/TODO.md` |
 | Server services (`mini`) — cloud sync, photos, Jellyfin, \*arr, ClamAV, LanguageTool | **Not started** |
 | Custom apps (`phi-notes`, `phi-music`, `phi-media`) | **Not started** |
 
 Legend below uses: **done** (in daily use, confirmed on hardware),
 **built** (written and running, not fully verified across all hosts),
-**partial**, **not started**.
+**partial**, **not started**. A 2026-09-11 verification round tested
+~44 items previously marked done/built in `docs/VERIFICATION.md`; most
+failed on real hardware and were folded back into `docs/TODO.md` as bugs
+rather than staying signed off. Treat **done**/**built** elsewhere in this
+file as what an agent believed at the time it wrote it, not as a
+user-confirmed fact, until `docs/VERIFICATION.md` shows it was actually
+checked off.
 
 ---
 
@@ -204,11 +210,11 @@ bar, one source of truth for bar height, buttons sit on the wallpaper.
 | **Clipboard history** | The shell owns it (ADR 073), with password exclusion (`I-08`). |
 | **Launcher** | A renderer only — ranking, providers and actions live in `phi query` (ADR 018). Modes are data (ADR 019). Rich-result card for calculator / converter / plot output. |
 | **Lock screen** | `ext-session-lock` protocol, native PAM, fail-closed. Terminal-style input, fade-in, blank cursor, selectable ambient backdrop (lava lamp / matrix rain / starfield). PAM result handling is the one security-critical path — kept simple and explicit. |
-| **Window overview** | Native, all windows, 3-finger up/down gesture. Unified with the Alt+Tab surface. |
-| **Screenshot / OCR / QR / recording** | Home-built screenshot + region select, colour picker, OCR, QR decode; `wf-recorder` for video. Scrolling capture is permanently excluded (ADR 075). |
-| **Alt+Tab overlay, tooltips, context menu, cheat sheet** | Cheat sheet is read-only from `hyprctl binds -j`. |
-| **Keybinding scheme** | Defined in `phios-dotfiles`' `hyprland.lua`; the cheat sheet and settings panel group binds by context. |
-| **Magnifier** | Circular glass loupe overlay (`phios-dotfiles` binds + `phi-shell` render). |
+| **Window overview** | Native, all windows, 3-finger up/down gesture (gesture entry confirmed working). Unified with the Alt+Tab surface. |
+| **Screenshot / OCR / QR / recording** | Home-built screenshot + region select, colour picker, OCR, QR decode; `wf-recorder` for video. Scrolling capture is permanently excluded (ADR 075). Area-selection offset is still wrong as the selected region's size changes — confirmed broken 2026-09-11, root cause not yet found, see `docs/TODO.md`. |
+| **Alt+Tab overlay, tooltips, context menu, cheat sheet** | Cheat sheet is read-only from `hyprctl binds -j`. Alt+Tab itself confirmed **broken** on hardware 2026-09-11 — doesn't close on Alt release, doesn't start on the right window, doesn't focus on select (click/touch/Enter/Space), doesn't change workspace; only the gesture entry point works. See `docs/TODO.md`. |
+| **Keybinding scheme** | Defined in `phios-dotfiles`' `hyprland.lua`; the cheat sheet and settings panel group binds by context. Several binds confirmed non-functional on hardware (Super+Shift/Ctrl+arrows, the h/j/k/l workspace alternatives, submap-based resize) — root cause not found by source reading alone, see `docs/TODO.md`. |
+| **Magnifier** | Circular glass loupe overlay (`phios-dotfiles` binds + `phi-shell` render). Confirmed broken on hardware — the lens no longer zooms, root cause not yet isolated between two candidates (see `docs/TODO.md`). |
 | **OSD** | Volume / brightness overlay, split. |
 | **Cursor spotlight** | Dedicated layer-shell vignette overlay following the cursor (no native Hyprland path exists — `Q-F07` resolved negative). |
 
@@ -274,7 +280,7 @@ Current published version: **`phi` 0.16.1** (firewall / sudoers fix). The
 
 ---
 
-## 7. AI agent — built, verification in progress
+## 7. AI agent — built, verification failed end-to-end 2026-09-11
 
 Two agents (ADRs 084–100): **A1** an assistant with system/app skills over
 an MCP server, **A2** a coding agent. Containment is `bubblewrap` from
@@ -293,8 +299,16 @@ engine↔client contract (opencode over loopback HTTP only, ADR 098/099).
   Sessions, Memory Proposals, plus a Personality editor and Project view.
   Summonable from the shell.
 - All seven agent milestone steps are written, committed and pushed.
-  Hardware verification on `razer` started 2026-09-09 and is **in
-  progress**; no part is signed off yet.
+  Hardware verification on `razer` started 2026-09-09; a 2026-09-11 pass
+  found the broker binds correctly and `phi-agent-broker@a1.service` /
+  `phi-agent-a1.service` both report active, but the shell's agent panel
+  still reports the containment failed to start ("nothing runs outside the
+  containment"), and `phi agent code .` (A2) fails with `socat` unable to
+  connect to `run/phi-agent/net/proxy.sock`. No part is signed off; the
+  feature does not currently work end-to-end and needs debugging, not just
+  more verification. Raw session transcript kept at `docs/ai-agent.output`.
+  Tracked in `docs/TODO.md`, which also asks for the agent panel UI to be
+  reworked once the underlying containment is fixed.
 
 ---
 
@@ -335,9 +349,7 @@ engine↔client contract (opencode over loopback HTTP only, ADR 098/099).
    this workspace and in `~/.local/share/phios/dotfiles`. On GitHub:
    change the default branch to `main`, push `main`, delete `origin/master`
    (commands in the handoff).
-2. **Push `dev`** for each repo once you've reviewed this restructure — it
-   is committed on local `dev` branches only.
-3. **`references/` is committed to the workspace** (screenshots + ASCII
+2. **`references/` is committed to the workspace** (screenshots + ASCII
    mark, ~1.7 MB). Move or drop it if you'd rather it not be in git.
 
 ---

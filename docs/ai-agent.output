@@ -1,0 +1,26 @@
+flavio@razer ~/.local/share/phios/dotfiles % phi agent broker --instance a1
+phi: agent broker: instance=a1  listen=127.0.0.1:8789  upstream=https://opencode.ai/zen  auth=authorization  rate-limit=60 / 60s  key=loaded (67 bytes)
+phi: agent broker: bind 127.0.0.1:8789: listen tcp 127.0.0.1:8789: bind: address already in use
+flavio@razer ~/.local/share/phios/dotfiles % ss -ltnp | grep 8789
+LISTEN 0      4096                    127.0.0.1:8789       0.0.0.0:*    users:(("phi",pid=11977,fd=3))
+flavio@razer ~/.local/share/phios/dotfiles % systemctl --user status phi-agent-broker@a1.service 
+● phi-agent-broker@a1.service - phiOS AI agent credential broker (a1)
+     Loaded: loaded (/home/flavio/.config/systemd/user/phi-agent-broker@.service; disabled; preset: en>
+     Active: active (running) since Fri 2026-09-11 16:55:40 CEST; 5h 13min ago
+ Invocation: 69fe18011aee4dcda0edbf01d4cf2e78
+       Docs: https://github.com/phiOS-git/phios-dotfiles
+    Process: 11970 ExecStartPre=/usr/bin/phi agent broker --instance a1 --check (code=exited, status=0>
+   Main PID: 11977 (phi)
+      Tasks: 7 (limit: 64)
+     Memory: 5M (max: 256M, available: 250.9M, peak: 5.6M)
+        CPU: 183ms
+     CGroup: /user.slice/user-1000.slice/user@1000.service/app.slice/app-phi\x2dagent\x2dbroker.slice/>
+             └─11977 /usr/bin/phi agent broker --instance a1
+
+Sep 11 16:55:40 razer systemd[1490]: Starting phiOS AI agent credential broker (a1)...
+Sep 11 16:55:40 razer phi[11970]: instance=a1  listen=127.0.0.1:8789  upstream=https://opencode.ai/zen>
+Sep 11 16:55:40 razer systemd[1490]: Started phiOS AI agent credential broker (a1).
+Sep 11 16:55:40 razer phi[11977]: phi: agent broker: instance=a1  listen=127.0.0.1:8789  upstream=http>
+flavio@razer ~/.local/share/phios/dotfiles % 
+flavio@razer ~ % phi agent ask "hello"
+phi: agent ask: A1 service not reachable at http://127.0.0.1:4199 (Get "http://127.0.0.1:4199/global/health": dial tcp 127.0.0.1:4199: connect: connection refused) — is phi-agent-a1.service running?
