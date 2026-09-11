@@ -7,6 +7,32 @@ once it is verified.
 
 ---
 
+## Notification bell now opens onto its own tab, stays lit only for that tab
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 5d75823 bar: sync notification bell's active/click state to its own tab
+- **Original TODO:** "The notification button in the status bar toggles the panel but does not set the tab to notifications. Also clipboard and notification panels should get the active state coherently to the active tab."
+
+### What was asked
+Clicking the bell icon in the status bar's right isle should open the sidebar on the Notifications tab specifically (not just toggle the panel open/closed wherever it happened to be), and the bell/clipboard icons should each only show their "active" (lit) state while their own tab is actually the one showing.
+
+### What was done
+`Bar/modules/Clipboard.qml` already did this correctly (`active: ... && tab === 1`, `onActivated: openClipboard()`), added in an earlier round. `Bar/modules/Notifications.qml` was the one left behind: it called the bare `Services.NotificationPanel.toggle()`, which only flips `shown` and never touches `tab` — so clicking the bell while the clipboard tab was in front left the panel open on clipboard instead of switching, and `active` checked only `shown`, so the bell stayed lit regardless of which tab was actually showing.
+
+Changed `onActivated` to call `Services.NotificationPanel.openNotifications()` (the same toggle-aware entry point the Super+N keybind already uses — closes the panel on a second press only if it's already open on the notifications tab, otherwise opens/switches to it) and changed `active` to `Services.NotificationPanel.shown && Services.NotificationPanel.tab === 0`, mirroring Clipboard.qml's own pattern. One file, `Bar/modules/Notifications.qml`.
+
+### Honest assessment
+Clean, small, symmetric fix — the two bar icons now use the identical pattern. Not verified on hardware (`phi-shell/CLAUDE.md`: "You cannot run this" — every visual result needs the user's own screenshot), but the change is a direct, mechanical fix to logic that was already proven correct in the sibling file, not new behavior.
+
+### How to test it
+1. On `razer` or `zotac`, with `phi-shell` running: click the clipboard icon in the status bar's right isle to open the sidebar on the Clipboard tab.
+2. Click the notification bell icon (next to it). Expected: the sidebar switches to the Notifications tab (does not close) and the bell icon lights up (isle background changes to its "active" tone) while the clipboard icon's own lit state turns off.
+3. Click the bell again. Expected: the panel closes now that a second press landed on the tab that was already showing.
+4. Open the panel via Super+N, then click the clipboard icon. Expected: switches to Clipboard tab, clipboard icon lights up, bell icon's lit state turns off — confirms the two icons stay mutually exclusive and coherent with `Services.NotificationPanel.tab` in both click and keybind entry points.
+
+---
+
 ## Clean up partial-completion notes left in docs/TODO.md, codify the rule
 
 - **Date:** 2026-09-12
