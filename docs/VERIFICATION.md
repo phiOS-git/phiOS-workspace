@@ -127,6 +127,50 @@ visible state that survives a close/reopen looks broken.
 
 ---
 
+## Make overlay button borders visible
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phios-dotfiles / master
+- **Commits:** 34e8d91 design: increase borderWidth from 1px to 2px for visible button borders
+- **Original TODO:** the overlay use the buttons with borders that are notte visible, so the text appears not aligned.
+
+### What was asked
+Buttons in the overlay panels ("the overlay") have borders that are barely
+visible, which makes the text inside them look misaligned. The borders
+should be perceivable.
+
+### What was done
+Changed `PHI_BORDER_WIDTH` in `phios-dotfiles/design/tokens.common.sh` from
+`1px` to `2px`. This is the token consumed by StyledButton, SmallButton
+(chrome states), Segment, TextField, Toggle and every other stroke-width
+consumer, so the fix is global and stays inside the token system. No QML
+or widget code changed.
+
+### Honest assessment
+This width token also affects non-overlay controls (toggles, text fields,
+the launcher, the lock screen). The user's complaint was specifically
+about the overlay buttons, but the token is intentionally global ("a
+universal UI constant"), so a whole-class change was the least invasive
+fix within the rules. If 2px feels too heavy elsewhere, the alternative
+is a button-specific border token — but that would overrule the
+deliberate universality documented at that token. The perceived
+misalignment itself is unchanged (text stays centred in the full
+control); a wider border is expected to make the outline read correctly.
+Cannot verify visually without a running compositor.
+
+### How to test it
+- Run `phi theme set dark` (or `phi theme set light`) to regenerate
+  `Config/Tokens.qml` from the updated tokens.
+- Open any overlay panel that has buttons (notification sidebar, a bar
+  popout like volume/brightness, the agent panel).
+- Buttons that previously had a 1px hairline (or none, for SmallButton at
+  rest) should now show a clearly visible 2px outline.
+- Check that text inside buttons still looks aligned to the border.
+- Also glance at non-overlay controls (toggles in Settings, launcher) for
+  any regressions from the wider stroke.
+
+---
+
 ## Reduce overlay panel gap from status bar
 
 - **Date:** 2026-09-11
