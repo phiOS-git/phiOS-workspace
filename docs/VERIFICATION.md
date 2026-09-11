@@ -7,6 +7,126 @@ once it is verified.
 
 ---
 
+## Full-content preview on clipboard hover / selection dwell
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 6637efe clipboard: show a full-content preview on hover or selection dwell
+- **Original TODO:** clipboard should show an overlay with the complete command and extra informations when the selection is held for a while (or on mouse hover after some time)
+
+### What was asked
+When an entry in the clipboard tab is "held" — dwelt on — a preview should
+appear showing the complete, untruncated content plus extra information
+beyond what the card itself shows (the card truncates to 2 lines and only
+shows a minute-resolution timestamp). The TODO names two ways to trigger
+it: holding the selection, or hovering the mouse for a while.
+
+### What was done
+Read "the selection is held" as the *keyboard* selection
+(`highlightedIndex`) sitting still for a while, not a mouse press-and-hold
+— this file's own header says the search field always holds focus and the
+list itself never does, so there's no separate per-row focus a press could
+"hold." A long-press gesture was considered and deliberately not built:
+Qt's `TapHandler` still fires `tapped()` on release even after
+`longPressed()` has already fired for the same press, so a long-press
+would also need to suppress the existing tap-to-copy-and-close afterward —
+exactly the kind of interaction-timing behaviour this environment cannot
+verify, and getting it wrong risks breaking the working copy action, not
+just the new feature.
+
+So there are two triggers, both driving the same dwell: the mouse
+hovering a card (a new `HoverHandler` per entry, added alongside the
+existing `TapHandler`s without conflict), or, when nothing is hovered, the
+keyboard-highlighted entry. Either one changing restarts a 700ms timer
+(`previewDelay` — an undocumented placeholder, the same way the shell's
+existing but unused `Tooltip.qml` component has its own placeholder
+`delay: 500`); once it fires, a panel fades in (using the same motion
+category — B, "state transition... high frequency" — already used for
+every other panel/drawer fade in this shell) showing:
+- the complete text, read from disk on demand (the in-memory entry list
+  only ever carried the first line — Services/Clipboard.qml's own header
+  says so), capped at 4000 characters with a "truncated" note past that,
+  since these are raw clipboard dumps and an unbounded paste landing in a
+  `Text` item is a hang, not a cosmetic overflow;
+- an actual image thumbnail for an image entry, not just "[image]";
+- an exact (seconds-resolution) timestamp, the mime type, and pinned
+  status.
+
+**Positioning is a deliberate deviation from "overlay near the item."**
+The natural reading of "overlay" is a small popup next to the hovered row,
+but each card lives inside a scrolling, clipped `Flickable`, and
+positioning something outside that clip at the *correct, scroll-aware*
+coordinate needs `mapToItem` math against a moving target this
+environment has no way to verify. Instead the preview is anchored to the
+tab's own bottom edge, covering the bottom portion of the list while
+shown — the same shape `Launcher.qml`'s already-shipped `richWrap` uses
+(a fixed anchor beside a fixed reference point, not a per-row floating
+tooltip), reused here for the same reason: it's the one form of "show
+detail alongside the list" this session has already gotten right.
+
+Also wired into the same-session clipboard reset fix: `reset()` (which
+clears stale search/selection state on reopen) now also clears the
+preview's own state, for the same reason that fix existed — a value with
+visible state that survives a close/reopen looks broken.
+
+### Honest assessment
+- **Not visually verified** — phi-shell's own rule applies here as it did
+  to every other change this session. Specifically unseen: whether the
+  overlay covering roughly the bottom half of the list (rather than
+  floating beside the hovered row) reads as intentional or as a mistake in
+  practice — if it reads wrong, the fix is to build the `mapToItem`
+  version this entry deliberately avoided, not a small tweak.
+- 700ms may feel like the wrong dwell length either way; it's a guess, not
+  a measured value, same as `Tooltip.qml`'s own placeholder.
+- Rapid arrow-key navigation through the list triggers a 120ms fade-out
+  per keypress (the dwell timer restarts before the fade-in threshold, so
+  the overlay never actually shows, but the *opacity Behavior* still fires
+  toward 0 on every change). Reasoned to be in-category (B is specifically
+  documented for "high frequency" events) rather than a violation of the
+  "category-C effect on a frequent event is a bug" rule, but not seen in
+  practice.
+- Two implementation bugs were caught and fixed during review, before this
+  was committed, not shipped and left for the user to find: a click-
+  swallowing `MouseArea` on the preview panel (mirroring a pattern used
+  elsewhere in this shell) would also have swallowed *hover*, causing the
+  overlay to flicker show/hide in a loop right under the cursor — removed
+  before commit. The image thumbnail's height was first computed as
+  `Math.min(implicitHeight, ...)`, which doesn't actually cap the
+  rendered size (`implicitHeight` is the source image's pixel height, not
+  the size it scales to) — fixed to a plain fixed height with
+  `PreserveAspectFit` doing the scaling.
+- An empty `FileView.path` (when nothing should be previewed) is assumed
+  to fail harmlessly via `onLoadFailed` rather than error loudly — not
+  confirmed against a real Quickshell runtime, though this is a low-risk,
+  low-consequence assumption if wrong (worst case: a benign warning).
+
+### How to test it
+1. Build `phi-shell` from this branch and reload Quickshell (`pkill -x qs;
+   qs -p ~/.config/quickshell/phi`), or save any `.qml` file to trigger
+   its hot reload.
+2. Open the panel onto the Clipboard tab (`Super+Shift+V`) with at least
+   one entry whose content is longer than what the card shows (more than
+   2 lines, or just a long line).
+3. Move the mouse over that card and hold it still for a bit under a
+   second — confirm a panel fades in from the bottom of the tab showing
+   the complete text (not truncated), an exact date/time with seconds, the
+   mime type, and pinned status if pinned.
+4. Move the mouse away — confirm the panel fades back out (falling back to
+   whichever entry is keyboard-highlighted, after another short dwell, if
+   that's a different entry).
+5. Without touching the mouse, use the arrow keys to move the keyboard
+   selection to a different entry and leave it there for a bit under a
+   second — confirm the same preview panel appears for that entry.
+6. Copy an image to the clipboard (a screenshot, or copy an image in a
+   browser) so an image entry appears — hover or select it and confirm the
+   preview shows an actual thumbnail image, not just the card's "[image]"
+   placeholder text.
+7. Close the panel and reopen it onto the Clipboard tab again — confirm no
+   preview is showing immediately; it should only reappear after hovering
+   or dwelling again, same as the first time.
+
+---
+
 ## Shrink the launcher to fit its results, top edge held fixed
 
 - **Date:** 2026-09-11
