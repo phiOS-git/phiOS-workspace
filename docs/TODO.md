@@ -9,8 +9,6 @@ loop*.
 
 - on razer the trackpad does not work after hibernation
 
-- ranking for the runner should be rearranged in a reasonable way. Currently it has latest features appearing first (like the calculator) but it does not make sense. Apps should be always first, non hidden files second, math when obvious, 
-
 - windows management keybinding (move, resize) do not work *to be checked first
 
 - the magnifier glass currently does not zoom in since the border where removed. It has to do with inconsistencies with the screen capture method. Needs to be solved. Reference this: https://github.com/Horizon0427/Glasscope 
@@ -55,7 +53,7 @@ loop*.
 
 - phi agent should run automatically as the panel is opened for the first time (or on startup). It should not waste resources when not used
 
-- runner bar should read phi commands without writing the phi prefix (eg. “theme set dark” is recognised as “phi theme set dark”)
+- [taken] runner bar should read phi commands without writing the phi prefix (eg. “theme set dark” is recognised as “phi theme set dark”)
 
 - clicking on the wifi icon should show the list of available wifi to connect. Same in the settings.
 
