@@ -9,8 +9,6 @@ loop*.
 
 - on razer the trackpad does not work after hibernation
 
-- [taken] the mouse cursor often disappear arbitrarily. Do not apply more logic, check where the cursor visibility is ever altered and and work from that
-
 - after hibernation, the screen automatically suspend after 1 minute which is not the normal behavior (it should take longer)
 
 - windows management keybinding (move, resize) do not work *to be checked first
@@ -102,6 +100,8 @@ loop*.
 - the hyprland scratchpad should slde in from below, have slighlty more out spacing than other workspace and have a accent-colored border all around the screen
 
 - the dim from the notification, chat panel and scratchpad should not overlay the status bar, while the dim from screenshot, overview (alt+tab) and warning/alert (eg. battery, to be introduced) should cover it. Have the 2 types of dim have different intensity as well (the one that overlays should be stronger)
+
+- rework status bar buttons: they should not have a box button but be ju
 
 ## Ideas (not to be implemented, have to be discussed)
 

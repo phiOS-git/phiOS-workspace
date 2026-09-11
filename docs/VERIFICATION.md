@@ -7,6 +7,35 @@ once it is verified.
 
 ---
 
+## Mouse cursor no longer disappears after touchscreen contact
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phios-dotfiles / dev
+- **Commits:** 968104b hyprland: stop hiding the cursor on touchscreen contact, 2e3ffa3 merge: stop hiding the cursor on touchscreen contact
+- **Original TODO:** "the mouse cursor often disappear arbitrarily. Do not apply more logic, check where the cursor visibility is ever altered and and work from that"
+
+### What was asked
+The mouse cursor sometimes vanishes with no obvious trigger, and I was specifically asked not to bolt on new workaround logic, but to find whichever existing mechanism is actually altering cursor visibility and fix that.
+
+### What was done
+Nothing in this project's code alters cursor visibility directly — there's no QML or shell logic anywhere that hides the system cursor (checked: grepped every repo for cursor-visibility-related identifiers, nothing turned up beyond theming/cursor-theme config). The mechanism is Hyprland's own, and this project simply never configures it, so Hyprland's *default* has been running untouched.
+
+Pulled Hyprland's actual default-value table for the `cursor` category (`hyprwm/hyprland-wiki`'s `content/configuring/core/config-options.md`, the same file the docs site renders from — not assumed from memory): `cursor:hide_on_touch` defaults to `true` — "Hides the cursor when the last input was a touch input until a mouse input is done." `razer` (your primary, daily-use machine) has a touchscreen (`phios-capabilities`' `PHI_CAP_TOUCHSCREEN`, and this same config file's own GESTURES section already notes "razer has both" a touchpad and touchscreen). Any contact with the screen — a deliberate touch gesture, or just brushing it while adjusting the lid — puts Hyprland into "last input was touch" state and hides the pointer until it sees a mouse-classified input again. That is about as "arbitrary-looking" as a real bug gets: there's no reason to associate "screen went dark for a second, cursor's gone" with "I touched the display."
+
+Fixed with one `hl.config({ cursor = { hide_on_touch = false } })` block in `hyprland.lua.tmpl`, right after the existing `input` config block (same file, same `hl.config` mechanism already used there for `follow_mouse`). This is a plain default override, not new logic layered on top — it turns off the exact switch causing the symptom. `zotac` has no touchscreen, so the setting is a no-op there, same reasoning already established for the touchscreen gesture binds elsewhere in the same file; `mini` never renders this template at all (headless, no graphical session).
+
+### Honest assessment
+I'm confident in the mechanism (verified against Hyprland's own documented default, not guessed), but I could not reproduce "cursor disappears" myself — no compositor to run (`phi-shell/CLAUDE.md`'s "you cannot run this" applies just as much to Hyprland itself in this environment) — so I can't rule out a second, unrelated trigger also contributing on your hardware. If the cursor still disappears after this lands, the next things I'd check are `cursor:hide_on_key_press` and `cursor:inactive_timeout` (both already default to off/0 — no reason to touch them pre-emptively, but worth confirming they're still at their defaults and nothing else set them since).
+
+### How to test it
+This needs `phios-install` to re-render the templated Hyprland config and reload it — either run `bin/phios-install` from `phios-dotfiles` on `razer` and then `hyprctl reload`, or however you normally pick up a `hyprland.lua.tmpl` change.
+1. Tap the touchscreen once (a single tap is enough to register as touch input).
+2. Without moving the trackpad/mouse, check whether the pointer is still visible on screen. Before this fix it would vanish; after, it should stay visible exactly as before the tap.
+3. Move the trackpad/mouse — the pointer should of course still track normally either way, so this step alone doesn't distinguish before/after; step 2 is the actual test.
+4. General regression check: touchscreen gestures (the three-finger workspace swipe) should behave exactly as before — this change only affects cursor visibility, not any touch input handling.
+
+---
+
 ## Steam workspace icon: fixed wrong glyph codepoint
 
 - **Date:** 2026-09-11
