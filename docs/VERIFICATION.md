@@ -7,6 +7,34 @@ once it is verified.
 
 ---
 
+## Steam moved to workspace 11, btop to workspace 12
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phios-dotfiles / dev, phi-shell / dev
+- **Commits:** phios-dotfiles: 7c47272 hyprland: move Steam to workspace 11, btop to workspace 12, 387f781 merge: move Steam to workspace 11, btop to workspace 12 — phi-shell: ddb2593 bar: renumber Steam/btop workspace icons to 11/12, cbea7c2 merge: renumber Steam/btop workspace icons to 11/12
+- **Original TODO:** "make steam workspace 11 and btop workspace 12"
+
+### What was asked
+Move the pinned Steam and btop workspaces from their current numbers (9 and 10) to 11 and 12.
+
+### What was done
+Renumbered both in `phios-dotfiles`' `hyprland.lua.tmpl`: the btop `workspace_rule` (`persistent`) and both apps' `window_rule`s (`^phios-btop$` → workspace, `^steam$` → workspace) now target `"12"`/`"12 silent"`/`"11"` instead of `"10"`/`"10 silent"`/`"9"`, plus every surrounding comment that named the old numbers (the AUTOSTART section's btop note, the scratchpad bind's note, and the WINDOWS AND WORKSPACES block itself). Companion change in `phi-shell`: `Bar/workspace-icons.json` (the id → glyph data file, ADR 078 — this is genuinely the whole client-side change needed, the rendering code is data-driven) now maps ids 11/12 instead of 9/10, plus the explanatory comment in `Bar/modules/Workspaces.qml`.
+
+Checked for every other reference to the old numbers across both repos (`grep` for "workspace 9", "workspace 10", `= "9"`, `= "10"`, the JSON ids) before calling it done — found and fixed all of them; nothing else in either repo hardcodes these two workspace numbers.
+
+### Honest assessment
+- **Real, not-hidden trade-off**: workspaces 1-10 have a dedicated physical key under the existing `Super+1..0` loop (`for i = 1, 10`); 11 and 12 do not, and the loop wasn't extended to cover them (nothing in the TODO asked for that, and this project's convention keeps "type is code, instance is data" — extending the loop's range is a design decision I didn't make speculatively). Reaching Steam/btop by keyboard now means the bar icon click, or the three-finger workspace-swipe gesture cycling around to them — not a dedicated bind. The upside, and very likely the actual point of this request: Super+9 and Super+0 go back to being ordinary, unclaimed workspace switches instead of always landing on Steam/btop.
+- Untested against a real compositor — `phi-shell/CLAUDE.md`: "You cannot run this." This is a low-risk, mechanical renumbering (every changed value is a plain string/number, not new logic), so I'm confident in it, but a screenshot check is still the real verification.
+
+### How to test it
+This needs `phios-install` to re-render the templated Hyprland config and reload it — either run `bin/phios-install` from `phios-dotfiles` and then `hyprctl reload`, or however you normally pick up a `hyprland.lua.tmpl` change. `phi theme render`/a `qs` hot-reload should pick up the `workspace-icons.json` change automatically since Quickshell watches its own files.
+1. Open btop (or let it autostart with the session) and check it lands on workspace 12, not 10 — the bar's workspace strip should show a monitor-glyph icon at that position.
+2. Open Steam and check it lands on workspace 11, not 9 — the bar should show a Steam-glyph icon there.
+3. Press Super+9 and Super+0 — they should now switch to plain, ordinary (possibly empty/newly-created) workspaces, not jump to Steam or btop.
+4. Click the Steam/monitor icons in the bar's workspace strip — each should switch to its respective workspace (11/12) exactly as clicking any workspace icon always has.
+
+---
+
 ## Clipboard preview: floats beside the sidebar, aligned to the entry
 
 - **Date:** 2026-09-11
