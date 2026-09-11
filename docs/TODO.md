@@ -9,6 +9,8 @@ loop*.
 
 - on razer the trackpad does not work after hibernation
 
+- the mouse cursor often disappear arbitrarily. Do not apply more logic, check where the cursor visibility is ever altered and and work from that
+
 - after hibernation, the screen automatically suspend after 1 minute which is not the normal behavior (it should take longer)
 
 - windows management keybinding (move, resize) do not work *to be checked first
@@ -44,6 +46,8 @@ loop*.
 - add borders to the whole view when in the scratchpad or make it recognisable
 
 ## Features
+
+- add a setting to invert the scroll wheel (mouse/trackpad)
 
 - "theme auto" which changes automatically on evening time (automatic/manual time). Consider "phi theme set" restarts the qs and that cannot happen automatically, the change should be smooth and non destructive.
 
