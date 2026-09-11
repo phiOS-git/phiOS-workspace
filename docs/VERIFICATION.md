@@ -7,6 +7,71 @@ once it is verified.
 
 ---
 
+## Autostart Hyprland on TTY1 login
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phios-dotfiles / dev
+- **Commits:** 175e947 zsh: exec start-hyprland on tty1 login in the desktop profile
+- **Original TODO:** start-hyprland should be automated on startup
+
+### What was asked
+Stop having to type `start-hyprland` by hand after every login.
+
+### What was done
+A new `profiles/desktop/home/.config/zsh/.zprofile` (desktop profile only —
+`zotac` and `razer`; `mini` never receives it). As a login shell it execs
+the Hyprland wrapper when it is the console login on TTY1 and no Wayland
+session is already running:
+
+```
+[[ $(tty) == /dev/tty1 && -z ${WAYLAND_DISPLAY:-} ]] && exec start-hyprland
+```
+
+- **Why here:** phiOS has no display manager (Sec662 — agetty on a VT is
+  the login screen), the zsh login chain reads `.zshenv` → `.zprofile` →
+  `.zshrc`, and `ZDOTDIR=~/.config/zsh` is set in `.zshenv`
+  (`profiles/base/home/.zshenv:1`). The `.zshenv` comment already named
+  Hyprland as what the login shell inherits `PHI_DOTFILES` for.
+- **Why `start-hyprland` and not the bare binary:** it is the hyprland
+  package's own wrapper — imports the shell environment and starts the
+  systemd-integrated session (portals), which is exactly what the install
+  procedures already tell the user to run in step 13.
+- **Why TTY1-gated:** a login on TTY2 (recovery, console work) stays a
+  plain shell; an SSH login runs no TTY so is unaffected; `exec` means
+  quitting the session drops you back to getty, so the compositor restarts
+  cleanly on the next login.
+- **Scoped deliberately:** this starts Hyprland only. `hyprland.lua`'s
+  start hook already brings up phi-shell, hyprsunset and btop, and
+  pipewire/wireplumber are persistent user units. No systemctl anywhere.
+
+### Honest assessment
+- The user still types their password on the TTY. Automating past the
+  credential prompt would be a getty autologin drop-in (the architecture's
+  §662 option A end-state, `profiles/…/system/` material applied by hand)
+  — I treated that as out of scope since "on startup" was read as "once
+  I'm logged in"; say the word if you want the full autologin instead.
+- It is not applied until the next `phios-install` run, and the first
+  compatibility check is real only on the next reboot — which I cannot do
+  (machines are off-limits).
+- If you ever need a plain shell on TTY1, log in on TTY2 (or press
+  Ctrl+Alt+F2 from inside a session).
+
+### How to test it
+- Apply the new symlink: run `bin/phios-install --dry-run` and check it
+  lists the `.zprofile` link, then run `bin/phios-install` (or just logout
+  and re-login on TTY1 — `.zprofile` is read from the live `~`).
+- Reboot (or logout and log back in on TTY1): instead of dropping to a
+  prompt, the desktop should come up on its own. Before this change you
+  had to type `start-hyprland` by hand.
+- Inside the session, pressing the logout key (or `exit`ing the
+  compositor) should return you to the getty login on TTY1.
+- Sanity: log in on TTY2 (Ctrl+Alt+F2) — you should get a normal zsh
+  prompt, no Hyprland.
+- `mini` is unaffected: nothing was added to `base`, and a server host
+  composes only `base` (+ `server`) profiles.
+
+---
+
 ## Scratchpad toggle icon in the workspace strip
 
 - **Date:** 2026-09-11
