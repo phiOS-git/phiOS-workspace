@@ -21,9 +21,9 @@ loop*.
 
 - add specific settings for the “ambient effect”. Add more “screensaver” type of “ambient effect” (always only played in the lock screen). Also add a live preview of the effect when one is selected
 
-- holding volume up should reach top 100%. To increase over 100% it requires a double click + hold.
+- holding the volume up key (fn+f3 on the razer) should reach a top of 100%. To increase over 100% it requires a double click + hold.
 
-- add an icon icon in the list of desktop to toggle the hyprland scratchpad
+- [taken] add an icon icon in the list of desktop to toggle the hyprland scratchpad
 
 - add borders to the whole view when in the scratchpad or make it recognisable
 
