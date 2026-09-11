@@ -113,7 +113,7 @@ loop*.
 
 - terminal panels should have larger padding. reference to references/panel-reference-1.JPG and references/panel-reference-2.JPG
 
-- in yazi config replace the Development icon with one that is not VSC and the "Games" folder with a non default one. Also apply a different color for folders and subdirectories that are not part of $HOME. Finally reconsider the coloring to match the system palette: it shouldn't use accent for common elements like the selection highlight, as accent is for the details, and it uses a blue (it might be the info color) which makes no sense, it uses green for folders like Documents/Videos/Pictures/Downloads/Development, etc.
+- [taken] in yazi config replace the Development icon with one that is not VSC and the "Games" folder with a non default one. Also apply a different color for folders and subdirectories that are not part of $HOME. Finally reconsider the coloring to match the system palette: it shouldn't use accent for common elements like the selection highlight, as accent is for the details, and it uses a blue (it might be the info color) which makes no sense, it uses green for folders like Documents/Videos/Pictures/Downloads/Development, etc.
 
 ## Ideas (not to be implemented, have to be discussed)
 
