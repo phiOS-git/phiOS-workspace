@@ -7,6 +7,38 @@ once it is verified.
 
 ---
 
+## Give the scratchpad an accent-coloured border
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phios-dotfiles / dev
+- **Commits:** c8ce034 hyprland: give the scratchpad an accent-coloured border, 464bb3f merge: give the scratchpad an accent-coloured border
+- **Original TODO:** "add borders to the whole view when in the scratchpad or make it recognisable"
+
+### What was asked
+The general-purpose scratchpad (Super+A, `special:scratch`) looks identical to a normal workspace — nothing marks it as the scratchpad overlay rather than just another window. Add a border, or otherwise make it visually distinct.
+
+### What was done
+Pure Hyprland config, no phi-shell involvement — checked project memory first (`project_scratchpad_vs_special_workspaces_module`), which already established that Quickshell 0.3.1 (this project's pinned version) cannot read Hyprland's "special" workspace state at all, verified against Quickshell's own C++ IPC source, so a phi-shell-side indicator was ruled out ahead of time rather than attempted and found broken.
+
+Added one `hl.window_rule` in `profiles/desktop/templates/.config/hypr/hyprland.lua.tmpl`, matching `workspace = "special:scratch"` (confirmed against Hyprland's own `desktop/rule/Rule.cpp` and `workspace/filter/statement/SpecialAddressableNameStatement.cpp` to be an exact match on the workspace's addressable name — exactly what `hl.dsp.workspace.toggle_special("scratch")`, already bound to Super+A, creates), setting `border_size = 3` (vs. Hyprland's own default of 1, confirmed from its `config/values/ConfigValues.cpp`) and `border_color = "${PHI_ACCENT} ${PHI_ACCENT}"` (the project's accent design token, `design/tokens.*.sh`).
+
+The double-token colour value is deliberate, not a typo: traced how the Lua `border_color` binding actually resolves (`config/lua/bindings/LuaBindingsInternal.cpp` → `desktop/rule/windowRule/WindowRule.cpp`) and found a *single* colour string only ever sets the ACTIVE border — the moment the scratchpad's window loses focus, the border would revert to the normal default, defeating the point. Two identical colour tokens hit Hyprland's own documented `bordercolor <active> <inactive>` two-colour form instead, which the Lua wrapper reaches through an explicit legacy-string fallback when a plain single-colour parse fails (traced and confirmed, not assumed) — so the accent border stays regardless of focus.
+
+### Honest assessment
+- **Untested against a real compositor** — `phi-shell/CLAUDE.md`'s "you cannot run this" applies here too (no compositor access from an agent session). Everything above is verified by reading Hyprland's actual upstream source for this exact code path, not guessed at, but the visual result has not been seen.
+- **Scope is deliberately narrower than it could be.** There's a separate, still-open Style-section TODO entry ("the hyprland scratchpad should slide in from below, have slightly more out spacing than other workspace and have a accent-colored border all around the screen") that asks for the same border plus a slide-in animation and wider gaps. This fix satisfies that entry's border request as a side effect, but does NOT touch spacing (`gaps_out`) or add any animation — those remain genuinely unimplemented. Did not edit or remove that Style entry since I didn't claim it and didn't do the rest of what it asks; flagging the overlap here so whoever picks it up next knows the border half is already done.
+- The scratchpad can in principle hold more than one window — every window on `special:scratch` gets the accent border, which is the intent, but worth knowing if several windows are stashed there and shown together (rather than one showing up unexpectedly bordered).
+- "The whole view" (a border around the full screen, rather than per-window) isn't something Hyprland's workspace/window rules can express — borders are always a per-window property in this compositor. This implements the closest real equivalent: every window on the scratchpad gets a thicker, accent-coloured border.
+
+### How to test it
+1. On razer (or zotac), pull the updated `phios-dotfiles` `dev` branch and re-run the install (`bin/phios-install`) so the template re-renders.
+2. Reload the Hyprland config (or log out/in).
+3. Press `Super+A` to open a window on the scratchpad (or `Super+Shift+A` on an existing window to send it there, then `Super+A` to show it).
+4. The window's border should be visibly thicker than normal windows and coloured with the accent colour (`#d3a0ac` in the dark palette, `#8e5f6b` in light) — check both while the window is focused and, if possible, while focus has moved to a window on the underlying normal workspace with the scratchpad still shown, to confirm the border doesn't disappear on focus loss.
+5. Press `Super+A` again to hide the scratchpad, confirm normal workspaces are unaffected (no accent borders anywhere else).
+
+---
+
 ## Add working h/j/k/l alternatives for the broken super+shift/ctrl+arrow binds
 
 - **Date:** 2026-09-11
