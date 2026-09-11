@@ -75,7 +75,23 @@ loop*.
 
 - sensible settings (eg. deleting the VPN config) should ask confirmation with a blocking alert (same fullscreen blocking alert/warning used by other systems)
 
+- SUPER+M to close hyprland is problematic: add a confirmation and an extra more complex binding for terminating without confirmation.
+
+- when pressing SUPER+L instead of locking immediatly, evoke an overlay menu with options (lock, suspend, hibernate, shutdown, reboot). Use a smart UI/UX grammar and hierarchy, add icons with hover animations. SUPER+L+L (double click) will instantly lock (same behavior as now).
+
 - have a battery saving mode, it automatically kicks in when not in charge and lower then 20% battery (or notifies the user to  do so), configurable. automatically disabled when plugged in and over the threshold. It must have visual feedback on the battery in the status bar and settings. The battery overlay must have the switch.
+
+- there should always be at least 1 workspace (other then the special ones), also there should always be at lest an empty workspace (so if i ope)
+
+- opening a panel on a special workspase (11, 12) should automatiically open it in the highest possible panel up to 10
+
+- if btop is closed in its workspace, the button just brakes. the btop button in the status bar should simply set the workspace 12 and open btop if it's not open
+
+- there is an icon "f" in the status bar (after btop) that does nothing, define what it is, if it's the scratchpad it does not work (make the icon something obvious)
+
+- calendar overlay persists when openeing other overlays, it's the only one doing that and it should be exactly the same as the others
+
+- 
 
 ## Custom apps and services
 

@@ -7,6 +7,72 @@ once it is verified.
 
 ---
 
+## Status bar polish pass — feedback from real hardware testing
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 4eae338 bar: restore the battery popout click / 4eae338+merge, acdfc39 bar: fix invalid single-line Connections syntax in Volume.qml / merge, a2c7d3c bar: polish pass — no inter-button gap, bluetooth icon-only, bigger moon / merge, 7d2d5c4 bar: label-before-icon on isle buttons, pixel-snapped centering, workspace pop / merge, 33e3099 bar: replace isle hover box with a left-to-right highlight sweep / merge, 8b4dbd8 calendar: animate the overlay clock like a flip clock / merge, 5981e62 calendar: avoid a binding-loop shape in FlipDigit's cell sizing / merge
+- **Original TODO:** none — direct chat feedback after pulling the "rework status bar buttons" entry onto real hardware for the first time, not a backlog entry of its own.
+
+### What was asked
+Eight items from one message, after the user actually ran the previous rework on hardware:
+1. The moon icon (SunMoonIcon) is too thin and small.
+2. Invert icon/label order on bar buttons — text before icon.
+3. Hide the bluetooth device name, icon only.
+4. The calendar overlay's clock (opened by clicking the bar clock) should animate like a flip clock.
+5. Add animation to the workspace/steam/btop buttons too, and their numbers don't look centered.
+6. The battery popout stopped working.
+7. Remove the gap between bar buttons, keep each button's own padding.
+8. Redesign the hover effect: a left-to-right highlight sweep with inverted text colour, instead of the current background/border fade.
+
+Two items needed the user's own input before implementing: what "animation" meant for workspace buttons (a switch-transition pop, confirmed), and which direction the reported 1px centering offset was in (confirmed: ~1px low-right). A later question about whether hover should stay visually identical to the active/selected state, or be weaker so the two stay distinguishable, was answered: keep the active/selected look exactly as it already is (unchanged either way — this pass never touched `active`'s own rendering).
+
+### What was done
+**Regression found and fixed first, standalone (item 6):** `Bar/modules/Battery.qml`'s `onActivated: Services.BarPopout.toggle(...)` was silently dropped during the original rework's rewrite of that file, replaced with a comment asserting the omission was deliberate ("no mature tool named for battery specifically"). That comment was wrong — `Panels/BarPopout.qml` already has a full battery section (charge %, time-to-empty), confirmed by diffing against the pre-rewrite commit directly. Restored the click handler, deleted the false comment. Shipped alone, ahead of everything else, since the user was actively testing.
+
+**Also found and fixed standalone, before this feedback arrived:** `Bar/modules/Volume.qml` had two `function onXChanged() {...}` signal handlers on one line separated by `;` inside a `Connections` block — not valid QML object-member syntax. Confirmed at runtime from the user's own Quickshell error log ("Unexpected token ';'"), which cascaded into the whole Bar failing to load. Split onto separate lines.
+
+**Item 7** — `Bar/Bar.qml`: dropped `spacing: bar.islandGap` from the left/right isle Rows (`BarIsle`'s own Row spacing already defaults to 0). `islandGap` itself stays defined, still used for the isle-to-isle gap. Each button's own internal padding (`paddingH`/`paddingV`, `Widgets/Segment.qml`) is unrelated and untouched.
+
+**Item 3** — `Bar/modules/Bluetooth.qml`: removed the `label` binding entirely (device name / "on" / "off"). The icon's existing `poweredAmount`/`connectedAmount` animation is now the only on-bar signal; the device name is still in the popout.
+
+**Item 1** — `Widgets/SunMoonIcon.qml`: disc radius 0.28→0.34·box, ray stroke width 0.06→0.08·box. Re-derived the shadow-clearance inequality documented in the file's own header for the new proportions rather than assuming the old constants still held — they do, with more margin than before, so `_shadowOffsetX`'s formula itself didn't need to change.
+
+**Item 2** — `Widgets/Segment.qml`: a new `labelFirst` flag, true only for `ambient: "isle"` (the status bar) — every other Segment consumer (a settings row, a sidebar tab) is unaffected. Icon and label anchor to each other in whichever order applies; verified no circular anchor dependency either way, since only one of the pair ever depends on the other in a given branch.
+
+**Item 5, centering half** — same file: `layout`'s `anchors.centerIn: parent` replaced with explicit `Math.round((parent - child) / 2)` x/y. `centerIn`'s own division is fractional whenever the parent/child size difference is odd; rounding pins it to a whole pixel. Applies to every Segment, not just workspaces. This is an evidence-based fix for a real, general mechanism (I could reproduce the ROUNDING GAP by reading the arithmetic) but I could not reproduce the specific "1px low-right" report myself (no compositor) — see Honest assessment.
+
+**Item 5, animation half** — `Bar/modules/Workspaces.qml`: clarified via question to mean a switch transition. Each workspace Segment now plays a brief scale pop when it becomes the active workspace, keyed off the discrete `active` bool directly (not a Behavior-animated float, so it can't hit the restart-storm bug two of the rework's original pop animations had — see below).
+
+**Item 8** — `Widgets/WidgetStates.js` + `Widgets/Segment.qml`: isle `hover` now returns transparent bg/border (the existing base Rectangle goes invisible during hover) and a new second Rectangle carries a left-to-right sweep instead — anchored left, width animated 0→full via a `resolvedState`-driven `hoverAmount` Behavior, filled with `colorOpposite` (the same ink colour `active` already uses for its own inversion, not a new colour). `fg` for isle-hover becomes `colorMain`, matching `active`'s own fg — "black on light, white on dark" is that existing inversion pair, not a new one. `hoverAmount` is driven off `resolvedState` rather than the raw `hovered` flag, so a button that's both keyboard-focused and mouse-hovered shows its focus ring, matching the same precedence `stateColors` already respects elsewhere. Confirmed with the user afterward that this making hover look identical to active (in strength, never simultaneously on the same button) is acceptable.
+
+**Item 4** — new `Widgets/FlipDigit.qml`, wired into `Panels/Calendar.qml`'s "HH:mm:ss" display (a separate surface from the still-open docs/TODO.md entry about the bar's own small clock text). Each of six digit cells squashes to near-zero vertical scale, swaps its displayed character at the fully-squashed midpoint, then unsquashes — a classic split-flap illusion via a plain `Scale` transform, not a true 3D perspective rotation. Each cell flips independently, only when the character it shows actually changes (seconds every tick, minutes once a minute, hours rarer still), not the whole string re-flipping every second.
+
+**Two bugs caught during a self-review + advisor pass on this batch, fixed before landing:**
+1. `FlipDigit`'s inner `cell` originally used `anchors.fill: parent`, where `parent` (the widget's own root Item) derives its own implicit size from `label`, which lives inside `cell` — a real binding-loop shape. Changed to explicit `width`/`height` bound directly to the root's implicit size, matching how every other icon widget this session sizes its own wrapper.
+2. Considered whether `Segment.qml`'s new explicit `Math.round(...)` x/y binding on `layout` (replacing `anchors.centerIn`) could evaluate before `root`'s own implicit size settles on first layout, given `root.implicitHeight` itself depends on `layout.implicitHeight`. Traced through it: `anchors.centerIn` computes the identical dependency shape internally (`(parent.width - width)/2`), and no such symptom was ever reported against the ORIGINAL code — this gives good reason to believe the change carries no new structural risk, but it's still flagged below for the screenshot pass since it could not be proven safe without a compositor.
+
+### Honest assessment
+- **Untested against a real compositor** — `phi-shell/CLAUDE.md`: "You cannot run this," same as every prior entry. Every visual claim above needs a real screenshot/video pass, more so than usual since two of these fixes (battery popout, Volume.qml syntax) exist specifically because the PREVIOUS pass's untested code had real bugs on real hardware.
+- **Hover now looks identical in strength to the active/selected state** (full inversion, both). A hovered-but-inactive button and the genuinely active button elsewhere in the bar will look the same while the mouse sits on the former. Raised directly with the user; they confirmed this is fine as long as `active`'s own look stays exactly as it already was (it does — untouched by this pass).
+- **Canvas-drawn icons (Volume/Battery/Wifi/Bluetooth/GPU/SunMoon) snap colour on hover instead of fading.** The sweep background and the label text both animate smoothly; a custom icon's `iconColor` is fed by a binding at the call site, not an imperative assignment, so it has no `Behavior` to intercept the change — the same binding-vs-Behavior gap this session hit and documented repeatedly elsewhere. Accepted rather than rewriting nine call sites for a hover micro-interaction, since the ask was for a quick transition and the dominant visual (sweep + label) still animates.
+- **Bluetooth's icon/label order swap has nothing to swap** — it's icon-only now (item 3), so `labelFirst` never visibly applies there. The order change is only visible on brightness, volume, battery, gpu, wifi and network, which all still show icon+label together.
+- **The centering fix addresses the general rounding mechanism, not a confirmed root cause of the specific "1px low-right" report** — I could not reproduce that exact symptom without a compositor; the fix is real and defensible on its own terms (odd-difference division IS fractional), but if the actual cause was something else, this may not fully resolve it.
+- **Reopening the calendar overlay after it's been closed for a while will flip every stale digit at once** — the clock Timer only ticks while the panel is shown, so on reopen it jumps straight to the current time and every digit that changed while hidden flips together. This reads as a deliberate "catching up" flourish, not obviously a bug, but flagging it explicitly so it isn't mistaken for one.
+
+### How to test it
+1. On razer or zotac, pull the updated `phi-shell` `dev` branch (Quickshell hot-reloads `.qml` on save; `pkill -x qs; qs -p ~/.config/quickshell/phi` for a clean restart).
+2. Click the battery icon — the charge%/time-left popout should open again (this was completely broken before this pass).
+3. Look at the status bar: buttons within an isle should now sit edge-to-edge with no gap between them, though each one's own internal padding should still look normal (not cramped).
+4. Look at the bluetooth icon — no text next to it any more, icon only.
+5. Look at the brightness/volume/battery/gpu/wifi/network buttons — the percentage/label text should now sit to the LEFT of the icon, not the right.
+6. Look closely at the brightness icon's moon state (toggle night mode) — the disc and rays should read as noticeably bigger/bolder than before, not a thin sliver.
+7. Hover over any bar button (that isn't currently active) — instead of a box fading in around it, a solid highlight should sweep in from the left edge to the right, with the icon/label text flipping to the inverted colour (dark text on a light sweep, or light text on a dark sweep, matching your theme) in the same timeframe. Un-hover — the sweep should recede back toward the left.
+8. Look at the workspace number buttons in the left isle — switch between workspaces (Super+number, or click one) and confirm the newly-active button plays a brief pop/bounce. Also look closely at whether the digit inside each square button reads as centered now (previously reported as ~1px toward the bottom-right).
+9. Click the bar clock to open the calendar overlay — watch the large "HH:mm:ss" display for a few seconds: the seconds digits should visibly flip (squash-and-swap) each time they change, not just instantly update. Close the overlay, wait a bit, reopen it — expect a small burst of digits flipping at once as it catches up (see Honest assessment).
+
+---
+
 ## Rework status bar buttons — bare icons, opaque isles, animated icon family
 
 - **Date:** 2026-09-11
