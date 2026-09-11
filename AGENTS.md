@@ -50,19 +50,49 @@ remote named `origin` (`github.com/phiOS-git/<name>`).
 
 `docs/TODO.md` is the user's backlog — they add to it freely; entries are
 grouped bullets. `docs/VERIFICATION.md` is where finished work is handed
-back for the user to check and sign off.
+back for the user to check and sign off. This backlog is worked by more
+than one agent session at a time, plus the user directly — assume the
+remote has moved since your last fetch at every step below, and that
+fetch/push races and routine `docs/TODO.md` / `docs/VERIFICATION.md` merge
+conflicts are normal, not a sign something is wrong.
 
-If the work you are about to do matches a `docs/TODO.md` entry:
+**This loop applies whenever you are asked to work the TODO list, and also
+whenever you are asked to do a task *without* a TODO reference.** In the
+latter case, check `docs/TODO.md` for a matching entry before starting.
+If one exists, treat it as taken from the list — claim it (step 1) and
+follow the rest of this loop for it, rather than doing it as a one-off with
+no claim, no `[taken]` marker and no `docs/VERIFICATION.md` entry.
 
-1. **Claim it.** Prefix the bullet with `[taken]` so a parallel agent does
-   not pick it up — `- [taken] alt+tab does not work: …`. Claim only what
-   you are actually working on now.
-2. **Do the work** in the relevant submodule, on a local branch off `dev`,
-   under the rules below.
-3. **When it is committed, move it.** Delete the entry from `docs/TODO.md`
-   and add a section to `docs/VERIFICATION.md` (newest first) using the
-   template below. Do this in the same superproject commit that records the
-   new submodule pointer.
+1. **Fetch, claim, push — before writing any code.** `git fetch` the
+   superproject and confirm the entry is not already `[taken]`. Prefix the
+   bullet with `[taken]` — `- [taken] alt+tab does not work: …` — commit,
+   and **push the superproject's `dev` immediately**, before starting
+   implementation. This push is the only thing that makes the claim visible
+   to a parallel session. If it's rejected (remote moved), fetch, merge,
+   re-check the entry is still unclaimed, and push again. Claim only what
+   you are actually about to work on now.
+2. **Do the work** in the relevant submodule, on a **local branch off its
+   `dev`** (rule 1 below: never on `main`/`master`, and that local branch
+   never itself goes on a remote). A task touching more than one submodule
+   repeats this per submodule.
+3. **Land it, once committed, in this order:**
+   a. In the submodule: fast-forward local `dev` to `origin/dev`, merge the
+      local topic branch into it, delete the topic branch.
+   b. In the superproject: delete the entry from `docs/TODO.md`, add a
+      section to `docs/VERIFICATION.md` (newest first) using the template
+      below, and record the new submodule pointer — one commit.
+   c. `git fetch` again, then **push `dev` in every repository actually
+      touched — each submodule first, then the superproject.** The
+      superproject commit only records a pointer; it does not upload the
+      submodule's own commits, so a submodule push you skip leaves that
+      work invisible to the user on GitHub even though the superproject
+      looks finished.
+   d. Any push rejected: fetch and merge (never rebase — this history may
+      already be shared elsewhere), then push again. A `docs/TODO.md` /
+      `docs/VERIFICATION.md` conflict resolves by keeping both sides'
+      changes (each stays a "newest first" section). A submodule-pointer
+      (gitlink) conflict resolves by keeping whichever SHA is the
+      descendant (`git merge-base --is-ancestor <a> <b>`).
 4. **Leave it for the user.** They delete the `docs/VERIFICATION.md` entry
    once they have verified it. Never edit or delete an entry you did not
    write.
