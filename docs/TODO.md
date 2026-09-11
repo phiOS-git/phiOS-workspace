@@ -75,7 +75,7 @@ loop*.
 
 - tailscale/vpn overlay should align its content better. Connectivity as well (especially the buttons)
 
-- the overlay use the buttons with borders that are notte visible, so the text appears not aligned.
+- [taken] the overlay use the buttons with borders that are notte visible, so the text appears not aligned.
 
 
 
