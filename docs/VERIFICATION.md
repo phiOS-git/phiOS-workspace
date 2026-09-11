@@ -7,6 +7,40 @@ once it is verified.
 
 ---
 
+## Screenshot: area captures were always tinted pink
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** f163d93 screenshot: hide our own UI before invoking grim, not after
+- **Original TODO:** none — reported directly in conversation, not from docs/TODO.md ("the screenshot area works correctly, however area screenshots are always pink, as they screenshot the area selection which is pink")
+
+### What was asked
+You reported the area-selection geometry itself is correct now (the earlier offset bug is fixed), but every area screenshot comes out tinted — because it's capturing the pink drag-select rectangle itself, not just the screen content underneath it. You also asked for a broader cleanup pass on the screenshot feature, since a bug like this is the kind that "should never happen."
+
+### What was done
+Root cause, in `Screenshot/Screenshot.qml`: `_captureGeometry` spawned `grim` **synchronously, before `root.mode` was even set back to `"idle"`** in the same `onReleased` handler. The drag-select rectangle (`Config.Appearance.accent` at 0.25 opacity — accent happens to be pink in the current theme, hence "always pink") was still fully composited on screen at the exact moment `grim` ran. This wasn't a rare race — it was a flatly wrong order, capture-then-hide instead of hide-then-capture, so it fired on literally every area capture.
+
+Fixed with a new `_prepareCapture(fn)` that every capture path now funnels through (area/OCR/QR select, fullscreen, and the hyprctl-driven window capture): it hides this surface's own UI first — `mode` back to `"idle"`, `selectionRect` cleared, **and `resultText` cleared too**, since a leftover, undismissed OCR/QR result panel from a *previous* capture is just as much "our own UI" and would leak into a new capture the exact same way — then waits one Category-B state-transition duration (`Config.Appearance.motionBDuration`, a real design token — not a hardcoded literal, which `phi-shell/CLAUDE.md`'s audit rule forbids) before actually invoking `grim`. That wait matters: writing the hide-triggering properties is necessary but not sufficient, since Qt Quick still has to render a frame without them and the compositor still has to composite and present it, and neither happens synchronously with the property write.
+
+`_captureFullscreen`/`_captureGeometry` are now thin wrappers; the actual `grim` invocation moved to `_doCaptureFullscreen`/`_doCaptureGeometry`. Every existing call site gets the fix automatically, without needing to remember the hide-first sequencing itself — the point being that a future capture path added to this file can't reintroduce the same bug class by simply forgetting a step.
+
+**Deliberately untouched:** the `grim -g` geometry math in `onReleased`. That's your own hardware-verified fix (`df4298d`) for the separate, already-resolved offset bug — this change touches none of it, only the ordering of hide vs. capture.
+
+### Honest assessment
+- **The settle delay (`motionBDuration`, 120ms) is a reasoned default, not hardware-verified.** It's the right *category* of token (§6.5: "state transition... high frequency... short") and a real render pipeline (property write → Qt Quick render → Wayland commit → compositor composite+present) plausibly completes well within it, but I have no way to confirm the actual minimum safe value on your hardware. If a capture is still *occasionally* tinted (not every time — that would mean this fix didn't land), this is the one number to try raising.
+- **Triggering two captures within that 120ms window drops the first one silently.** `_prepareCapture` calls `captureSettle.restart()`, so a double-tap of a capture keybind (or two IPC calls close together) makes the second request win and the first's `fn` never runs. I judged this the right behavior (last request wins, matching "the user changed their mind") rather than queuing both, but it's worth knowing about if a capture ever seems to silently not happen.
+- **OCR/QR now unmaps and remaps this surface on every capture**, since clearing `resultText` in `_prepareCapture` (to avoid leaking a stale result into the next screenshot) also drives `root.visible` false until the new OCR/QR result arrives and writes `resultText` again. This should be behaviorally invisible (nothing here holds keyboard focus — no `Services.LayerFocus` on this surface — and the window was already toggling `visible` on `mode`/`resultText` before this change), but it's a genuine new code path worth watching for.
+- **Untested — this is QML I cannot run** (`phi-shell/CLAUDE.md`: "You cannot run this. Every visual result is verified by the user with a screenshot").
+- I did not do a wider "clean up the whole screenshot feature" pass beyond this bug and the dim-area-at-the-bar fix from earlier today (see below) — I read the rest of the file (recording, OCR, QR, clipboard-copy) looking for the same class of "our own UI/state leaks into the next operation" bug and found nothing else of that shape. If you had something more specific in mind for "clean up," say so and I'll take another pass.
+
+### How to test it
+1. Trigger an area screenshot (`qs ipc call screenshot area`, drag a selection, release). Open the resulting PNG (`~/Pictures/Screenshots` or `$XDG_PICTURES_DIR/Screenshots`) — it should show only the screen content under the selection, no pink/accent tint anywhere in it.
+2. Trigger OCR on a selection (`qs ipc call screenshot ocr`), read the result panel, but **don't close it** — immediately trigger another OCR capture on a different area. The first result panel should NOT appear in the second capture's image, and the result panel should update to the new capture's text (not silently fail to update, not show both).
+3. Trigger a fullscreen capture (`qs ipc call screenshot fullscreen`) right after leaving an OCR/QR result panel open from a previous capture — the saved PNG should not show that leftover result panel.
+4. General regression check: window capture (`qs ipc call screenshot window`) and recording start/stop should behave exactly as before — these paths weren't buggy, just now also routed through the same hide-and-settle step (window capture) or untouched (recording, which was never affected).
+
+---
+
 ## Autostart Hyprland on TTY1 login
 
 - **Date:** 2026-09-11
