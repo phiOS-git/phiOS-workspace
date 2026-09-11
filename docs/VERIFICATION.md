@@ -7,6 +7,109 @@ once it is verified.
 
 ---
 
+## Shrink the launcher to fit its results, top edge held fixed
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** c778f51 launcher: shrink to fit the result count, top edge held fixed
+- **Original TODO:** the runner should resize it's height when there are not enough options to fill it. (Anchored on the top)
+
+### What was asked
+The launcher box always opens at its full ~20-row height, even for a query
+with only one or two matches — a tall mostly-empty box below a short
+result list. It should shrink to fit however many results there actually
+are, and do so without the box's top edge (where the search field sits)
+moving — only the bottom edge should move as the height changes.
+
+### What was done
+This reverses a deliberate earlier decision (OOP-12, in the historical
+log): the box used to be a fixed height specifically "so the box opens at
+full height and never grows/shrinks as results change." The TODO entry is
+the newer instruction on the same question, so `Launcher/Launcher.qml`'s
+comments were updated to say so explicitly, not just changed silently.
+
+The result list (`resultFlick`) now sizes to
+`root.currentListBoxHeight`, which is `resultList.implicitHeight` (however
+many rows are actually showing, or the "no results" label's height, or 0
+when nothing is shown) capped at the unchanged `maxListBoxHeight` — the
+same ~20-row / 62%-of-screen limit as before, so a full or near-full
+result set renders exactly as it did previously.
+
+The harder part was the "top edge held fixed" half. The box
+(`panelWrap`) is centred on screen via `anchors.verticalCenter`; before
+this change its height was bound to the visible panel's own height, so a
+shorter panel would re-centre and its top edge would drift downward.
+Fixed by decoupling the two: `panelWrap`'s height is now pinned to
+`root.maxPanelHeight` (the box's full height at maximum size, used only
+for this positioning calculation — panelWrap itself draws nothing), while
+the visible `panel` still sizes to its own, possibly smaller, actual
+content and sits explicitly at `panelWrap`'s top edge
+(`anchors.top: parent.top`, made explicit — it previously relied on the
+Item default of (0, 0), which was harmless before because panelWrap and
+panel were always the same height). Two other places that assumed
+panelWrap's bounds matched the visible panel's needed the same fix:
+`panelWrap`'s own click-swallowing `MouseArea` (now sized to `panel.height`
+instead of filling all of the now-taller `panelWrap`, so a click just
+below a shrunk box still falls through to close the launcher, as a click
+outside it should) and the rich-result card's narrow-screen anchor (now a
+`panelWrap.top` anchor with `panel.height` folded into the top margin,
+since `richWrap` is a sibling of `panelWrap`, not of `panel`, and QML only
+allows anchoring to a parent or a sibling — an actual bug hit and fixed
+during review, not a hypothetical).
+
+Checked one interaction before treating this as safe: `setShown(false)`
+(the launcher's close path) already clears `queryText` alongside
+`results`, so reopening the launcher always starts in browse mode (every
+installed app, alphabetically — a long list) rather than a leftover
+empty-results state that this change could otherwise have turned into a
+visible "sliver" on reopen. No change was needed there.
+
+### Honest assessment
+- **Not visually verified** — phi-shell's own rule: "you cannot run this,"
+  every visual result needs the user's own screenshot. This is layout/
+  anchoring logic, reviewed by tracing the QML by hand (including
+  confirming `Widgets/Panel.qml` really is a plain, non-self-anchoring
+  `Item`, and that the rich-card anchor change above is legal QML — an
+  earlier draft of this fix anchored `richWrap` directly to `panel.bottom`,
+  which is illegal since they aren't parent/sibling; caught before
+  committing, not left as a shipped bug), not by running it.
+- Specifically worth checking on hardware: (1) with a short result list,
+  does the box's search field visibly stay in the same screen position as
+  it does with a long one, only the bottom edge moving; (2) with a short
+  result list on a narrow screen, does the rich-result card (when a
+  calculator/plot result is highlighted) sit right below the shrunk box,
+  not floating with a gap where the old full-height box used to end; (3)
+  clicking just below a shrunk box should close the launcher, not swallow
+  the click.
+- `PROGRESS.md` was not updated — §5's Launcher row is architectural
+  ("Launcher — a renderer only...") and doesn't change with this fix; this
+  is the fourth commit in this session's run that didn't touch it, noted
+  here explicitly rather than left silent.
+
+### How to test it
+1. Build `phi-shell` from this branch and reload Quickshell (`pkill -x qs;
+   qs -p ~/.config/quickshell/phi`), or save any `.qml` file to trigger
+   its hot reload.
+2. Open the launcher (`Super` or whatever it's bound to) with nothing
+   typed — confirm it looks exactly as before: full height, browsing every
+   installed app.
+3. Type a query that matches only one or two things (a specific app name,
+   or an arithmetic expression like `2+2`). Confirm the box is now short —
+   just tall enough for those few rows — rather than a tall box with empty
+   space below the results.
+4. While that short box is showing, note where its top edge (the search
+   field) sits on screen. Clear the query back to nothing (full list) and
+   back to the short query again — confirm the top edge is in the same
+   place both times; only the bottom edge should have moved.
+5. On a narrow window/screen, highlight a calculator result (e.g. type
+   `2+2`) so the rich-result card appears — confirm it sits directly below
+   the (now short) box, not with a gap.
+6. Click in the empty space just below a shrunk box (where the box used to
+   extend to before this fix) — confirm the launcher closes, the same as
+   clicking anywhere else outside it.
+
+---
+
 ## Reset the clipboard tab every time the panel opens
 
 - **Date:** 2026-09-11
