@@ -11,7 +11,7 @@ once it is verified.
 
 - **Date:** 2026-09-11
 - **Repo / branch:** phi-shell / dev
-- **Commits:** ec1db11 calendar: close automatically when another overlay opens
+- **Commits:** ec1db11 calendar: close automatically when another overlay opens, f0a7a66 calendar: watch BarPopout.which instead of its derived shown
 - **Original TODO:** "calendar overlay persists when openeing other overlays, it's the only one doing that and it should be exactly the same as the others"
 
 ### What was asked
@@ -25,7 +25,9 @@ Checked for a pre-existing "close the others when I open" pattern to mirror and 
 Launcher (`Launcher/Launcher.qml`) has no service singleton exposing its `shown` state, so it is not watched — reaching into it would need a bigger refactor than this entry asks for. Spotlight is deliberately excluded: its own header comment states it is declared last specifically so the cursor-locator dim can appear "above an already-open settings/notification/chat panel," i.e. layering over the calendar (or anything else) is its intended behavior, not something to fix.
 
 ### Honest assessment
-The fix is deterministic and unconditional (the calendar closes on ANY of the four services opening, not just ones that visually overlap it), which is a safe, simple interpretation of "should be exactly the same as the others" but is a broader net than "only when it would actually be visually covered" — if that reads as too eager once seen on screen, narrowing it to specific services is a one-line change. Not verified on hardware (`phi-shell/CLAUDE.md`: "You cannot run this"). The reverse direction (calendar opening closes other overlays) was intentionally left alone — not asked for, and no other pair of overlays does that to each other either.
+<span style="color:red">**NOT AS DESCRIBED:**</span> the entry states the calendar "is the only one doing that" (persisting when another overlay opens), implying every other overlay already closes when a sibling opens and the calendar just needs to join that pattern. That is not what the code shows: checked every overlay-owning service and every panel file, and found **no existing exclusivity between any pair of overlays** — Sidebar, AgentPanel, Settings and BarPopout do not close each other either; each is independently toggled. There was no pattern to "join." What shipped instead is my best guess at the intended fix — new, one-directional exclusivity where opening any of those four closes the calendar specifically — which makes the calendar the only overlay with this behavior, not "exactly the same as the others" in the literal sense of the request. If the real intent was the other reading — every overlay should become mutually exclusive with every other — that is a materially larger change across five-plus files and was not attempted here; worth a one-line confirmation from the user before that gets built.
+
+Separately, the fix as shipped is deterministic and unconditional (the calendar closes on ANY of the four services opening, not just ones that would actually visually overlap it) — if that reads as too eager once seen on screen, narrowing it to specific services is a small follow-up. Not verified on hardware (`phi-shell/CLAUDE.md`: "You cannot run this"). The reverse direction (calendar opening closes other overlays) was intentionally left alone — not asked for, and consistent with the "no existing pair closes each other" finding above.
 
 ### How to test it
 1. On `razer` or `zotac` with `phi-shell` running, click the bar clock to open the calendar card (top-right corner, below the bar).
