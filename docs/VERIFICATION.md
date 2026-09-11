@@ -7,6 +7,45 @@ once it is verified.
 
 ---
 
+## Power icon + overlay on the status bar, six commands in the runner bar, confirm before reboot/shutdown
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev, phi / dev
+- **Commits:** phi-shell 58fd585 "bar: add a power icon + overlay, gate reboot/shutdown behind confirm"; phi 43142e6 "query: add hibernate/reboot/shutdown to the launcher's system actions"
+- **Original TODO:** "add a power icon to the left isle of the status bar, it's overlay should have power options (suspend, logout, shutdown, lock, hibernate, reboot) and \"settings\". add log out, lock, suspend, hibernate, reboot, shutdown commands so that they can be quickly referenced in the runner bar as well. Reboot and Shutdown should require confirmation."
+
+### What was asked
+A power button in the status bar's left isle, opening an overlay with six power actions (lock, suspend, hibernate, log out, reboot, shutdown) plus a link to Settings. The same six actions should also be reachable from the runner bar (`phi query`/`Launcher.qml`). Reboot and Shutdown must ask for confirmation before running.
+
+### What was done
+Before this entry, three of the six actions existed only as a private, unconfirmed inline `switch` inside `Launcher/Launcher.qml` (lock/suspend/logout — no bar icon, no hibernate/reboot/shutdown at all, and `phi`'s own `internal/query/system.go` had a comment explicitly deferring reboot/shutdown "not this agent's call to add un-asked"). Built:
+
+- **`phi-shell/Services/PowerActions.qml`** (new): the one owner of all six commands (`lock`/`suspend`/`hibernate`/`logout`/`reboot`/`shutdown`) plus `needsConfirm(action)`, so the actual command line and the "does this need confirmation" rule are each written once and shared by both surfaces below, rather than duplicated. `lock`/`logout` are lifted verbatim from the launcher's old private switch (same `qs ipc call lock lock` / `hyprshutdown` fallback); `suspend`/`hibernate`/`reboot`/`shutdown` are plain `systemctl` verbs — none of the four had any existing trigger anywhere in this project (no keybind, no other code path) before this entry.
+- **`phi-shell/Bar/modules/Power.qml`** (new) + `Bar/modules.json`: a plain glyph button (`nf-md-power`, confirmed against Nerd Fonts' own `glyphnames.json`, same verification method as two earlier fixes this session), left isle, position 20 (right after the workspace strip). Opens the existing shared `Panels/BarPopout.qml` card under a new "power" key.
+- **`phi-shell/Panels/BarPopout.qml`**: a "power" section — six `SmallButton` rows in the same plain-text style every other action/deep-link button in that card already uses, plus a "Settings…" row. Reboot and Shutdown replace the row list with an inline "`<action>` now? This cannot be undone." message and a Confirm/Cancel pair instead of running immediately, driven by a local `_confirmingAction` state that resets whenever the power section isn't the one showing.
+- **`phi-shell/Launcher/Launcher.qml`**: the runner bar's `system` action kind now checks `Services.PowerActions.needsConfirm(...)` — Reboot/Shutdown push a new `confirm` sub-view (the launcher's `views` stack was already documented as kind-tagged and extensible for exactly this; only one other shape, `command`, existed before), the other four still run immediately as before. The confirm sub-view has its own Enter-to-confirm/Escape-to-cancel handling plus two buttons, the same keyboard-first shape the existing `command` sub-view already uses.
+- **`phi/internal/query/system.go`**: added `Hibernate`/`Reboot`/`Shut down` to `SystemActionsProvider`'s three existing entries (`Lock`/`Suspend`/`Log out`), updating the file's own comment to record that this TODO entry is the explicit ask that supersedes the earlier "not this agent's call" deferral. `go build ./...` and `go test ./...` both pass clean.
+- **`phi-shell/Services/BarPopout.qml`** + **`Widgets/Segment.qml`**: the shared popout card was built only for right-isle buttons (`anchorRightX`, right-edge alignment — OOP-22's own design). Power is the first left-isle consumer of it; right-edge alignment for a button that sits near the screen's LEFT edge would push almost the whole card off-screen before the existing clamp even applies. Added `anchorEdge`/`anchorLeftX` to `BarPopout` and a matching `leftX()` to `Segment` (mirroring the existing `rightX()`). Every one of the seven existing `toggle()`/`open()` callers (Volume, Brightness, Network, Wifi, Bluetooth, Battery, GPU) omits the new third `edge` argument, which defaults to `"right"` — checked each of the seven call sites individually, none needed a change.
+
+No new Hyprland keybinds were added (out of scope — the entry asks for the bar overlay and the runner bar specifically, and existing SUPER+L/SUPER+M already cover lock/logout at the keybind level).
+
+### Honest assessment
+Not verified on hardware (`phi-shell/CLAUDE.md`: "You cannot run this") — this is the largest, most structurally novel piece of QML written this session (a new cross-isle popout-anchoring mode, a new launcher sub-view kind, a new shared service), so it carries more risk than the smaller fixes earlier in this file even though every piece was checked as carefully as it could be without a compositor: brace/paren balance verified with a script, `Bar/modules.json` re-validated as JSON, every existing `BarPopout.toggle()`/`open()` call site individually re-checked for the new optional third argument, and the Go side has a real, passing test suite behind it (unlike the QML side, which has none).
+
+The "Settings…" deep-link goes to the existing Devices section, not a dedicated power/suspend one — none exists yet ("add suspension/hibernation settings in the settings panel" is its own, separate, still-open `docs/TODO.md` entry) — this is the closest sensible existing home, not a placeholder.
+
+One judgment call worth flagging: `Widgets/SmallButton.qml` (used for all six action rows) still has the same default `TapHandler.gesturePolicy` a `docs/VERIFICATION.md` entry earlier this session identified as a touchscreen tap-cancellation risk (fixed only in `Widgets/Segment.qml` there, `SmallButton` explicitly named as one of several widgets sharing the latent issue but left untouched, out of scope for that entry). Not fixed here either — this entry didn't ask for it — but worth knowing the six power buttons carry that same pre-existing risk on a touchscreen, same as every other `SmallButton` in this popout already did before this change.
+
+### How to test it
+1. On `razer` or `zotac` with `phi-shell` running, look at the status bar's left isle: after the workspace strip, there should now be a power-symbol icon.
+2. Click it. Expected: a card drops below it, its LEFT edge roughly aligned under the icon (not off to the right like the other bar popouts) — "Power" as the title, then Lock / Suspend / Hibernate / Log out, a separator, Reboot / Shut down, another separator, "Settings…".
+3. Click "Lock", "Suspend", or "Log out" (only if you're prepared for that to actually happen — these run immediately, no confirmation). Expected: the corresponding real action happens.
+4. Click "Reboot" (or "Shut down"). Expected: the row list is replaced in place by "Reboot now? This cannot be undone." with a "Reboot"/"Cancel" pair — the machine does NOT reboot yet. Click "Cancel": the normal six-row list comes back. Click "Reboot" again to reach the confirm state, then click "Reboot" the second time (or actually don't, unless you want to reboot) to confirm.
+5. Click "Settings…". Expected: the Settings panel opens on the Devices section.
+6. Open the runner bar (the launcher) and type "lock" / "suspend" / "hibernate" / "log out" / "reboot" / "shut down". Expected: each appears as a result under "System action". Selecting Lock/Suspend/Hibernate/Log out runs immediately. Selecting Reboot or Shut down instead shows a confirm sub-view ("Reboot now? This cannot be undone." with a Reboot/Cancel button pair) — Enter or the button confirms, Escape or Cancel backs out to the search field.
+
+---
+
 ## Status-bar clock: flip like a flip clock
 
 - **Date:** 2026-09-11
