@@ -52,7 +52,7 @@ loop*.
 
 - add suspension/hibernation settings in the settings panel
 
-- new terminal windows should start at the same directory as the last focused one
+- [taken] new terminal windows should start at the same directory as the last focused one
 
 - color picker (maybe compatible with the magnifying glass)
 
