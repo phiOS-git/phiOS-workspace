@@ -7,6 +7,36 @@ once it is verified.
 
 ---
 
+## Calendar overlay closes itself when another overlay opens
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** ec1db11 calendar: close automatically when another overlay opens
+- **Original TODO:** "calendar overlay persists when openeing other overlays, it's the only one doing that and it should be exactly the same as the others"
+
+### What was asked
+The small calendar card (opened by clicking the bar clock) stays open on screen even after the user opens a different overlay (notifications, the agent panel, settings, a bar popout) — every other overlay in the shell is exclusive with the rest, the calendar should be too.
+
+### What was done
+Read every overlay-owning `Services/*.qml` singleton (`NotificationPanel`, `AgentPanel`, `SettingsPanel`, `BarPopout`, `Spotlight`) and every `PanelWindow` surface's layer assignment. Found the actual mechanism: `Panels/Sidebar.qml`, `Panels/AgentPanel.qml`, `Screenshot/Screenshot.qml`, `AltTab/AltTab.qml` and `Cheatsheet/Cheatsheet.qml` all explicitly raise themselves to `WlrLayer.Overlay` specifically so they stack above an already-open panel (`Spotlight/Spotlight.qml`'s own header states this outright), while `Panels/Calendar.qml` was left on the default Top layer with nothing anywhere telling it to close when one of those opened over it — so it stayed mapped underneath and reappeared once the surface on top closed again.
+
+Checked for a pre-existing "close the others when I open" pattern to mirror and found none between any pair of overlays — each is independently toggled. So instead of chasing a pattern that does not actually exist yet, added the deterministic version directly to `Services/Calendar.qml` (the one owner of the calendar's `shown` state, same shape the file already documents for its two existing entry points): four `Connections` blocks watching `NotificationPanel.shown`, `AgentPanel.shown`, `SettingsPanel.shown` and `BarPopout.shown`, each closing the calendar the moment that sibling opens — the identical `Connections { target: Services.X; function onShownChanged() {...} }` shape `Panels/tabs/Clipboard.qml` already uses to watch `NotificationPanel`. One file, `Services/Calendar.qml`.
+
+Launcher (`Launcher/Launcher.qml`) has no service singleton exposing its `shown` state, so it is not watched — reaching into it would need a bigger refactor than this entry asks for. Spotlight is deliberately excluded: its own header comment states it is declared last specifically so the cursor-locator dim can appear "above an already-open settings/notification/chat panel," i.e. layering over the calendar (or anything else) is its intended behavior, not something to fix.
+
+### Honest assessment
+The fix is deterministic and unconditional (the calendar closes on ANY of the four services opening, not just ones that visually overlap it), which is a safe, simple interpretation of "should be exactly the same as the others" but is a broader net than "only when it would actually be visually covered" — if that reads as too eager once seen on screen, narrowing it to specific services is a one-line change. Not verified on hardware (`phi-shell/CLAUDE.md`: "You cannot run this"). The reverse direction (calendar opening closes other overlays) was intentionally left alone — not asked for, and no other pair of overlays does that to each other either.
+
+### How to test it
+1. On `razer` or `zotac` with `phi-shell` running, click the bar clock to open the calendar card (top-right corner, below the bar).
+2. With the calendar still open, click the notification bell (or Super+N). Expected: the calendar card disappears the instant the sidebar opens.
+3. Repeat step 1, then open the agent panel (the Φ bar icon, or Super+P). Expected: same — calendar disappears.
+4. Repeat step 1, then open Settings (Super+S). Expected: same.
+5. Repeat step 1, then click any right-isle bar icon that opens a popout (volume, wifi, battery, …). Expected: same — calendar disappears as soon as the popout opens.
+6. Repeat step 1, then trigger the cursor spotlight (hold Super+G). Expected: the calendar stays open underneath the spotlight dim — this pairing is intentionally unaffected.
+
+---
+
 ## Notification bell now opens onto its own tab, stays lit only for that tab
 
 - **Date:** 2026-09-11

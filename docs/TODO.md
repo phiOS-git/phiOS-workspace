@@ -42,8 +42,6 @@ loop*.
 
 - there is an icon "f" in the status bar (after btop) that does nothing, define what it is, if it's the scratchpad it does not work (make the icon something obvious)
 
-- calendar overlay persists when openeing other overlays, it's the only one doing that and it should be exactly the same as the others
-
 - when in full screen, the status bar does not appear by moving the cursor on the top edge
 
 - the speedtest feature in the wifi settings and overlay does not work, it always show 1-5 kb/s. Also make the visual more like the reference: https://github.com/programmersd21/flow
