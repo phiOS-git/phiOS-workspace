@@ -25,7 +25,7 @@ loop*.
 
 - add specific settings for the “ambient effect”. Add more “screensaver” type of “ambient effect” (always only played in the lock screen). Also add a live preview of the effect when one is selected
 
-- [taken] holding the volume up key (fn+f3 on the razer) should reach a top of 100%. To increase over 100% it requires a double click + hold.
+- (was: "holding the volume up key should reach a top of 100%, exceeding it requires a double click + hold" — the 100% cap is fixed, see VERIFICATION.md) add a deliberate gesture (e.g. double-tap-and-hold fn+f3) to intentionally push volume past 100%. Not attempted as part of the cap fix: Hyprland binds have no built-in double-tap primitive, and this project's own hyprland.lua.tmpl documents a prior double-tap gesture (SUPER+G, ROUNDS FOUR/FIVE/SIX) going wrong on real hardware — a bespoke timer-based implementation needs deliberate design, not a guess.
 
 - super+shit+left/right do not change active workspace
 

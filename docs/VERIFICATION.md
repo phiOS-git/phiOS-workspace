@@ -7,6 +7,33 @@ once it is verified.
 
 ---
 
+## Volume-up key now caps at 100%
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phios-dotfiles / dev
+- **Commits:** 9de4051 hyprland: cap volume-up key at 100%, 5e9a802 merge: cap volume-up key at 100%
+- **Original TODO:** "holding the volume up key (fn+f3 on the razer) should reach a top of 100%. To increase over 100% it requires a double click + hold." — partially done, see below
+
+### What was asked
+Two things in one line: holding the volume-up key should stop climbing at 100% (it currently doesn't), and going past 100% should require a deliberate double-tap-and-hold instead of happening by default.
+
+### What was done
+Only the first half. `hyprland.lua.tmpl` binds `XF86AudioRaiseVolume` straight to `wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+`, `repeating = true`. `wpctl`'s percentage steps are uncapped by default — PipeWire allows amplification above unity gain — so every repeat of `5%+` while the key is held just kept climbing with nothing to stop it at 100%. Added `wpctl`'s own `-l 1.0` limit flag (confirmed against the real Arch `wpctl(1)` man page: "`-l, --limit LIMIT` — Limit final volume to below this value (floating point, 1.0 = 100%)", not assumed from memory) — the new bind is `wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ -l 1.0`.
+
+Deliberately did **not** attempt the second half (a double-tap-and-hold gesture to intentionally exceed 100%) as part of this fix, and left it behind as its own, narrower `docs/TODO.md` entry rather than silently dropping it. Reasons: Hyprland's Lua bind system has no built-in double-tap primitive — it would need custom timer/state logic in `hyprland.lua.tmpl` — and this exact file already documents a cautionary precedent for that shape of gesture: SUPER+G's cursor-spotlight bind went through several rounds (ROUNDS FOUR/FIVE/SIX, all in this same file) trying a double-/triple-tap gesture before landing on a documented, real compositor bug (`hyprwm/Hyprland#6946`) and reverting to a plain press/release bind. That precedent is specifically about a bare-modifier-keysym bind (`SUPER_L`), which doesn't directly apply to an ordinary key like `XF86AudioRaiseVolume` — but building a new custom-timed gesture on a volume key still deserves its own deliberate design pass, not a guess bolted onto this fix.
+
+### Honest assessment
+The 100% cap is a config-only fix using a documented, real `wpctl` flag — I'm confident in it, though untestable without the real machine (`phios-dotfiles`' `CLAUDE.md`: no `pacman`/`systemctl`/hardware access). The deferred half is a genuine scope cut, not an oversight — flagged clearly rather than either guessing at a fragile implementation or silently deleting the ask.
+
+### How to test it
+This needs `phios-install` to re-render the templated Hyprland config and reload it — either run `bin/phios-install` from `phios-dotfiles` on `razer` and then `hyprctl reload`, or however you normally pick up a `hyprland.lua.tmpl` change.
+1. Lower the volume to something well under 100% (e.g. via the OSD or `wpctl set-volume @DEFAULT_AUDIO_SINK@ 50%`).
+2. Hold Fn+F3 (or however the raise-volume key reaches Hyprland as `XF86AudioRaiseVolume`) down continuously.
+3. Volume should climb in 5% steps and stop exactly at 100% — it should not be possible to push it higher by holding the key, however long you hold it.
+4. Regression check: lowering volume (Fn+F2 or whichever key maps to `XF86AudioLowerVolume`) should behave exactly as before, stopping at 0%, unaffected by this change.
+
+---
+
 ## Mouse cursor no longer disappears after touchscreen contact
 
 - **Date:** 2026-09-11
