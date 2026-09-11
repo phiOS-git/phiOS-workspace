@@ -9,7 +9,7 @@ loop*.
 
 - on razer the trackpad does not work after hibernation
 
-- the mouse cursor often disappear arbitrarily. Do not apply more logic, check where the cursor visibility is ever altered and and work from that
+- [taken] the mouse cursor often disappear arbitrarily. Do not apply more logic, check where the cursor visibility is ever altered and and work from that
 
 - after hibernation, the screen automatically suspend after 1 minute which is not the normal behavior (it should take longer)
 
