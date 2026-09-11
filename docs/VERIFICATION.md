@@ -7,6 +7,39 @@ once it is verified.
 
 ---
 
+## Separate hover from active entirely, accent text for selection
+
+- **Date:** 2026-09-12
+- **Repo / branch:** phi-shell / dev
+- **Commits:** fd6f5bc bar: separate hover from active, accent text for selection, top-to-bottom / merge
+- **Original TODO:** none — direct follow-up on the previous hover-sweep entry, same day, after trying it on hardware.
+
+### What was asked
+Verbatim: "Now it's completely broken: text change color on hover, highlight is applied when hover-out, also selection and highlight use different colors. Use the accent color for the text and icon to show the selected state, fix the hover as it was before (direction: top to bottom)."
+
+### What was done
+**The "highlight applied when hover-out" report was a real bug, not a perception artifact.** The previous entry's honest-assessment section speculated this might just be hover and active looking too similar to tell apart — that speculation was wrong. The actual cause: `Segment.qml`'s `onResolvedStateChanged` handler read a separate `_sweepOn` property that ALSO derived from `resolvedState`. QML does not guarantee evaluation order between two independent dependents of the same changed property — the handler could run before `_sweepOn`'s own binding had caught up to the new `resolvedState`, reading a stale value. On hover-out (`resolvedState` going "hover"→"default"), a stale-true read set `hoverAmount` to 1 right as the mouse left — the highlight visibly appeared at exactly the wrong moment. The mirror case on hover-in silently did nothing for the same reason. Fixed by inlining the condition directly in the handler instead of reading a sibling binding — there is nothing left for it to race against.
+
+**Hover and active no longer share any mechanism, by design.** The immediately preceding pass had unified them (same sweep Rectangle, same colorOpposite/colorMain inversion pair) specifically to fix a DIFFERENT flicker, on hover-then-click. That fix worked for its own bug, but made hover and active visually indistinguishable — which is what actually produced the "selection and highlight use different colors" / "wrongly staying applied" reports once tried for real. Reworked instead of patched:
+- Hover keeps the sweep Rectangle (`Widgets/Segment.qml`), now growing top-to-bottom (anchored to the top edge, height animating in) — the third direction tried across three follow-ups (left-to-right, then bottom-to-top, now top-to-bottom).
+- Active (isle, excluding PhiAgent's `accentWhenActive`) draws no fill or border at all any more. `Widgets/WidgetStates.js`'s isle `"active"` case is now `{bg: transparent, fg: accent, border: transparent}` — selection is shown purely by the icon/label turning accent-coloured, per the user's explicit instruction.
+- `Segment.qml`'s `contentColor` now puts active ahead of `tone` (but still behind `invalid`, matching `resolve()`'s own precedence — the two can't disagree, since `resolve()` already returns `"invalid"` before it would ever return `"active"`). Without this, a toned button — battery on a low-charge `warn`/`error`, a notification bell with a pending `info` badge — would have shown NO visible change at all on selection, since active no longer has a fill or border to fall back on once tone otherwise wins.
+- PhiAgent's `accentWhenActive` path is unaffected either way: it still short-circuits to its own accent FILL (a different, pre-existing, deliberately-kept-separate mechanism) before any of this code runs.
+
+### Honest assessment
+- **Untested against a real compositor**, same as every entry above — this is the third round on this exact mechanism, and the first two both had real bugs that only showed up on real hardware, so treat this one with the same scrutiny, not less.
+- **Icon-only buttons (bluetooth, notifications, clipboard) now signal "selected" purely by an instant accent colour flip on the Canvas icon** — no fade (the known `iconColor`-fed-by-a-binding gap, documented in several files this session), no fill, no border. This is a real, visible difference from brightness/volume/battery/etc. (which also have a label that DOES fade smoothly via `StyledText`'s own `Behavior on color`) — flagging it explicitly so an instant icon-only colour flip isn't mistaken for a bug.
+- The base Rectangle's `Behavior on color`/`Behavior on border.color` now animate transparent→transparent for the default↔active transition on isle buttons (a no-op) — confirmed intentional, not an orphaned leftover: that Rectangle is still load-bearing for `focus` and `invalid`, which still return real colours.
+
+### How to test it
+1. On razer or zotac, pull the updated `phi-shell` `dev` branch (Quickshell hot-reloads `.qml` on save).
+2. Hover a bar button — the highlight should grow from the TOP edge downward. Move the mouse away — it should retract cleanly, with no flash or flicker at either transition, and nothing should ever appear at the moment the mouse LEAVES a button.
+3. Click a button (or otherwise make it active — e.g. open the brightness/volume popout, switch to a workspace) — its text/icon should turn the accent colour, with no background fill or border box around it. Un-hover it while it stays active — the accent colour should persist (it's genuinely selected, not just hovered).
+4. Get a button into a toned state — e.g. let the battery drop into its low-charge/anomaly tone, or wait for a pending notification badge — then select it (open its popout / click it). It should turn accent-coloured like any other selected button, not stay in its tone colour or show nothing.
+5. Compare a labelled button (brightness, volume) against an icon-only one (bluetooth, notifications, clipboard) when selecting each — the labelled one's text should fade smoothly to accent, the icon-only one's glyph will likely just snap to accent instantly (see Honest assessment) — confirm this reads as acceptable, not broken.
+
+---
+
 ## Hover sweep: bottom-to-top direction, fix the hover→active flicker
 
 - **Date:** 2026-09-12
