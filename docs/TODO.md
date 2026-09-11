@@ -38,7 +38,7 @@ loop*.
 
 - opening a panel on a special workspase (11, 12) should automatiically open it in the highest possible panel up to 10
 
-- if btop is closed in its workspace, the button just brakes. the btop button in the status bar should simply set the workspace 12 and open btop if it's not open
+- [taken] if btop is closed in its workspace, the button just brakes. the btop button in the status bar should simply set the workspace 12 and open btop if it's not open
 
 - there is an icon "f" in the status bar (after btop) that does nothing, define what it is, if it's the scratchpad it does not work (make the icon something obvious)
 
