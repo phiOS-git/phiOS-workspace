@@ -7,6 +7,42 @@ once it is verified.
 
 ---
 
+## ESC closes the agent panel, but blurs a focused field first
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** b2ad3fc agent-panel: close on Escape when nothing inside has focus
+- **Original TODO:** ESC key should close open overlays and panels. Sometimes ESC might just remove focus from an element (eg. The chat text field) so it should only close a panel if nothing is focuses inside of them
+
+### What was asked
+Escape should close open overlays/panels in general, but for a panel with a text field inside (the chat text field is the named example), Escape should not blow away what you're doing — it should just remove focus from the field first, and only close the panel once nothing inside it is focused.
+
+### What was done
+Scoped to `Panels/AgentPanel.qml` (Dashboard / Chat / Coding sessions / Memory proposals), because it's the literal named example and, before this change, it had **no** Escape handling anywhere — not even a blur. Pressing Escape while typing a chat message did nothing at all.
+
+- `Widgets/TextField.qml` (the one shared text-entry widget, used by Dashboard's project-name/search fields, ProjectView's instruction/material/folder fields, and PersonalityEditor's name field) now blurs on Escape instead of ignoring it, and emits a new `escaped()` signal. Escape also suppresses the field's own `committed(text)` signal — Qt's `TextInput.editingFinished` fires on *any* focus loss, not just Enter, so without an explicit guard, Escape would have silently committed whatever half-typed text was in the field (a partial hex color reaching `Config.ThemeOverrides`, a partial path reaching a firewall rule). Escape now means cancel, not commit.
+- Chat.qml's message field, ProjectView's description field (a `TextEdit`, not the shared widget), and PersonalityEditor's system-prompt field are raw `TextInput`/`TextEdit` (not `Widgets.TextField`), so each gets the same local blur-then-signal treatment directly.
+- `AgentPanel.qml` gets a `keyScope` item mirroring `Overview.qml`'s own precedent (`grid { focus: root.shown; Keys.onEscapePressed: root.setShown(false) }`): it holds keyboard focus by default and closes the panel on Escape. A field that's clicked into outranks it while focused; when that field blurs itself on Escape, a chain of re-emitted signals (through Dashboard → ProjectView → PersonalityEditor, and Dashboard/Chat directly) tells `keyScope` to reclaim focus explicitly, so the *next* Escape closes the panel. `focus: root.shown` alone isn't enough to guarantee this — QML doesn't restore a binding once something else has broken it by taking focus — so `onShownChanged` and `onSectionChanged` also call `keyScope.forceActiveFocus()` imperatively, the same belt-and-braces shape `Overview.qml`'s `setShown()` already uses for its own grid.
+
+### Honest assessment
+**Settings is affected too, deliberately.** `Widgets/TextField.qml` is also used by `Settings/sections/{Theme,Keybindings,Connectivity,Notifications}.qml` (colour pickers, thresholds, VPN import, firewall rules, etc.). Those fields now blur on Escape as a side effect. This does not change any close behavior in Settings — clicking into one of those fields already steals keyboard focus away from `Settings.qml`'s own always-focused search field, so Escape already did nothing there before this change; now it blurs the field instead of doing nothing. Worth checking on real hardware: type a partial hex into a Theme colour field and press Escape — the colour should **not** change (this was the main risk in this change and is the thing I'd most want confirmed).
+
+**Left alone on purpose — six panels that already close directly on Escape:** Settings, Launcher, Clipboard, ColorPicker (screenshot), Overview, and Cheatsheet all auto-focus a search field the instant they open (`Settings.qml:58` and `Clipboard.qml:155` both call `forceActiveFocus()` on open) and close immediately on Escape from that field. That's correct as-is for a launcher-style single-purpose field — a two-stage blur-then-close model there would mean Escape never closes on the first press, which would read as broken, standard launcher UX (macOS Spotlight, etc.) closes on the first Escape. I did not touch these.
+
+**Left alone on purpose — no keyboard focus at all:** `BarPopout.qml`, `Calendar.qml`, `Spotlight.qml`, and `Magnifier.qml` have no `Services.LayerFocus` and accept no keyboard focus today (they're mouse/gesture-driven popouts). Wiring Escape into them means granting them keyboard focus in the first place, which would steal keys from whatever app the user is actually in when they click a bar icon (volume, brightness, wifi, etc.) — a materially different, riskier change than this task, left out.
+
+**Untested — this whole file is QML I cannot run** (`phi-shell/CLAUDE.md`: "You cannot run this. Every visual result is verified by the user with a screenshot"). The focus-reclaim logic (`keyScope.forceActiveFocus()` on shown/section-change, and the re-emitted `blurred()`/`escaped()` chain through five files) is reasoned through carefully and modeled directly on `Overview.qml`'s own hardware-verified precedent, but it has several moving parts across `AgentPanel.qml`, `Chat.qml`, `Dashboard.qml`, `ProjectView.qml`, and `PersonalityEditor.qml` that only a real run can fully confirm.
+
+### How to test it
+1. Open the agent panel (Super+P, or the bar's Φ segment), on the Dashboard section, with no field clicked into. Press Escape → the panel should close.
+2. Reopen, switch to the Chat section, click into the message field, type a few characters. Press Escape once → the field should lose its cursor/focus ring, the panel should stay open, and your typed text should still be there (not sent, not cleared). Press Escape again → the panel should close.
+3. Reopen, click into the Chat field again, then click the "Dashboard" item on the left nav rail (switching sections while the field has focus). Press Escape → the panel should close (this exercises the `onSectionChanged` reclaim — without it, Escape would silently do nothing here).
+4. Reopen, click into the Chat field, then close the panel by clicking outside it (not with Escape). Reopen the panel and immediately press Escape → the panel should close (this exercises the `onShownChanged` reclaim — without it, Escape would be permanently dead after this sequence until you clicked a field and pressed it twice).
+5. Open Dashboard → a project → Settings gear "Edit / new…" personality, or any of the instruction/material/folder/project-name fields; click in, type, press Escape → the field should blur without saving/adding anything, and a second Escape should close the panel.
+6. Open Settings → Theme, click into a colour field (hex input), type a partial value (e.g. "#a1"), press Escape → the field should lose focus and the actual theme colour should **not** change to anything derived from "#a1". This is the regression check for the commit-suppression fix.
+
+---
+
 ## Alt+Tab: fix stale active-window selection race
 
 - **Date:** 2026-09-11
