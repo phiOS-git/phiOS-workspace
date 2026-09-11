@@ -7,6 +7,40 @@ once it is verified.
 
 ---
 
+## Add a clipboard icon to the status bar
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** e57ffdc bar: add a clipboard icon with a new-entry pulse, 1db6e01 merge: add a clipboard icon with a new-entry pulse
+- **Original TODO:** "add the clipboard icon to the status bar (with animation for when an element is added)" (Style section — the user asked specifically to look at Style next and see the status bar updated, after the Bug Fixing backlog ran out of non-hardware-blocked items)
+
+### What was asked
+A clipboard glyph in the status bar, with some kind of animation when a new clipboard entry arrives.
+
+### What was done
+New `Bar/modules/Clipboard.qml`, right-isle, positioned between Notifications (60) and Clock (100) in `Bar/modules.json` (position 65) — a single number there if you'd rather it sit elsewhere. Registered the standard way (ADR 078: one new file + one `modules.json` row + one `componentFor()` case + one `Component` declaration in `Bar/Bar.qml`) — the same four-place wiring every existing bar module uses, nothing new invented. Clicking it opens the sidebar straight onto the Clipboard tab (`Services/NotificationPanel.qml`'s existing `openClipboard()`, already wired to Super+Shift+V) and closes it again if that tab is already showing — the same click-to-toggle shape the notification bell already has. The icon reads "active" (inverted) only while the panel is open specifically on the Clipboard tab, not the Notifications one — the two share one panel/one `shown` flag, so this checks `tab === 1` too, not just `shown`.
+
+Glyph is `nf-md-clipboard` (codepoint `0xF0147`), added to `Bar/glyphs.js` — checked against nerd-fonts' own `glyphnames.json` (`gh api repos/ryanoasis/nerd-fonts/contents/glyphnames.json`) rather than guessed, the same method that caught and fixed the Steam glyph bug earlier this session.
+
+The "new entry" animation: `Services/Clipboard.qml` gained a new `arrived(entry)` signal, fired from the existing entry-list-refresh Process only when the newest entry's id was not already anywhere in the previous list — not simply "the top entry changed", because `refresh()` also runs on shell startup and every time the clipboard panel tab is opened, and a *deletion* can also promote an already-known entry to the top of the list without anything new having been captured. All three of those had to be ruled out so the bar icon doesn't pulse for no reason; traced all of `refresh()`'s callers to confirm there wasn't a fourth path this misses.
+
+The pulse itself deliberately does NOT reuse the notification bell's own flash technique (an opaque `Rectangle` overlaid with a brief opacity animation) — read `Widgets/Segment.qml` first and found that technique has a real, pre-existing bug: a Rectangle added as a child of a `Widgets.Segment` instance renders on top of the icon (Segment's own internal `layout` Item, which draws the glyph, is declared before any child the instantiating file adds), so the notification bell's flash partially obscures its own bell glyph during each pulse rather than highlighting it. Not fixed here — out of this task's scope, and Notifications.qml wasn't touched — but not worth copying into a brand new module. Instead this uses `Segment`'s own `tone` property (its real "discrete event" mechanism, per the widget's own header comment) to briefly recolor the glyph via `StyledIcon`'s existing `Behavior on color`, which animates smoothly with no new layer and nothing to obscure.
+
+### Honest assessment
+- **Untested against a real compositor** — `phi-shell/CLAUDE.md`: "You cannot run this." Specifically unverified: whether the glyph actually renders as a clipboard icon and not a fallback box (flagged the same way every glyph addition in this file is), whether the tone pulse reads clearly as "something happened" rather than being too subtle, and whether position 65 looks right next to Notifications and the Clock.
+- Left the notification bell's own flash-overlay bug alone rather than fixing it inside this change — it's real (traced through `Widgets/Segment.qml`'s child order), but fixing it wasn't asked for and would have widened this change's blast radius into an unrelated, already-shipped module.
+- The `arrived` de-dup logic assumes entry ids only ever grow (nanosecond timestamps, per the file's own existing design) and never repeat — consistent with how the rest of `Services/Clipboard.qml` already treats ids, not a new assumption introduced here.
+
+### How to test it
+1. On razer or zotac, pull the updated `phi-shell` `dev` branch (Quickshell hot-reloads `.qml` on save).
+2. Look at the status bar's right isle, between the notification bell and the clock — a clipboard glyph should now be there.
+3. Click it — the sidebar should open on the Clipboard tab (same as pressing Super+Shift+V), and the icon should show as "active" (inverted colours) while that tab is open. Click again to close.
+4. Open the Notifications tab instead (click the bell, or Super+N) — the clipboard icon should NOT read as active while only the Notifications tab is showing.
+5. Copy something new to the clipboard (select text and copy, or `wl-copy` a string from a terminal) while the panel is closed — the clipboard icon in the bar should briefly change colour (a pulse), then fade back to normal.
+6. Open the clipboard panel and delete an entry, or just reopen the panel a few times with nothing new copied — the icon should NOT pulse in either case (only an actual new capture should trigger it).
+
+---
+
 ## Play a sound when the charger is plugged in
 
 - **Date:** 2026-09-11
