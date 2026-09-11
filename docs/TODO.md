@@ -1,5 +1,10 @@
 # TODOs
 
+The user's backlog. An agent that starts on an entry prefixes it with
+`[taken]`; when the change is committed the entry is removed from here and
+written up in `VERIFICATION.md`. See `AGENTS.md` — *The TODO / VERIFICATION
+loop*.
+
 ## Bug Fixing / Improvements
 
 - on razer the trackpad does not work after hibernation

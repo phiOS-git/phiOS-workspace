@@ -27,6 +27,8 @@ every submodule — run it first on any machine.
   to every repository. `CLAUDE.md` is a symlink to it.
 - **`PROGRESS.md`** — the single, current description of what phiOS is and
   where each piece stands.
+- **`docs/TODO.md`** / **`docs/VERIFICATION.md`** — the running backlog and
+  the write-ups of finished work awaiting sign-off (see `AGENTS.md`).
 - **`docs/archive/`** — the original planning documents, kept as historical
   background only.
 - **`references/`** — screenshots and the Φ mark used as visual reference.

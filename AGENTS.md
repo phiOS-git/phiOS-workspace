@@ -33,6 +33,9 @@ remote named `origin` (`github.com/phiOS-git/<name>`).
   `AGENTS.md` files are the whole contract.
 - **`references/`** holds screenshots and the Φ ASCII mark used as visual
   reference for the shell.
+- **`docs/TODO.md`** is the user's running backlog; **`docs/VERIFICATION.md`**
+  is where you hand finished work back for sign-off. See *The TODO /
+  VERIFICATION loop* below.
 
 ## How to work here
 
@@ -42,6 +45,65 @@ remote named `origin` (`github.com/phiOS-git/<name>`).
 3. Update `PROGRESS.md` in the same commit as the change it describes.
 4. Commit message: `<scope>: <imperative, lowercase>`, optional body for
    what and why. No step trailers.
+
+## The TODO / VERIFICATION loop
+
+`docs/TODO.md` is the user's backlog — they add to it freely; entries are
+grouped bullets. `docs/VERIFICATION.md` is where finished work is handed
+back for the user to check and sign off.
+
+If the work you are about to do matches a `docs/TODO.md` entry:
+
+1. **Claim it.** Prefix the bullet with `[taken]` so a parallel agent does
+   not pick it up — `- [taken] alt+tab does not work: …`. Claim only what
+   you are actually working on now.
+2. **Do the work** in the relevant submodule, on a local branch off `dev`,
+   under the rules below.
+3. **When it is committed, move it.** Delete the entry from `docs/TODO.md`
+   and add a section to `docs/VERIFICATION.md` (newest first) using the
+   template below. Do this in the same superproject commit that records the
+   new submodule pointer.
+4. **Leave it for the user.** They delete the `docs/VERIFICATION.md` entry
+   once they have verified it. Never edit or delete an entry you did not
+   write.
+
+A change with no matching TODO entry still gets a `docs/VERIFICATION.md`
+section — the file is the record of everything awaiting a human check,
+backlog-tracked or not. A one-line typo fix or a docs-only change does not.
+
+### VERIFICATION.md entry template
+
+```
+## <short imperative title>
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phi-shell / dev
+- **Commits:** <hash> <subject line>   — one line per commit
+- **Original TODO:** <the entry verbatim, or "none — outside the backlog">
+
+### What was asked
+Restate the task in your own words so the user can confirm you understood it.
+
+### What was done
+The actual change: files touched, the approach, and any decision you made
+that the user did not spell out.
+
+### Honest assessment
+Everything that is not clean: known issues, anything cut or deferred,
+questions you need answered, anything you could not verify (say why — e.g.
+needs hardware), anything you are unsure about. If it is all clean, say so
+plainly.
+
+### How to test it
+Step by step, assuming no prior context.
+- Every command in full and copy-pasteable, in the order to run them.
+- For a visual change: what should look different, where on screen, and
+  what it looked like before.
+- For a feature: the exact steps to exercise it and the correct result at
+  each step.
+Never write "as before", "the usual way", or anything that assumes the user
+remembers how it worked.
+```
 
 ## Rules — every repository
 
