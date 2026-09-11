@@ -38,7 +38,7 @@
 
 ## Features
 
-- add trash feature (package to be picked)
+- add trash feature (package to be picked). Options (to be checked if they work as expected): CliFM (cli), ... * check the list on archlinux.org file manager
 
 - system file picker required
 
