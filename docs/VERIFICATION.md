@@ -7,6 +7,43 @@ once it is verified.
 
 ---
 
+## New terminals open in the directory of the last focused window
+
+- **Date:** 2026-09-11
+- **Repo / branch:** phios-dotfiles / dev
+- **Commits:** 2999372 "hyprland: open new terminals in the cwd of the last focused window" (merged as 0608e04)
+- **Original TODO:** "new terminal windows should start at the same directory as the last focused one"
+
+### What was asked
+Super+Return currently spawns `kitty` bare, so every new terminal window starts in wherever the session was launched (usually `$HOME`). It should start in the working directory of the last focused window instead — if you were in a shell inside `~/project`, the new terminal opens there too.
+
+### What was done
+- **`profiles/desktop/home/.local/bin/phi-term-cwd`** (new, bash + coreutils only, no jq): reads the focused window via `hyprctl -j activewindow`, resolves a directory to open, and runs `exec <terminal> --directory <dir>`.
+  - For a terminal-emulator class (kitty, wezterm, alacritty, foot, xterm, konsole, gnome-terminal, urxvt, st, terminator) it descends (BFS) to the process that actually owns the pty (`/dev/pts/*` on fd 0) — the emulator's own cwd is only its launch directory, while the shell inside it is what follows `cd`. On the live machine this is exactly right: the emulator sits on the session console (`fd0=/dev/tty1`, tty field 1025) and the real shell child owns `pts/2` (tty field 34818), which the naive "read the focused pid's `/proc/<pid>/cwd`" approach misses.
+  - Any other class uses the focused pid's `/proc/<pid>/cwd` directly (so a focused LibreWolf inherits whatever directory it was launched from, which is `$HOME`).
+  - Falls back to `$HOME` for: no window focused, pid 0/missing, unreadable `/proc`, or a resolution failure.
+- **`profiles/desktop/templates/.config/hypr/hyprland.lua.tmpl`**: the Super+Return binding is now `hl.dsp.exec_cmd("phi-term-cwd " .. terminal)`. `~/.local/bin` is already on PATH for the whole session via `profiles/base/home/.zshenv` (PATH prepended before `start-hyprland` runs), so the bare name works from inside Hyprland's own `exec` dispatcher.
+- The `home/` tree is symlinked wholesale by `bin/lib/plan.sh`, so the new script reaches `~/.local/bin/` on the machines on the next `phios-install` run — no extra wiring.
+
+Verified by running the script against the **live Hyprland session on this machine** with the real `hyprctl`: focused kitty window → resolves to the shell's directory (`/home/flavio/Development/phi-notes`), not the emulator's launch dir (`/home/flavio`); nonexistent pid → `$HOME`; missing `hyprctl`/no window → `$HOME`.
+
+### Honest assessment
+- Not yet tested on the actual machines because the profile isn't installed there yet — the new file exists in this checkout, and only appears on `$HOME` after the next `phios-install --dry-run` / apply. The live-session test above is the closest this machine gets; zotac/razer remain the real proof.
+- A terminal window running a *full-screen* TUI that replaces the pty (rare; e.g. some multiplexers) may resolve the multiplexer's cwd rather than the shell's. kitty's normal shell and the `kitty -e yazi` file-manager entry both resolve correctly.
+- The script hardcodes a class list to know "this is a terminal" — a future non-listed emulator would fall back to the emulator's own launch dir. Keeping the list small and explicit was preferred over heuristics that could misfire on GUI apps with terminal children.
+- `super`/`alacritty`'s class may be capitalized as `Alacritty`; the list uses lowercase to match hyprctl's `class` output convention, which reports lowercase.
+
+### How to test it
+- On zotac or razer, after running `~/phios-dotfiles/bin/phios-install --dry-run` (verify the new link `~/.local/bin/phi-term-cwd` is listed) and then the apply run, or by installing the new file manually:
+  1. Open a terminal in `~/Development/phi-notes` (e.g. `cd ~/Development/phi-notes`).
+  2. Press `Super+Return`.
+  3. The new terminal window should prompt with `~/Development/phi-notes` as its starting directory (check with `pwd`), not `~`.
+  4. `cd` again inside the new terminal and press `Super+Return` again — each new window follows the last focused window's directory.
+  5. Focus a non-terminal window (e.g. LibreWolf) and press `Super+Return` — the terminal opens in `$HOME` (the directory LibreWolf was launched from).
+  6. On an empty workspace with no focused window, `Super+Return` still opens a terminal (in `$HOME`).
+
+---
+
 ## Power icon + overlay on the status bar, six commands in the runner bar, confirm before reboot/shutdown
 
 - **Date:** 2026-09-11

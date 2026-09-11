@@ -52,8 +52,6 @@ loop*.
 
 - add suspension/hibernation settings in the settings panel
 
-- [taken] new terminal windows should start at the same directory as the last focused one
-
 - color picker (maybe compatible with the magnifying glass)
 
 - three finger gestures on trackpad and touchscreen: up/down (open/closes overview), left/right (change workspace). Add more if not too error-prone.
