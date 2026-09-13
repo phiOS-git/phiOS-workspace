@@ -58,7 +58,7 @@ loop*.
 
 - the scratchpad icon does not call the scratchpad nor it reacts to its activation, it's broken
 
-- the power overlay buttons show no text and don't do anything on click — investigated 2026-09-13: read `Panels/BarPopout.qml`'s power section, `Widgets/SmallButton.qml` and `Services/PowerActions.qml` end to end; the label binding, the `TapHandler` → `clicked()` → `_requestPowerAction`/`_confirmPowerAction` chain, and `PowerActions.title()`/`perform()` all look correctly wired with no defect found by reading alone. Could not reproduce or observe the actual failure — needs a screenshot of what's actually on screen next time this happens, since the source doesn't show an obvious cause.
+- the power overlay buttons show no text and don't do anything on click — investigated 2026-09-13: read `Panels/BarPopout.qml`'s power section, `Widgets/SmallButton.qml` and `Services/PowerActions.qml` end to end; the label binding, the `TapHandler` → `clicked()` → `_requestPowerAction` chain, and `PowerActions.title()`/`perform()` all look correctly wired with no defect found by reading alone. Could not reproduce or observe the actual failure — needs a screenshot of what's actually on screen next time this happens, since the source doesn't show an obvious cause. (2026-09-13, later same day: the confirm step this chain used to lead into — `_confirmPowerAction`, named in an earlier version of this note — was replaced by `Services/ConfirmDialog.qml`, a separate centered modal; unrelated to this report, which is about the plain action buttons themselves, but if this is re-investigated, the confirm step is no longer inline in this card at all.)
 
 - the calendar overlay in the status bar shows a flip clock, it should have the real flip animation, not a slot
 
@@ -202,3 +202,57 @@ make. Each names the TODO entry it blocks.
   live search scoped to a short, explicit extra-roots list beyond `$HOME`
   — and if (b), which roots per host, since `/mnt/bulk` only exists on
   `zotac` and `/srv` only on `mini`?
+
+- **Trash feature** (Features): the entry itself says "package to be
+  picked" and names one candidate (CliFM) with "options to be checked if
+  they work as expected" — rule 2 restricts this to `core`/`extra`/
+  `multilib`, no AUR. Which package: a dedicated trash CLI (e.g. `trash-cli`,
+  in `extra`), a file manager with built-in trash support already in the
+  stack (does `yazi`, already used per the styling section's own yazi
+  entry, have one worth using instead of a second tool), or something else?
+  And is this meant to be reachable only from a TUI file manager, or does
+  it also need a `phi` verb / runner integration (rule on `phi` verb
+  admission: an alias over one command doesn't qualify on its own)?
+
+- **System file picker** (Features): no detail beyond "required" — what
+  needs it? A concrete trigger matters here: (a) a native GTK/Qt portal
+  backend (`xdg-desktop-portal-gtk`/`-kde`/a wlroots-specific one) so
+  ordinary apps get a working "Open"/"Save As" dialog under Hyprland, (b) a
+  picker built into `phi-shell` itself for the shell's own surfaces (the
+  wallpaper section, the quick-note feature above), or both? They're
+  different pieces of work with different packages/architecture.
+
+- **"Remove AI shenanigans"** (Dotfiles improvements): too unspecific to
+  act on — which files, directories or generated artifacts under
+  `phios-dotfiles` does this refer to? (`phi-agent`-related material
+  already has its own home per the very next entry in this same list,
+  `~/.local/share/phios/phi-agent`, which reads as the opposite of
+  "remove" — worth confirming these two entries aren't in tension.)
+
+- **Dotfiles restructuring** ("Better separation", "place all phios locals
+  in `~/.local/share/phios/{phi|dotfiles|phi-agent}`", "Installer" —
+  Dotfiles improvements): the locals-path move is concrete enough to
+  attempt, but it touches `bin/phios-install`'s manifest/backup paths, the
+  `~/.config/phios/dotfiles-root` + `~/.config/environment.d/10-phios.conf`
+  bootstrap files every profile depends on, and potentially every already-
+  installed machine's on-disk state — rule 4 forbids touching the three
+  real machines directly, so this can only be built and dry-run-tested
+  here, never verified end-to-end against an existing install before being
+  handed back. Confirm: is a from-scratch layout change like this wanted
+  even though it can only be verified by re-running the installer on a
+  real machine by hand afterward, and should the installer detect + migrate
+  an existing old-layout install automatically, or is a clean reinstall
+  acceptable? "Better separation" and "Installer" are too open-ended on
+  their own to start without knowing what specifically about the current
+  installer/profile split is considered wrong.
+
+- **Default wallpaper + palette rebuild** (Features): asks to rebuild the
+  whole light/dark palette from `references/default-phios-wallpaper-
+  placeholder-light.jpg` and "pick a better pink" — rule 6 makes design
+  tokens the only source of colour system-wide, so this one choice would
+  restyle every themed surface across `phi`, `phi-shell` and every
+  template `phios-dotfiles` renders. That's a real design decision, not an
+  implementation one. Would you like a few candidate palettes (derived
+  from the image, each with a WCAG contrast check via `phi theme check`)
+  proposed for a pick before anything is committed, rather than one
+  palette landed unilaterally?
