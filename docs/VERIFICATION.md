@@ -9,6 +9,38 @@ once it is verified.
 
 ---
 
+## The calendar overlay doesn't close, or get closed by, the other status-bar overlays
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 405661e calendar: close the other bar overlays when it opens, not just the reverse, f8d81ee merge: calendar overlay exclusivity (close peers on open)
+- **Original TODO:** "when the calendar overlay is opened other overlays don't close (should share the same behavior as the other, as it should use the same parent compoent), and opening other overlays don't closes the calendar. (as per overlays it's intended the panels that are opened from the icons in the status bar). The other way around, non calendar panels don't automatically close when calling the chat/notification panels, the settings or other shells"
+
+### What was asked
+The calendar card (opened from the bar clock) should behave like the other bar-icon overlays: opening it should close whichever of them is already open, and opening one of them should close the calendar — not just one direction. The closing sentence also flags that the other four don't close each other either.
+
+### What was done
+`Services/Calendar.qml` already had one direction: four `Connections` blocks (added by an earlier round, commit `ec1db11`, never signed off or removed from `docs/TODO.md`) close the calendar whenever `NotificationPanel`, `AgentPanel`, `SettingsPanel` or a `BarPopout` (volume/wifi/bluetooth/etc.) opens. The other direction didn't exist: opening the calendar left all four sitting open underneath it. Added an `onShownChanged` handler on `Calendar`'s own `shown` property that calls `.hide()` on all four the moment the calendar opens — the same peer set it already watches, just closing them instead of only reacting to them.
+
+No feedback loop: each of the four Connections blocks only reacts when the *watched* property becomes true/non-empty (`if (Services.X.shown) root._closeIfOpen()`); calling `.hide()` on them sets it to false/empty, which those same conditions ignore.
+
+<span style="color:red">**NOT DONE:**</span> the closing sentence's own complaint — that Notifications/AgentPanel/Settings/BarPopout don't close each other either (you can have the settings panel and the agent panel open at once, for instance) — was deliberately left alone. Fixing that is a real N-way exclusivity pass across four more files, not a mirror of one relationship this file already half-had; re-filed as its own bare `docs/TODO.md` entry rather than folding it into this one silently.
+
+Did not attempt the parenthetical "should use the same parent compoent" — folding the calendar into `BarPopout`'s own `which` state machine so it's structurally one popout among many, rather than a second mechanism kept in sync by hand. That's a real architectural option but touches the calendar's positioning/anchoring, which needs to be seen rendered to get right; the behavioural fix above satisfies the literal complaint without that risk.
+
+### Honest assessment
+Not verified on hardware — `phi-shell/CLAUDE.md`: "You cannot run this." The change is a single property-change handler calling four `hide()` functions that already existed and are already called the same way elsewhere in this exact file's own Connections blocks, so the mechanism is not new, only its direction.
+
+### How to test it
+1. On `razer` or `zotac`, update `phi-shell`'s `dev` checkout at `~/.config/quickshell/phi` to this change (latest `dev`); Quickshell hot-reloads on save.
+2. Open the notification panel (bar bell icon, or Super+N). With it open, click the bar clock to open the calendar. Expected: the notification panel closes as the calendar opens (previously: both stayed open, calendar on top).
+3. With the calendar open, click a bar popout icon (volume, wifi, bluetooth, …). Expected: unchanged from before — the calendar already closed in this direction (`ec1db11`). Confirm it still does.
+4. With a bar popout open (e.g. volume), click the bar clock to open the calendar. Expected (this is the new half): the volume popout closes as the calendar opens.
+5. Repeat step 2/4 with the agent panel (Super+P) and the settings panel (Super+S) in place of the notification panel — same expected result: each closes when the calendar opens.
+6. Not part of this fix, for awareness: open the settings panel, then open the agent panel. Expected today (unchanged, tracked as its own open item): both stay open at once — only the calendar participates in this exclusivity so far.
+
+---
+
 ## Power button is not first in the bar, and its overlay buttons look broken
 
 - **Date:** 2026-09-13
