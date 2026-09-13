@@ -138,6 +138,39 @@ Not verified: the installer's own `--dry-run` couldn't be exercised on this mach
 
 ---
 
+## Opening a panel while on Steam/btop's workspace leaves it stranded there
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 6783bab hyprland: leave Steam/btop's dedicated workspace when a panel opens, 89266e3 merge: leave Steam/btop's dedicated workspace when a panel opens
+- **Original TODO:** "opening a panel on a special workspase (11, 12), should automatiically open it in the highest possible panel up to 10"
+- **Requires phi rebuild:** none — this doesn't touch the `phi` repo
+
+### What was asked
+Workspaces 11 and 12 are Steam's and btop's own dedicated spaces (ADR 134, `hyprland.lua.tmpl`) — reserved, single-purpose workspaces, not general work. If the user opens one of the shell's panels (notifications, agent, settings, a bar popout) while parked on one of those two, the request is to switch away to a normal workspace first, rather than leaving the panel floating over a full-screen game or `btop`.
+
+### What was done
+Read `hyprland.lua.tmpl` and `Bar/workspace-icons.json` first to confirm what "11, 12" actually refers to — this is NOT the Hyprland `special:` scratchpad (`Services/Calendar.qml`'s own history already found Quickshell 0.3.1 cannot read `special:` workspace state at all, a real dead end recorded there and in this session's own memory of that investigation). 11 and 12 are ordinary, positive-id numbered workspaces pinned to Steam/`btop` by `hyprland.lua`, fully readable through `Services/HyprlandBridge.qml`'s existing `workspaces` property — no Quickshell limitation applies here.
+
+Added `Services.HyprlandBridge.leaveReservedWorkspace()`: if `screens[0]` (every one of the four panel singletons below is single-instance, pinned to `screens[0]` per `shell.qml`) is currently on workspace 11 or 12, it switches to the highest workspace id in 1–10 that exists in Hyprland's own live model, or workspace 1 if none of 1–10 currently has one. Wired into the same `onShownChanged`/`onWhichChanged` handlers the panel-mutual-exclusion entry (below) already added to `Services/NotificationPanel.qml`, `Services/AgentPanel.qml`, `Services/SettingsPanel.qml` and `Services/BarPopout.qml` — whichever of the four opens now both closes its three siblings and leaves a reserved workspace, from the same one place per caller. This is a small, deliberate widening of `HyprlandBridge.qml`'s own stated "thin wrapper" scope — the two reserved ids are UI policy, not a Hyprland IPC primitive — justified because all four callers needed the identical ~15-line scan; the file's own new comment says so explicitly.
+
+### Honest assessment
+Not run against a compositor — `phi-shell/CLAUDE.md` is explicit this cannot happen here. Verified by reading the real `Quickshell.Hyprland` usage already proven elsewhere in this codebase (`.values` on the workspaces model, `.activate()` on a workspace object, `.monitor.name` — all three already load-bearing in `Bar/modules/Workspaces.qml`/`Services/Idle.qml`/`Overview.qml`) rather than guessing at the API, and checked brace balance on every changed file programmatically.
+
+The exact meaning of "highest possible" was a judgment call, not spelled out in the one-line TODO entry: implemented as "the highest workspace id in 1–10 that currently has at least one window" (since a non-persistent, non-special workspace with zero windows doesn't appear in Hyprland's own workspace list at all), not "most recently used" — a reasonable, literal reading, but flag it if "go back to whatever I was just doing" (workspace history) was actually meant instead.
+
+Applied uniformly to all four panel singletons, including the small bar popouts (volume/wifi/etc.) — not just the three "main" panels — for consistency with the exact same four-surface grouping the mutual-exclusion entry below already established, even though the TODO text's "a panel" could be read more narrowly. Flag if a volume-level check shouldn't force a full workspace switch away from Steam/btop.
+
+### How to test it
+Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loaded on save, so once this branch's files are in place at `~/.config/quickshell/phi`, no restart is needed.
+
+1. Switch to workspace 11 (Steam) or 12 (`btop`) — click their icon in the bar, or `hyprctl dispatch workspace 11`.
+2. Open any panel: click the bar bell (notifications), press Super+P (agent), press Super+S (settings), or click a right-isle icon (volume/wifi/etc.). The active workspace should switch away from 11/12 to whichever of workspaces 1–10 has windows open (the highest-numbered one with something in it), before or as the panel appears.
+3. With nothing open on any of workspaces 1–10 (a fresh session), repeat step 2 — it should land on workspace 1 instead of doing nothing.
+4. Open a panel while already on an ordinary workspace (say, workspace 3) — nothing should happen to the active workspace; only the panel opens.
+
+---
+
 ## The runner bar ranks results by feature novelty, not by a sensible category order
 
 - **Date:** 2026-09-13
