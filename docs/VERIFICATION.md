@@ -9,6 +9,42 @@ once it is verified.
 
 ---
 
+## The calendar overlay's flip clock reads as a slot machine, not a flip
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** c3b366b flipdigit: split into a static bottom half and a top-only flap, fix reserved-word bug, b238f7d merge: split flip-digit into a static bottom half and a top-only flap
+- **Original TODO:** "the calendar overlay in the status bar shows a flip clock, it should have the real flip animation, not a slot"
+- **Requires phi rebuild:** none — this doesn't touch the `phi` repo
+
+### What was asked
+The calendar overlay's big "HH:mm:ss" clock (opened by clicking the bar clock) already has a flip effect from an earlier round, but it reads as a slot-machine reel snapping over, not a real flip — fix the animation itself.
+
+### What was done
+Before touching anything, checked whether this was already done: `Widgets/FlipDigit.qml` already had a flip effect from two prior, already signed-off rounds (commits `8b4dbd8`, `5981e62`, `3634233`, `c3ba01c`, `5f32121`, all 2026-09-11), including a follow-up that changed the fold to be top-only ("it folds the number from both top and bottom, it should only be the top part folding over the bottom"). Since this TODO entry is dated after those sign-offs and describes exactly the failure mode a prior version's own VERIFICATION entry predicted as a risk ("if the single-transform version doesn't read convincingly as a flip clock once seen, the real two-piece version is a larger follow-up"), this is a fresh, real report, not a stale duplicate — advisor review confirmed the same reading before any code changed.
+
+The actual defect: the old version rendered the WHOLE digit as one Text and squashed it toward its own bottom edge via a single `Scale`. Both the half that's supposed to move and the half that's supposed to stay still moved together as one unit — there was no genuinely motionless anchor for the eye, which is what makes something read as a slot reel rather than a flip.
+
+Rewrote `Widgets/FlipDigit.qml` so the cell is two independent, half-height clipped `Item`s, both reading one shared `_shown` character: `topFlap` is the only piece that ever transforms (folds toward the centerline, swaps `_shown` at the fully-squashed midpoint, unfolds — the same squash-swap-unsquash motion as before, just now confined to its own half); `bottomStatic` is never transformed at all, for the whole animation. Also added `seamLine`, a thin static line at the centerline (gated to `showCard`, same as the existing `cardBorder`), matching the visible seam a real split-flap card has between its two physical pieces. `topFlap`/`bottomStatic` are new internal structure only — the widget's public API (`value`, `textColor`, `sizeStep`, `mono`, `showCard`) is unchanged, so neither `Panels/Calendar.qml` nor `Bar/modules/Clock.qml` needed any change.
+
+Deliberately still top-only, not a true two-leg split-flap where the bottom half also visibly unfolds into place with its own motion (advisor's first-pass suggestion): the prior, already-signed-off round of this same TODO entry asked for exactly this half-static shape in the user's own words, so re-adding bottom motion would reopen a design question already settled, not fix what was flagged this time. Flagged in the file's own header as the next step up if the top-only version still doesn't read convincingly once seen.
+
+### Honest assessment
+Not run against a compositor — `phi-shell/CLAUDE.md` is explicit this cannot happen here, and this is a pure visual/motion change, so "does it now read as a flip and not a slot" is ultimately a judgment call only a screenshot can settle. One real bug was caught and fixed before landing, not after: the first draft used `char` as a property name on the two half-`Item`s, which is a reserved word in QML/JS and would have broken the widget on load — caught by review, fixed by dropping those properties entirely in favor of having both halves read the shared `_shown` property directly (simpler, and removes what would otherwise have been three copies of the same state that had to stay in lockstep).
+
+The vertical split point (where `topFlap` ends and `bottomStatic` begins) is `cell.height / 2`, an exact half — worth a close look in the screenshot for whether the two halves join with a clean, single-pixel seam at rest, or whether there's a visible sub-pixel gap or overlap (a font-metrics rounding difference between `cell.half` and how the underlying font renders is the plausible source if so). This risk applies to both the calendar clock (`showCard: true`, sizeStep 4) and the bar clock (`showCard: false`, sizeStep 0, 11px) — the bar clock's digits are worth a specific check that they still sit at the same height and baseline as the static colons next to them, since that's the smaller, more rounding-sensitive case and the one place a regression would be easy to miss.
+
+### How to test it
+Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loaded on save, so once this branch's files are in place at `~/.config/quickshell/phi`, no restart is needed.
+
+1. Click the clock in the status bar to open the calendar overlay. At rest, the six digits (HH:mm:ss) should each show a thin horizontal seam line across their vertical center, splitting each digit card into two halves — this is new; the prior version had no seam.
+2. Watch the seconds digits tick over. Expected: only the TOP half of each changed digit visibly folds down toward the seam and back up, showing the new value once it unfolds; the BOTTOM half should not move, distort, or flicker at any point — it should look like a card's top flap flipping over a fixed lower card, not the whole digit shrinking and swapping in place.
+3. Compare against the OLD behavior if you recall it (or if unsure, this is the key distinction): before, the entire digit visibly squashed as one piece toward the bottom edge and popped back — if it still looks like that (the whole glyph moving, no fixed static half), the fix did not take.
+4. Look at the small clock in the status bar itself (not the overlay) during a minute boundary. Expected: still no card frame or seam line there (`showCard: false` hides both) — same flip motion as the calendar clock's top half, just without the card visuals, and the digits should sit at the same height/baseline as the static colon between them, not shifted up or down.
+5. Look at any digit at rest, in both places — the bar clock and the calendar overlay. Expected: a normal, complete-looking digit with no visible gap, doubled/ghosted text, or misalignment at the seam.
+
+---
+
 ## More than one overlay panel (notifications, agent, settings, a bar popout) can be open at once
 
 - **Date:** 2026-09-13
