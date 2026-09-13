@@ -9,6 +9,38 @@ once it is verified.
 
 ---
 
+## More than one overlay panel (notifications, agent, settings, a bar popout) can be open at once
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 7644f90 panels: close each other when notification/agent/settings/popout opens, 7ad4aa7 merge: close each other when notification/agent/settings/popout opens
+- **Original TODO:** "opening the notification panel, the agent panel, the settings panel or a bar popout (volume, wifi, bluetooth, etc.) doesn't close whichever of the others is already open — more than one can be visible at once. Only the calendar currently yields to (and is yielded to by) all four; none of the four do this for each other."
+- **Requires phi rebuild:** none — this doesn't touch the `phi` repo
+
+### What was asked
+Four overlay surfaces — the notification/clipboard sidebar, the AI agent panel, the settings panel, and a bar popout (volume/wifi/bluetooth/etc.) — should be mutually exclusive: opening any one of them should close whichever of the other three is currently open. Only the small calendar card already had this relationship with all four; the four themselves never closed each other.
+
+### What was done
+Each of the four owning singletons (`Services/NotificationPanel.qml`, `Services/AgentPanel.qml`, `Services/SettingsPanel.qml`, `Services/BarPopout.qml`) now has a reactive handler — `onShownChanged` for the first three, `onWhichChanged` for `BarPopout` (its `shown` is a derived readonly property; watching the underlying `which` matches how `Services/Calendar.qml` already watches it externally) — that, guarded on becoming *open* (never on becoming closed, which is what avoids a cycle), calls `.hide()` on the other three. `SettingsPanel` has three separate entry points that can set `shown = true` (`show()`, `openSection()`, `reveal()`); using the reactive property handler instead of patching each function individually covers all three with one block. `Services/Calendar.qml` itself was not touched — it already closes itself when any of these four opens, and (per its own header) is deliberately the one owner of that specific relationship; this change only adds the missing direction between the four non-calendar surfaces.
+
+Each file now imports `qs.Services as Services` to reach its three siblings — the same intra-`Services/`-directory singleton cross-reference `Services/Calendar.qml` already used (proof this pattern works in this codebase, since Calendar's own Connections blocks already resolve `Services.NotificationPanel` etc. the same way).
+
+### Honest assessment
+Not run against a compositor — `phi-shell/CLAUDE.md` is explicit this cannot happen here. Verified by re-reading all four changed files in full for brace balance and correct binding syntax, and traced every call path by hand for a reference cycle: each handler only ever calls `.hide()` on its siblings, `.hide()` only ever sets `shown`/`which` to the *closed* value, and each handler's guard only fires on the *open* transition — so a `.hide()` call can never re-trigger another handler's closing logic, only the no-op branch. This is the same reasoning already load-bearing for `Services/Calendar.qml`'s existing four `Connections` blocks, which this change is structurally identical to.
+
+One thing not verified: whether any of the four ever needs to be opened *without* closing the others — for example, whether the settings panel is ever meant to stay open behind a bar popout opened via a "Show in settings" button from inside it (`Services/SettingsPanel.qml`'s own header lists that exact button as one of its entry points). Read through `SettingsPanel`'s callers for such a case and found none — every bar-popout "settings" button opens settings and the popout itself both close together, no code path holds both open on purpose — but this is a judgment call from source, not something seen on screen.
+
+### How to test it
+Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loaded on save, so once this branch's files are in place at `~/.config/quickshell/phi`, no restart is needed.
+
+1. Open the notification panel (click the bar bell, or Super+N). Then click a bar popout icon (e.g. volume or wifi). Before this change, both would stay visible at once; now the notification panel should close the moment the popout opens.
+2. With the volume popout still open, press Super+P to open the AI agent panel. The popout should close.
+3. With the agent panel open, press Super+S to open settings. The agent panel should close.
+4. With settings open, press Super+N again. Settings should close and the notification panel should open.
+5. Click the bar clock to open the small calendar card while any of the above is open — it should still close whichever one was open, exactly as before this change (this direction was already working and should be unaffected).
+
+---
+
 ## The runner bar ranks results by feature novelty, not by a sensible category order
 
 - **Date:** 2026-09-13
