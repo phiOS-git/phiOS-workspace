@@ -9,7 +9,7 @@ loop*.
 
 - on razer the trackpad does not work after hibernation
 
-- wifi settings don't show if wifi is disabled or missing. No settings modules should ever be hidden, they can be completely disable (with a message stating it)
+- [taken] wifi settings don't show if wifi is disabled or missing. No settings modules should ever be hidden, they can be completely disable (with a message stating it)
 
 - network statistics should not be exclusive to wifi, it can be don to LAN as well. In the status bar as well, the wifi element should also have an icon (with states and animations) for ethernet connection as well.
 
@@ -56,7 +56,7 @@ loop*.
 
 - the scratchpad icon does not call the scratchpad nor it reacts to its activation, it's broken
 
-- move the power button as first element of the list. The buttons in the overlay show no text and don't do anything on click
+- [taken] move the power button as first element of the list. The buttons in the overlay show no text and don't do anything on click
 
 - the calendar overlay in the status bar shows a flip clock, it should have the real flip animation, not a slot
 
