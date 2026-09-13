@@ -62,7 +62,6 @@ loop*.
 
 - the status bar icons can be touched with touch screen near their top border, triggering the hover effect but not the activation
 
-- [taken] add customisation for sounds (battery sound)
 
 
 - h/j/k/l alternatives for the broken super+shift/ctrl+arrow binds stil don't work. none of those bindins change the workspace number . only usinf SUPER+number or clicking works. I need the keybind for changing workspace (and gesture, see later)

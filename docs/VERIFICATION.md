@@ -32,6 +32,42 @@ Unlike the calendar flip-clock entry earlier in this file (also initially suspec
 
 ---
 
+## No customisation for sounds (battery/charging sound)
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 230b1a2 devices: customisable name/volume for the battery charging sound, 1cf2372 merge: customisable name/volume for the battery charging sound
+- **Original TODO:** "add customisation for sounds (battery sound)"
+
+### What was asked
+The existing charging-plugged-in sound (Settings → Devices → Battery) only had an on/off toggle — add real customisation: which sound, and how loud.
+
+### What was done
+Added a sound name field (a freedesktop theme name like `power-plug`/`message`/`bell`, or an absolute path to an audio file) and a volume (0-100%), plus a "Test sound" button — the exact same row shape and behavior the Notifications section's own "Sound & testing" group already has, reusing its `_soundPath()`/`playSound()` pattern in `Services/PowerBridge.qml` rather than inventing a second convention.
+
+The charging sound's persistence moved off a single `phi state` scalar key (`power.chargingSound`) onto a JSON file (`Config.Paths.powerSoundPrefsFile`, `~/.local/state/phi/power-sound.json`) — the same shape as `notification-prefs.json`/`clock.json`/`lock.json`/`chroma.json` already use. `phi state`'s key set is closed (`phi/internal/state/state.go`) and a `{enabled, name, volume}` value doesn't fit one scalar key, so adding two new phi-state keys would have needed a `phi` rebuild and a new tag for what is otherwise a phi-shell-only change — moving the whole thing to a JSON file avoided that entirely.
+
+Since the on/off toggle was a real, already-shipped setting (not new), added a one-time migration: the first time the new JSON file is found missing, the old `phi state` key is read once and seeds the new file, so a user who had already turned the sound off on a real machine keeps it off after this change rather than silently reverting to the default (on). Guarded against the one real race this has — the migration's `phi state get` shells out and isn't instant, so the user could open Settings and flip the toggle themselves before the migration callback lands; a `_soundPrefsWritten` flag makes sure a real, fresh write always wins over a migration that started first but finished second.
+
+### Honest assessment
+Not run against a compositor — `phi-shell/CLAUDE.md` is explicit this cannot happen here.
+
+The migration is the one part of this that is genuinely unverifiable from here and the one most likely to be wrong if it is: **on the machine where the charging sound was ever turned off before this change, restart the shell once and check `cat ~/.local/state/phi/power-sound.json`** — it should show `"enabled": false`. If it instead shows `true` (or the file doesn't exist), the migration did not pick up the old value and the toggle needs to be flipped off manually one more time.
+
+The settings field's initial value has a known, pre-existing latent gap copied faithfully from the pattern it mirrors, not introduced here: `Component.onCompleted: text = Services.PowerBridge.chargingSoundName` reads whatever the property holds at that instant, but the JSON file loads asynchronously — if Settings is opened at the very moment the shell starts, before the file has loaded, the field would show the default `"power-plug"` even if a custom name is actually stored (the service's own state would still be correct once loaded; only the field's initial display could lag). Notifications' own identical sound-name field has the same gap. In practice Settings is a user-triggered panel opened well after startup, so this is unlikely to be seen, but it's a real, not-fixed-here edge case, not something asserted clean.
+
+### How to test it
+Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loaded on save, so once this branch's files are in place at `~/.config/quickshell/phi`, no restart is needed. Applies to laptops only (`Config.Capabilities.battery`) — this whole group is disabled with a reason on a desktop with no battery.
+
+1. Open Settings → Devices → Battery.
+2. Type a different sound name into the "Sound" field (e.g. `bell` or `message`) and press Enter/commit. Click "Test sound" — the new sound should play instead of the old `power-plug` default.
+3. Change "Volume" up or down and click "Test sound" again — it should be audibly louder or quieter than before.
+4. Toggle "Play a sound when the charger is plugged in" off, then unplug and replug the charger (or however you'd normally trigger this) — no sound should play. Toggle it back on and repeat — the sound should play again.
+5. Enter a nonsense sound name (e.g. `not-a-real-sound`) and click "Test sound" — the group's caption at the top should show a "Last sound error" line naming the missing file, not a silent failure.
+6. Restart the shell (`pkill -x qs; qs -p ~/.config/quickshell/phi`) and reopen Settings → Devices → Battery — the name and volume set in steps 2-3 should still be there, confirming the JSON file persists across restarts.
+
+---
+
 ## The status bar has no in/out transition on start, lock or unlock
 
 - **Date:** 2026-09-13
