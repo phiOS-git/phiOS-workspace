@@ -9,6 +9,29 @@ once it is verified.
 
 ---
 
+## Backlog asked to "add a color picker"
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev (no code change — see below)
+- **Commits:** 2b9cb84 todo: remove stale color-picker entry, already built and bound
+- **Original TODO:** "add a color picker"
+
+### What was asked
+A bare feature request, no detail beyond the three words.
+
+### What was done
+No code change — before starting, checked whether this already existed, the same check applied to every entry this session. `Screenshot/ColorPicker.qml` already implements exactly this: a click-to-sample eyedropper that reads the pixel under the cursor via ImageMagick's `magick ... -format "%[pixel:p{X,Y}]" info:`. It's real, master-plan-named work (§8.3 surface 20, "Colour picker (capture plus pixel read)"), built in commit `d9f6d47` — well before the current backlog era, not something from a recent session — and it's live-bound: Super (screenshot submap) then C. Removed the duplicate backlog line rather than leaving it to be re-discovered and re-investigated later.
+
+### Honest assessment
+Unlike the calendar flip-clock entry earlier in this file (also initially suspected stale, but turned out to be a fresh, specific complaint about an existing feature that needed real work), this one carries no evaluative language at all — no "doesn't work," no description of what's wrong with the existing picker, nothing suggesting the user had it in mind and found it lacking. That asymmetry is the basis for treating this one as genuinely stale rather than doing the same deeper check the flip-clock entry got. If a color picker with different requirements was actually intended (system-wide outside the screenshot flow, a persistent swatch history, copy-to-clipboard format options, etc.), this removal was wrong — re-add a bare, undecorated entry describing what's actually missing from the existing one.
+
+### How to test it
+1. Press and hold Super, then press C (the screenshot submap's colour-pick bind).
+2. A crosshair cursor should appear over the whole screen — no visible dim or overlay chrome, just the cursor shape change.
+3. Click anywhere. Expected: the crosshair disappears (no toast or confirmation — this is deliberately silent, matching how the screenshot save flow's own clipboard copy works) and the clicked pixel's colour, as a `#RRGGBB` hex string, is now on the clipboard — paste anywhere to confirm (`wl-paste` in a terminal, or paste into any text field).
+
+---
+
 ## The status bar has no in/out transition on start, lock or unlock
 
 - **Date:** 2026-09-13
