@@ -32,6 +32,37 @@ Unlike the calendar flip-clock entry earlier in this file (also initially suspec
 
 ---
 
+## Status bar overlays (bar popout, calendar) sit lower than they should, despite repeated fixes
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 2c4b01b bar: fix exclusiveZone so the bar popout and calendar overlay actually sit below the bar, 5c39e70 merge: fix exclusiveZone so the bar popout and calendar overlay actually sit below the bar
+- **Original TODO:** "the status bar overlays (those that open with the status bar icons) are still lower that they should be. This has been fixed many times but changes never worked. Clean up the whole feature and make it so that the overlay is few px below the bar. The gap variable is now of few px, clearly it's not an issue of gap, they probably have a fixed position or a wrong parent relative position or something like that."
+
+### What was asked
+`Panels/BarPopout.qml` (the small card that drops from a bar icon — volume, brightness, wifi, power, etc.) and `Panels/Calendar.qml` (the calendar overlay from clicking the bar clock) sit visibly too far below the bar, and the user had already tried fixing this more than once without success — asked for the whole mechanism to be cleaned up rather than another margin tweak.
+
+### What was done
+Read every overlay-style `PanelWindow` in this repo (Sidebar, Settings, Launcher, AltTab, Cheatsheet, ConfirmDialog, Screenshot, ...) and found every single one uses `exclusiveZone: -1`, except these two, which used plain `0`. `0` and `-1` are not the same value in the wlr-layer-shell protocol: `-1` means "ignore every other surface's own reserved space, anchor from the true screen edge"; `0` only means "I reserve nothing for others" — it does not opt this surface out of being pushed around by the BAR's own reservation.
+
+The primary evidence for what that actually does (not just a pattern match against sibling files) is `Screenshot/Screenshot.qml`'s own comment on a prior, functionally identical bug ("the dim area is trimmed below the status bar"): on a surface that isn't `-1`, the bar's exclusiveZone "reduces this surface's available region to stop short of the bar strip... the region itself stops there" — confirmed there against `AltTab.qml`'s own already-hardware-verified fix for the same symptom. That means both files' own top-anchored origin was already being shifted down by the bar's height before any QML-level anchoring ran at all — and both files then ALSO added `Services.BarMetrics.height + Config.Appearance.panelGap` via `anchors.topMargin`, on top of that already-shifted origin. A double-count of the bar's height, not a gap-token problem — matching the TODO's own observation ("clearly it's not an issue of gap") exactly.
+
+This also explains "fixed many times, never worked": a prior fix (OOP-20, referenced in both files' own comments) replaced a hardcoded height guess with the bar's real measured height — correcting the VALUE being added, but never touching the `exclusiveZone` line, so the double-count persisted regardless of how accurate that value became. Changed both to `exclusiveZone: -1`, matching every other overlay surface's own already-proven convention; no other change was needed since the existing `barHeight + panelGap` margin math is already the same formula `Panels/Sidebar.qml` (which already used `-1`) uses successfully.
+
+### Honest assessment
+Not run against a compositor — `phi-shell/CLAUDE.md` is explicit this cannot happen here. The mechanism itself (`-1` vs `0`) is hardware-verified in this repo, but for OTHER files (`Screenshot.qml`/`AltTab.qml`), not independently for these two — the diagnosis is a strong inference from that precedent, not an observed fact for `BarPopout.qml`/`Calendar.qml` specifically, and both files' own comments say so and spell out the two outcomes that would mean it's wrong: the popout stays exactly where it was (the origin shift wasn't the actual cause here), or it now overlaps/sits behind the bar itself (the shift was real but in the opposite direction from this model — in that case `barHeight` should be DROPPED from the `topMargin`, not kept, as the immediate one-line follow-up).
+
+<span style="color:red">**NOT DONE:** the TODO's own broader ask — "clean up the WHOLE feature" — reads as wanting more than a one-line-per-file fix if this turns out not fully sufficient; this change is scoped to the specific double-count bug found, not a rewrite of the popout positioning system.</span> If the fix works, no further cleanup should be needed since the underlying math was already correct.
+
+### How to test it
+Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loaded on save, so once this branch's files are in place at `~/.config/quickshell/phi`, no restart is needed.
+
+1. Click any right-isle bar icon (volume, brightness, wifi, bluetooth, network, battery, gpu) or the power icon. Expected: the popout card now appears a small, consistent gap directly below the bar — not visibly further down the screen than that gap.
+2. Click the bar clock to open the calendar overlay. Expected: same — it should sit just below the bar, at the same visual gap as the popout in step 1, not lower.
+3. If either is now sitting even further down than before, or is overlapping/behind the bar strip itself, that's the falsifiable "wrong direction" case both files' own comments call out — the fix is to remove `+ Services.BarMetrics.height` (or the equivalent `root.barHeight` in BarPopout.qml) from that file's `anchors.topMargin`, keeping only `Config.Appearance.panelGap`, rather than reverting this commit.
+
+---
+
 ## No customisation for sounds (battery/charging sound)
 
 - **Date:** 2026-09-13
