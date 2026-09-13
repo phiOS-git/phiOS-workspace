@@ -115,7 +115,7 @@ loop*.
 
 - add a quick note: when clicking the bottom right corder a quick floating editor window appears, it persists (save it in a specific folder in Documents). Positioning the mouse in the corner should have show a small transition (inspired by macos corner note) * this can be built using the default editor, however an improved version might be provided by the note app
 
-- currently opening a image just opens a terminal window that then immediatly closes. Images should instead persist, start in floating state instead of tiled and use the layout shown in references/floating-panels-reference.JPG .
+- [taken] currently opening a image just opens a terminal window that then immediatly closes. Images should instead persist, start in floating state instead of tiled and use the layout shown in references/floating-panels-reference.JPG .
 
 - i added references/default-phios-wallpaper-placeholder-light.jpg as a file that should be included in the phios repositories (dotfiles i think) for fresh installations. It should not be reapplied on updates, but it should be the selected one when first installing the system (apply a color invertion for the dark theme, not at runtime but generate an invertion of the provided image). Also set the default light and dark colors from the colors used in that image (rebuild the palette starting from those, also pick a better pink, inspired by all the references).
 
