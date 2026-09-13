@@ -66,7 +66,7 @@ loop*.
 
 - add customisation for sounds (battery sound)
 
-- opening the notification panel, the agent panel, the settings panel or a bar popout (volume, wifi, bluetooth, etc.) doesn't close whichever of the others is already open — more than one can be visible at once. Only the calendar currently yields to (and is yielded to by) all four; none of the four do this for each other.
+- [taken] opening the notification panel, the agent panel, the settings panel or a bar popout (volume, wifi, bluetooth, etc.) doesn't close whichever of the others is already open — more than one can be visible at once. Only the calendar currently yields to (and is yielded to by) all four; none of the four do this for each other.
 
 - h/j/k/l alternatives for the broken super+shift/ctrl+arrow binds stil don't work. none of those bindins change the workspace number . only usinf SUPER+number or clicking works. I need the keybind for changing workspace (and gesture, see later)
 
