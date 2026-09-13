@@ -79,6 +79,35 @@ Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loa
 
 ---
 
+## No settings-panel section for suspend, hibernate or the other power actions
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** c5ac1d0 settings: add a Power group to Devices with suspend/hibernate/etc., eadede4 merge: add a Power group to Devices with suspend/hibernate/etc.
+- **Original TODO:** "add suspension/hibernation settings in the settings panel"
+- **Requires phi rebuild:** none — this doesn't touch the `phi` repo
+
+### What was asked
+A one-line backlog entry: give suspend/hibernate (and, reasonably, the rest of the power actions) a place in the settings panel — today they only exist on the bar's power popout, which `Panels/BarPopout.qml`'s own code comment already flagged as a stand-in ("Devices already hosts battery/charging, the closest existing home") for a section that didn't exist yet.
+
+### What was done
+Added a "Power" `SettingsGroup` to `Settings/sections/Devices.qml` (registered as `devices.power` in `Settings/sections/options.js`), with the same six actions the bar's power card already offers — Lock, Suspend, Hibernate, Log out, Reboot, Shut down — wired to `Services/PowerActions.qml` and, for Reboot/Shutdown, gated behind the confirmation dialog from the previous entry below (`Services/ConfirmDialog.qml`). The gating logic (`_requestPowerAction`/`_confirmAndPerform`) is a second, small copy of `Panels/BarPopout.qml`'s own identically-named functions rather than a shared abstraction — there are only the two call sites, and `PowerActions.needsConfirm` is still the single source of truth for WHICH actions confirm, so the two copies can't disagree about policy even though the wiring is duplicated. The popout's own "Settings…" button now deep-links straight to this new group (`_showInSettings("devices.power")`) instead of just opening Devices at its top.
+
+### Honest assessment
+<span style="color:red">**NOT DONE: any idle-timeout / lid-close / DPMS policy.**</span> "Suspension/hibernation settings" could also reasonably mean *when the machine suspends on its own* (an idle timer, screen-off timing, lid-close behaviour) rather than only *a button to suspend it right now*. Checked first: nothing in this project configures that anywhere today — `hypridle` is listed in `profiles/desktop/packages.txt` with an explicit comment that its config is deferred, and no `hypridle.conf` or equivalent exists, committed or templated, in any repository (the same finding this workspace's own TODO history already recorded for the separate "screen suspends too fast after hibernation" bug report). Building that policy for real would mean shipping a real `hypridle.conf` into `phios-dotfiles`, deciding real timeout values and AC-vs-battery behaviour, and adding `phi state` keys or template variables for the settings panel to drive — several genuine, unstated design decisions, not something inferable from a one-line entry. What was built instead is the half of "suspend/hibernate settings" that has real, existing state behind it (the actions themselves); a toggle for a policy that doesn't exist anywhere yet would have been a hollow control. If idle/lid policy is actually wanted, that is its own, larger task.
+
+Not run against a compositor — `phi-shell/CLAUDE.md` is explicit this cannot happen here. Checked brace balance on every changed file programmatically and read the full diff back for correctness; the `Flow`-wrapped button row mirrors an existing pattern (`Settings/sections/Connectivity.qml`'s firewall-preset buttons) rather than inventing new layout.
+
+### How to test it
+Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loaded on save, so once this branch's files are in place at `~/.config/quickshell/phi`, no restart is needed.
+
+1. Open Settings (Super+S) → Devices. A new "Power" group should appear after "Battery" and before "Chroma keyboard", with six buttons: Lock, Suspend, Hibernate, Log out, Reboot, Shut down.
+2. Click Lock — the lock screen should engage immediately, no confirmation.
+3. Click Reboot — the settings panel should close and the same centered confirmation dialog from the entry below should appear ("Reboot" / "This cannot be undone."). Cancel should close it with nothing performed.
+4. Click the power icon in the bar, then "Settings…" at the bottom of the popout — it should open Settings scrolled directly to the new Power group with a brief highlight pulse, not just Devices' top.
+
+---
+
 ## The runner bar ranks results by feature novelty, not by a sensible category order
 
 - **Date:** 2026-09-13
