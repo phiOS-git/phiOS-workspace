@@ -9,6 +9,44 @@ once it is verified.
 
 ---
 
+## Super+M ends the session immediately, with no confirmation
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev, phios-dotfiles / dev
+- **Commits:** phi-shell: a97d21e power: add a "power" IPC target that opens the popout pre-confirming, 05e29c5 merge: power confirm IPC target for Super+M — phios-dotfiles: ce65d83 hyprland: ask for confirmation on Super+M, add a no-confirm alternative, fb8e832 merge: Super+M confirmation + no-confirm alternative
+- **Original TODO:** "SUPER+M to close hyprland is problematic: add a confirmation and an extra more complex binding for terminating without confirmation."
+- **Requires phi rebuild:** none — this doesn't touch the `phi` repo
+
+### What was asked
+Super+M runs `hyprshutdown`/`hyprctl dispatch exit` the instant it's pressed — one modifier plus a common letter, with no confirm step, so a mistyped keypress can end the whole session. Asked for two things: Super+M itself should ask first, and a separate, harder-to-hit binding should still exist for ending the session immediately when that's genuinely wanted.
+
+### What was done
+Rather than build a new confirmation surface, this reuses the one the power bar-icon overlay already has: `Panels/BarPopout.qml` already renders a "Reboot now? This cannot be undone." style inline confirm step for Reboot/Shutdown, gated on a local `_confirmingAction` string. Added a `Services.BarPopout.openConfirm(key, action)` (phi-shell) that opens the popout at its existing anchor-less corner fallback and hands over a one-shot pending action — same set-once/consume-and-clear shape `Services/SettingsPanel.qml`'s `pendingSection`/`pendingReveal` already use for a caller with no button to anchor under. `Panels/BarPopout.qml` picks it up via a `Connections` block and a new `IpcHandler { target: "power" }` with one function, `confirmLogout()`.
+
+`phios-dotfiles`' `hyprland.lua.tmpl`: Super+M now runs `qs -p ~/.config/quickshell/phi ipc call power confirmLogout` instead of the logout command directly, landing on the same "Log out now? This cannot be undone." confirm step the Reboot/Shutdown buttons already use. Super+Shift+M is the new "extra more complex binding" — still ends the session immediately, no confirmation, deliberately a letter-key double-modifier bind (matching the already-working Super+Shift+h/j/k/l/F/C binds already in this file) rather than the word-name-key pattern the still-open Super+Shift/Ctrl+arrow report involves.
+
+**Scope is narrower than the entry's title, deliberately:** only the *keybind* path now confirms. The power overlay's own "Log out" button and the runner bar's "logout" system action still fire immediately — `Services/PowerActions.qml`'s `needsConfirm()` is untouched, still true only for reboot/shutdown. The report is specifically about an accidental key press, not about the button someone deliberately clicked after opening a menu, so this was read as the narrower, correct scope rather than making every logout path (button included) require a second click.
+
+**Found and fixed a second, pre-existing bug while touching this line:** the old Super+M fallback command was `hyprctl dispatch 'hl.dsp.exit()'` — passing the literal string `"hl.dsp.exit()"` (Lua-binding call syntax) as a hyprctl dispatch argument, not Hyprland's real `exit` dispatcher. Replaced with `hyprctl dispatch exit`, the exact command `Services/PowerActions.qml`'s own `logout()` already runs. Not verified as broken on real hardware (no compositor here either), but confirmed suspect by reading `hyprctl`'s dispatch argument format — and left uncorrected, it would have made the new no-confirm Super+Shift+M bind a silent no-op on any machine without `hyprshutdown` installed, the one path with no confirm dialog to surface that failure.
+
+### Honest assessment
+Not verified on hardware — `phi-shell/CLAUDE.md`: "You cannot run this." The IPC plumbing mirrors an existing, working pattern (`SettingsPanel`'s pending-state handoff) closely enough to be confident in the QML side; the two `hyprland.lua` binds follow this file's own confirmed-working modifier/key-shape precedent (letter keys with a double modifier, not the broken word-name-key pattern).
+
+Super+M now depends on `qs` (phi-shell) actually being alive to answer the IPC call — already true of the Lock keybind (same mechanism), but the failure mode here reads worse: a dead shell means Super+M does nothing at all, silently, for a keybind used routinely rather than "the screen didn't lock." Not something to route around (phi-shell is meant to always be running, ADR 072), just worth knowing if Super+M ever seems to stop working — check `pgrep -x qs` before assuming the bind itself broke.
+
+The cheat sheet (Super+Shift+/) reads bind descriptions straight from `hyprctl binds -j` — both new binds got a `description` (the same reason every other `qs ipc call`-driven bind in this file has one), so they should show up there as "Log out (asks for confirmation)" and "Log out immediately, no confirmation" rather than an opaque entry. Not seen rendered.
+
+### How to test it
+1. Update both checkouts: `phi-shell` at `~/.config/quickshell/phi` to `dev` (Quickshell hot-reloads the QML on save), and `phios-dotfiles` to `dev`.
+2. Re-render the Hyprland config from the updated template and reload it — `phi theme set <your current variant, e.g. dark>` does both (it re-renders every `design/adapters.txt` row, including this one, and automatically runs that row's `hyprctl reload`); a plain `qs`/QML reload does NOT pick up this half of the change, since it's a Lua config file, not QML.
+3. Press Super+M. Expected: the power popout opens (top-right corner, since no bar icon was clicked) directly on a "Log out now? This cannot be undone." confirm step with Confirm/Cancel buttons — the session does NOT end immediately. Click Cancel; confirm you're still logged in.
+4. Press Super+M again and click "Log out" (or whatever the confirm button reads) this time. Expected: the session actually ends — confirms the IPC round-trip really reaches `PowerActions.perform("logout")`, not just that the confirm UI appears.
+5. Log back in. Press Super+Shift+M. Expected: the session ends immediately, no popout, no confirm step.
+6. Open the cheat sheet (Super+Shift+/). Expected: two distinct Super+M entries — one describing the confirm behaviour, one the immediate no-confirm behaviour — not a single stale "M" row or an opaque unlabelled one.
+7. Unrelated to this entry but worth a glance while step 2 is fresh: click the power bar icon directly and click "Log out" from the button (not via a keybind). Expected: unchanged from before this change — ends the session immediately, no confirm step, since only the keybind path was scoped to require one.
+
+---
+
 ## The calendar overlay doesn't close, or get closed by, the other status-bar overlays
 
 - **Date:** 2026-09-13
