@@ -9,6 +9,34 @@ once it is verified.
 
 ---
 
+## No way to invert scroll direction for the mouse or trackpad
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phios-dotfiles / dev
+- **Commits:** 9086294 hyprland: invert scroll direction for mouse and trackpad, 4fbc2b3 merge: invert scroll direction for mouse and trackpad
+- **Original TODO:** "add a setting to invert the scroll wheel (mouse/trackpad)"
+- **Requires phi rebuild:** none — this doesn't touch the `phi` repo
+
+### What was asked
+A way to invert (reverse) scroll direction, for both the mouse wheel and the trackpad.
+
+### What was done
+Set `natural_scroll = true` in the existing top-level `hl.config({ input = {...} })` block in `profiles/desktop/templates/.config/hypr/hyprland.lua.tmpl`, alongside the `follow_mouse` value already there. Confirmed on Hyprland's own wiki that `natural_scroll` set at this top level (as opposed to nested under a separate `input.touchpad` table, which exists only for setting the touchpad *differently* from the mouse) applies uniformly to every pointer device — mouse and trackpad alike, matching the "(mouse/trackpad)" scope of the request exactly. Verified the template still parses as valid Lua with `luac -p` (after substituting its `${PHI_*}` placeholders with dummy values, since `luac` can't parse the raw `.tmpl` file).
+
+This is a fixed value in the shared config, not a live toggle in the settings panel — `Settings/sections/Devices.qml`'s existing "Pointer" group already documents pointer settings as living in `hyprland.lua`, not as panel-editable runtime state (its own comment cites "§9.12 perimeter"), and this follows that same, already-established boundary rather than opening a new one. If a live on/off switch in the settings panel turns out to be what was actually wanted instead of a fixed inversion, that is a materially different (bigger) feature — a new `phi state` key, a settings toggle, and a live `hyprctl keyword input:natural_scroll` call — and would need to be asked for as its own request.
+
+### Honest assessment
+Not verified on real hardware — no compositor is available here to actually feel the scroll direction change, only Lua syntax and the Hyprland wiki's documented semantics. Applies to `zotac` and `razer` (both use the `desktop` profile this template belongs to); `mini` never renders this file (headless, no graphical session).
+
+This inverts scroll for **both** mouse and trackpad uniformly, since that's what "(mouse/trackpad)" in the request reads as. If only one device should actually be inverted (e.g. trackpad natural-scrolling, mouse wheel traditional — a common split, since physical mice and trackpads conventionally scroll opposite ways from each other on some systems), that needs `input.touchpad.natural_scroll` set independently instead of (or in addition to) the top-level one — flag it if the uniform version feels wrong once tried.
+
+### How to test it
+1. Refresh `~/.config/hypr/hyprland.lua` from this change (`phios-install`, or however templates normally get re-rendered onto that host) and run `hyprctl reload`.
+2. Scroll down on a mouse wheel, or swipe up on the trackpad the way that used to scroll content down — content should now scroll the opposite way (up) from before this change, and vice versa.
+3. Check both the mouse and the trackpad on `razer` (the only host with both); check the mouse on `zotac`.
+
+---
+
 ## Opening an image flashes a terminal window instead of showing the picture
 
 - **Date:** 2026-09-13
