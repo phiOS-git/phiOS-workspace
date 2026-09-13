@@ -13,7 +13,7 @@ once it is verified.
 
 - **Date:** 2026-09-13
 - **Repo / branch:** phi / dev
-- **Commits:** 086858c mathx: stop treating an ordinary word as an implicit plot variable, 36f949d merge: stop mathx from plotting ordinary words as implicit variables
+- **Commits:** 086858c mathx: stop treating an ordinary word as an implicit plot variable, 36f949d merge: stop mathx from plotting ordinary words as implicit variables, 988c4e9 mathx: clarify the implicit-plot guard's comment on Greek letters, 48537be merge: clarify implicit-plot guard comment
 - **Original TODO:** "the ranking of the runner still needs revision. Almost all strings will be accepted as variable for a simple f=x, for example if i write \"stea\" i get f=stea before \"Steam\". Not only it should be ranked differently (the order should be something like: apps, HOME files (non hidden or children of hidden folders), commands, phi commands, search any file, ask ai agent, search web, math, convertion), unless the syntax is a perfect match, in that case the ranking grows. Also if it's multiple words files should be ranked less then web search and \"ask ai\". Mathx should just not consider unusual multi letter variable, unless a prefix \"math\" is used (see below)"
 - **Requires phi rebuild:** yes — no tag covers this yet. This commit is only on `phi`'s `dev` (past the currently-published `v0.16.1`, which is what `main` still points to); merging `dev` into `main` is a user decision (`AGENTS.md` rule 1), so no new tag was created. Once merged, tag `vX.Y.Z` on `main` for this and any other pending `phi` changes to release together.
 
@@ -35,7 +35,7 @@ Not run against a live `phi query` on `razer`/`zotac` — verified with `go test
 ### How to test it
 1. On `razer` or `zotac`, pull the latest `phi` package once it is rebuilt from the tag above (or, for a quick check without a rebuild, run `phi query stea` and `phi query cd` from a terminal with a `phi` checkout that has this commit).
 2. Before this fix: `phi query stea` (redirected, so it prints JSON) returns a `"provider":"calculator"` result titled `"y = stea"`. After this fix: it returns `[]` (unless a real app/file/command happens to match "stea").
-3. Try `phi query x` and `phi query y` — these should still work as before: `x` returns a `"kind":"plot"` calculator result (a single-letter variable is still treated as a legitimate implicit plot); `y` returns `[]` because "y" is already a recognized unit abbreviation for "year", unrelated to this change.
+3. Try `phi query x` and `phi query y` — these should still work exactly as they did before this change: `x` returns a `"kind":"plot"` calculator result (a single-letter variable is still treated as a legitimate implicit plot, unaffected by this fix). `y` returns `[]`, but not because of this fix — "y" was already excluded before this change too, because it's a recognized unit abbreviation for "year" (`UnitKnown`); it's listed here only so its `[]` isn't mistaken for a regression.
 4. In the launcher itself (Super+Space or however it's bound), type a few letters of an app name that also happens to look like a short word (e.g. "cd", part of an app you have installed) — it should no longer show a graph card above or instead of the app.
 
 ---
