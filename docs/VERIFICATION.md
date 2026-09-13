@@ -9,6 +9,72 @@ once it is verified.
 
 ---
 
+## Power button is not first in the bar, and its overlay buttons look broken
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 27104e6 bar: move the power module to the front of the left island, 006eadb settings: disable capability-gated groups instead of hiding them (unrelated, same branch — see the entry below), 36f63fb merge: settings disable-vs-hide + power button order
+- **Original TODO:** "move the power button as first element of the list. The buttons in the overlay show no text and don't do anything on click"
+
+### What was asked
+Two things about the power module added to the status bar's left island in an earlier round: (1) it should be the first icon in that island, not the third; (2) its overlay (the card that opens with lock/suspend/hibernate/logout/reboot/shutdown/settings) reportedly shows buttons with no visible text that do nothing when clicked.
+
+### What was done
+(1) `Bar/modules.json`: `power` was `position: 20` (after `phiAgent` at 0 and `workspaces` at 10). Renumbered to `power: 0, phiAgent: 10, workspaces: 20` — `Bar/Bar.qml` sorts each island's modules by this field ascending, so power now renders first.
+
+(2) Read the whole path end to end before touching anything, since this looked like it could be a real bug: `Panels/BarPopout.qml`'s power section (each row a `Widgets.SmallButton { label: Services.PowerActions.title("…"); onClicked: root._requestPowerAction("…") }`), `Widgets/SmallButton.qml` (`text: root.label` on its inner `StyledText`, a `TapHandler` that calls `root.clicked()`), and `Services/PowerActions.qml` (`title()` returns a real, non-empty label for every one of the six actions; `perform()`/`needsConfirm()` back `_requestPowerAction`/`_confirmPowerAction` in `BarPopout.qml`, including the reboot/shutdown confirm-then-act flow). Every link in that chain is wired correctly — found no defect. This looks like it was already fixed by the two prior rounds already on `dev` (`0a8b8fa` "power icon + overlay + runner commands, confirm before reboot/shutdown" and `74663b7`/`1a290ac` "fix power confirm dialog keyboard handling"), neither of which closed this exact TODO entry when they landed. Made no code change for this half — there was nothing left to fix.
+
+### Honest assessment
+<span style="color:red">**NOT INDEPENDENTLY VERIFIED:**</span> the "buttons show no text and don't do anything on click" half was checked by reading the QML end to end (`phi-shell/CLAUDE.md`: "You cannot run this — every visual result is verified by the user with a screenshot"), not by seeing it rendered. If it still reproduces on hardware after this, it is a different failure mode than a missing binding — worth a screenshot of the actual broken state next time, since static reading found the label and click-handler wiring intact and correct.
+
+The reorder (part 1) is a trivial, mechanical change with no ambiguity — confident it is correct once `phi theme`/Quickshell picks up the new `modules.json`.
+
+### How to test it
+1. On `razer` or `zotac`, make sure `phi-shell`'s `dev` branch is checked out at `~/.config/quickshell/phi` and pulled to this change (`36f63fb` or later). Quickshell hot-reloads `Bar/modules.json` on save; a fresh `qs -p ~/.config/quickshell/phi` restart also works if it doesn't.
+2. Look at the left end of the status bar. Expected: the power icon is now the FIRST icon on the left (before the Φ agent icon and the workspace pills). Before this change it was third, after the Φ icon and the workspaces.
+3. Click the power icon to open its overlay. Expected (already true before this change, per the code read above — confirm it still holds): six labelled rows — Lock, Suspend, Hibernate, Log out, Reboot, Shut down — plus a "Settings…" row, each with visible text. Clicking Lock/Suspend/Hibernate/Log out should act immediately and close the overlay; clicking Reboot or Shut down should swap the list for a one-line confirm ("Reboot now? This cannot be undone.") with Confirm/Cancel buttons, not act immediately.
+4. If step 3 is still broken (no text, or clicks do nothing), that contradicts this entry's code-level read — take a screenshot and re-open the report with what's actually on screen, since the source no longer shows an obvious cause.
+
+---
+
+## Settings modules disappear entirely when the underlying hardware is missing
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 006eadb settings: disable capability-gated groups instead of hiding them, 36f63fb merge: settings disable-vs-hide + power button order
+- **Original TODO:** "wifi settings don't show if wifi is disabled or missing. No settings modules should ever be hidden, they can be completely disable (with a message stating it)"
+
+### What was asked
+The Wi-Fi group in Settings › Connectivity vanishes completely on a machine with no Wi-Fi hardware (or, per the report, when Wi-Fi is off). The user's stated rule is general, not Wi-Fi-specific: no settings module should ever fully disappear for this reason — it should stay in place, disabled, with a message explaining why.
+
+### What was done
+`Settings/sections/SettingsGroup.qml` gained two new properties, `disabled` and `disabledReason`, alongside the existing `visible`/`caption`/`title`. When `disabled` is true: the title, caption and the hairline rule stay exactly where they are; a new warn-toned message line (`disabledReason`) appears in their place where the rows would explain themselves; and the row body (`bodyWrap`) gets `enabled: !disabled` (QtQuick cascades this to every child control's own input handling) plus `opacity: WidgetStates.INACTIVE_OPACITY` (0.45 — the same "reduced opacity, same weight" affordance every other disabled control in this widget set already uses, per `Widgets/WidgetStates.js`'s own §8.6 comment). The group itself is never `visible: false` any more.
+
+Grepped every `visible: Config.Capabilities.*` in `Settings/` (six call sites — this pattern was not Wi-Fi-only) and converted all six to the new `disabled`/`disabledReason` pair, matching the general wording of the request:
+- `Connectivity.qml`: Bluetooth ("No Bluetooth adapter was detected on this machine."), Wi-Fi (branches on which of two live signals is false — see below).
+- `Devices.qml`: Battery, Chroma keyboard.
+- `General.qml`: Battery (the read-only stats group).
+- `Notifications.qml`: Chroma (the keyboard-blink-on-notification toggle).
+
+Wi-Fi specifically covers both nouns in the report — "disabled or missing" — with two different signals: `!Config.Capabilities.wifi` (the boot-time `/sys` hardware probe — "missing": no adapter at all) OR `!Services.WifiBridge.present` (`Quickshell.Networking`'s live device list — "disabled": hardware exists but NetworkManager currently has no Wi-Fi device, e.g. rfkilled). The message picks the more specific of the two ("No Wi-Fi hardware was detected on this machine." vs "Wi-Fi is off or the adapter is unavailable.").
+
+Did not touch the equivalent capability gating on status-bar icons (`Bar/modules.json`'s `capability` field) — that hiding is a deliberate, different, already-documented architecture decision (ADR 074: "a module declares a capability requirement and appears only where it exists"), and the TODO entry's own wording ("wifi **settings**") only reports the settings panel.
+
+### Honest assessment
+Not verified on hardware — `phi-shell/CLAUDE.md`: "You cannot run this." The QML is straightforward (a bool + a string driving `enabled`/`opacity`/text visibility, no new service surface, no new control types) and reuses an opacity constant and a `tone` value already exercised elsewhere in the same file tree, but the actual look of a dimmed group with its warning line has not been seen rendered.
+
+One judgment call worth flagging: `SettingsGroup`'s existing `caption` (when a group sets one, e.g. Devices' Battery group captions its charging-sound error) is NOT suppressed while `disabled` is true — both can show at once. Left this way deliberately (the caption still describes what the group IS; `disabledReason` explains why it's currently unusable — the two aren't mutually exclusive), but it wasn't spelled out in the request either way, so it's worth a look on the actual Battery group on a desktop machine (no battery) to confirm the two lines don't read as redundant or confusing stacked together.
+
+### How to test it
+1. On `razer` or `zotac`, update `phi-shell`'s `dev` checkout at `~/.config/quickshell/phi` to this change (`36f63fb` or later); Quickshell hot-reloads on save.
+2. Open Settings › Connectivity on `zotac` (no Wi-Fi hardware, per `PROGRESS.md` §1). Expected: a "Wi-Fi" group IS visible (previously it was entirely absent), its title/rule shown normally, a line below reading "No Wi-Fi hardware was detected on this machine." in the warn colour, and its rows (Network / Manage networks / Speed & latency) visibly dimmed and non-interactive (clicking "Open nmtui…" does nothing).
+3. Still on `zotac` (no Bluetooth per its packages, if that holds — otherwise test on whichever host actually lacks a radio), confirm the Bluetooth group shows the same pattern instead of disappearing.
+4. On a machine with real Wi-Fi (`razer`), confirm the Wi-Fi group renders normally (no dimming, no message, "Network"/"Manage networks"/the speed graph all interactive) when the radio is on and connected.
+5. If possible, turn Wi-Fi off on `razer` (`nmcli radio wifi off` or the physical kill switch) with the settings panel open. Expected: the Wi-Fi group should switch to the dimmed/disabled state with "Wi-Fi is off or the adapter is unavailable." — confirms the live (not just boot-time) half of the check. Turn it back on to confirm it returns to normal.
+6. On `razer` (no battery is not the case — it's a laptop, so instead check `zotac`, desktop, no battery): open Settings › General and Settings › Devices. Expected: a "Battery" group appears in both (previously absent on a desktop), dimmed, with "No battery was detected on this machine."
+
+---
+
 ## Yazi: token-driven colours for folder icons, non-VSC Development icon, new Games icon, hover off accent
 
 - **Date:** 2026-09-11

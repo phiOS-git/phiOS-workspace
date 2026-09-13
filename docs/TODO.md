@@ -9,8 +9,6 @@ loop*.
 
 - on razer the trackpad does not work after hibernation
 
-- [taken] wifi settings don't show if wifi is disabled or missing. No settings modules should ever be hidden, they can be completely disable (with a message stating it)
-
 - network statistics should not be exclusive to wifi, it can be don to LAN as well. In the status bar as well, the wifi element should also have an icon (with states and animations) for ethernet connection as well.
 
 - tailscale/vpn and network overlay and status bar icon should be merged in a single element, showing network informations. It should display in the bar: the type of connection (LAN/WIFI), its status (enabled, disabled, wifi intensity, and an X on the LAN/WIFI icon if connected but without internet), and a VPN icon if active, tailscale icon if connected. The overlay pannel should have 2 states: compressed and expanded. It should show most of the relevant network informations and switches: type of connection, firewall, VPN, the network speed and ping visual, a list of active servers (grouped by source) with killswitches, and so on. All the advanced settings should be available in the settings panel, while most commont interactions should be available in this panel as well.
@@ -55,8 +53,6 @@ loop*.
 - wifi speed graph does not show real values, it's stable at 1kb/s with 5kb/s peaks (it should be ~20Mb), both upload and download
 
 - the scratchpad icon does not call the scratchpad nor it reacts to its activation, it's broken
-
-- [taken] move the power button as first element of the list. The buttons in the overlay show no text and don't do anything on click
 
 - the calendar overlay in the status bar shows a flip clock, it should have the real flip animation, not a slot
 
