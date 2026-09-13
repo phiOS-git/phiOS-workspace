@@ -9,6 +9,41 @@ once it is verified.
 
 ---
 
+## Opening an image flashes a terminal window instead of showing the picture
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi / dev, phios-dotfiles / dev
+- **Commits:** phi: 92d3f7a query: open images with imv explicitly, not unmanaged xdg-open, e64e474 merge: open images with imv explicitly, not unmanaged xdg-open — phios-dotfiles: cb6b49d hyprland: float and centre imv's window instead of tiling it, 4ac108e merge: float and centre imv's window instead of tiling it
+- **Original TODO:** "currently opening a image just opens a terminal window that then immediatly closes. Images should instead persist, start in floating state instead of tiled and use the layout shown in references/floating-panels-reference.JPG ."
+- **Requires phi rebuild:** yes — no tag covers this yet, same situation as the runner-ranking entry below: this commit is only on `phi`'s `dev`, past the currently-published `v0.16.1` (`main`); merging `dev` into `main` is a user decision (`AGENTS.md` rule 1), so tag once that happens.
+
+### What was asked
+Clicking an image result in the launcher was opening (and instantly closing) a terminal window instead of showing the picture. Asked for the image to persist on screen, open floating rather than tiled, and roughly match the loose, scattered floating-window look in `references/floating-panels-reference.JPG`.
+
+### What was done
+Traced the actual cause: `phi/internal/query/files.go`'s `FilesProvider` opened every file result — images included — with a bare `xdg-open <path>`, which resolves through a `mimeapps.list` default-application association. Nothing in `phios-dotfiles` ships or manages a `mimeapps.list` or any `.desktop` file (checked — none exist anywhere in the repo), so that resolution is entirely up to whatever the live machine happens to have configured, which is exactly the kind of unmanaged, unpredictable behaviour that could produce a flashing terminal.
+
+Fixed by removing the guesswork for the one file type this report is about: an image result (`.jpg/.jpeg/.png/.gif/.bmp/.webp/.tiff/.tif`, case-insensitive) now runs `imv` directly — already declared in every desktop profile's `packages.txt` — with an explicit `-i phios-imv` app id, so a Hyprland window rule can target its window reliably regardless of imv's own undocumented default app id (mirrors the existing `phios-btop` precedent in `hyprland.lua.tmpl` exactly). Everything else still goes through `xdg-open`, unchanged. While touching this line, also fixed a real latent bug found alongside it: neither branch quoted the file path before handing it to `sh -c` (`Launcher.qml`'s `"exec"` action), so a path under `$HOME` containing a space or shell metacharacter would have broken or misbehaved — added a `shellQuote` helper and applied it to both branches.
+
+`phios-dotfiles`: added an `hl.window_rule` in `hyprland.lua.tmpl` matching `class = "^phios-imv$"` with `float = true`, `center = true`, `size = "60% 70%"` — floating, centred, at a fixed proportion of the screen rather than full-tile. Verified the template's Lua syntax with `luac -p` (after substituting its handful of `${PHI_*}` placeholders with dummy values, since `luac` cannot parse the raw `.tmpl` file). `float` mirrors this file's own existing, already-used pattern (`btop-workspace`, `steam-workspace`); `center` and `size` are new to this file — confirmed against Hyprland's own upstream wiki and `example/hyprland.lua` (both fetched from `hyprwm/Hyprland` on GitHub), not against a live compositor.
+
+### Honest assessment
+Not verified on real hardware — `phi-shell/CLAUDE.md`'s "you cannot run this" applies equally to `phios-dotfiles`' compositor-facing config; there is no compositor available here. `go test ./...` passes and `go build ./...`/`go vet ./...` are clean for the `phi` change; the `phios-dotfiles` change was checked only for Lua syntax validity, not for whether this exact Hyprland build actually accepts `center`/`size` as Lua `window_rule` fields the way its `float`/`workspace`/`border_*` fields are already confirmed to (see the comment left directly above the new rule in `hyprland.lua.tmpl`, which flags this explicitly).
+
+Deliberately did not attempt to build the "scattered floating panels" collage look the reference image actually shows (several windows of different sizes at different, seemingly hand-placed positions) — that reads as a general "floating, not tiled, roughly like this" illustration rather than a literal per-window layout spec, and building an actual multi-window arrangement system was not asked for and would be well beyond this bug's scope. A single centred window at a fixed proportion of the screen was read as the reasonable, literal interpretation of "floating instead of tiled."
+
+The image-extension list is fixed and small (no RAW formats, no AVIF/HEIC) — extend `imageExtensions` in `phi/internal/query/files.go` if a format phi-shell/the user actually uses is missing from it.
+
+### How to test it
+1. Rebuild and reinstall `phi` from this commit (see "Requires phi rebuild" above — needs `dev` merged to `main` and a tag first), and run `phios-install` (or otherwise refresh `~/.config/hypr/hyprland.lua`) so the new window rule is in place, then `hyprctl reload`.
+2. Open the launcher and search for an image file that exists somewhere under your home directory (e.g. a `.jpg` or `.png` in `~/Pictures`).
+3. Select it. Before this fix: a terminal window would flash open and close immediately, no image ever visible. After this fix: `imv` opens showing the image, as a floating window roughly centred on screen at about 60% width / 70% height of the monitor — not filling/tiling the whole screen, and not disappearing.
+4. Confirm it persists: it should stay open until you close it yourself (`q` in imv, or closing the window normally) — it must not vanish on its own.
+5. As a regression check, select a non-image file result (e.g. a `.txt` or `.pdf`) — it should still open via whatever `xdg-open` resolves on that machine, unchanged from before this fix.
+6. If a path under your home directory has a space in it (e.g. `~/Pictures/Trip Photos/beach.jpg`), confirm it still opens correctly rather than failing or truncating at the space — this was a separate, latent bug fixed alongside the main one.
+
+---
+
 ## Runner bar shows a meaningless plot for ordinary words instead of the app being searched for
 
 - **Date:** 2026-09-13
