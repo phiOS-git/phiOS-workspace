@@ -36,6 +36,8 @@ Deliberately did not attempt to build the "scattered floating panels" collage lo
 
 The image-extension list is fixed and small (no RAW formats, no AVIF/HEIC) — extend `imageExtensions` in `phi/internal/query/files.go` (and the yazi opener's `mime` match, if it should differ) if a format actually used is missing.
 
+The yazi opener sets `orphan = true` for imv, by inference from the upstream preset's `play` group (which sets it for its own `xdg-open`) rather than the `image/*` rule's actual `open` group, which upstream does *not* mark orphan — this is a deliberate behaviour change: with `orphan = true`, closing the kitty window hosting yazi leaves imv running rather than killing it with its parent, which seems like the right behaviour for a viewer but was not something upstream itself does for images.
+
 ### How to test it
 1. Rebuild and reinstall `phi` from this commit (see "Requires phi rebuild" above — needs `dev` merged to `main` and a tag first), and run `phios-install` (or otherwise refresh `~/.config/hypr/hyprland.lua` and `~/.config/yazi/yazi.toml`) so the new window rule and opener are in place, then `hyprctl reload`.
 2. From the launcher: search for an image file that exists somewhere under your home directory (e.g. a `.jpg` or `.png` in `~/Pictures`) and select it.
