@@ -82,7 +82,7 @@ loop*.
 
 - "theme auto" which changes automatically on evening time (automatic/manual time). Consider "phi theme set" restarts the qs and that cannot happen automatically, the change should be smooth and non destructive.
 
-- add suspension/hibernation settings in the settings panel
+- [taken] add suspension/hibernation settings in the settings panel
 
 - add a color picker
 
