@@ -13,7 +13,7 @@ once it is verified.
 
 - **Date:** 2026-09-13
 - **Repo / branch:** phi-shell / dev
-- **Commits:** fc93d77 bar: add clock format settings (12/24-hour, seconds, date), f3958b5 merge: add clock format settings (12/24-hour, seconds, date)
+- **Commits:** fc93d77 bar: add clock format settings (12/24-hour, seconds, date), f3958b5 merge: add clock format settings (12/24-hour, seconds, date), c089ff4 bar: split 12-hour clock format on a literal separator, not an offset, f3ed298 merge: split 12-hour clock format on a literal separator, not an offset
 - **Original TODO:** "add settings for the status bar time in the settings panel. Allow to set the format with day/number/year/second etc."
 - **Requires phi rebuild:** none — this doesn't touch the `phi` repo
 
@@ -32,12 +32,14 @@ Not verified on real hardware or a compositor — `phi-shell/CLAUDE.md` is expli
 
 One design call made without being asked: 12-hour mode zero-pads the hour to two digits ("09:05 AM" not "9:05 AM"), so the digit-cell count stays fixed at two `FlipDigit`s regardless of hour — say if a single unpadded leading digit was actually wanted instead.
 
+Caught one more risk before this was verified rather than after: the 12-hour hour/AM-PM split originally used fixed `substring()` offsets on Qt's combined `"hhAP"` output, which silently assumes the AM/PM text is always exactly 2 characters — not guaranteed across locales. Reworked to format as `"hh AP"` and split on the literal space instead, which is correct regardless of the meridiem string's length. Still not run against a non-English locale.
+
 The "long" date style's weekday/month names come from Qt's own locale-aware `ddd`/`MMM` format tokens, so they'll follow whatever locale the shell runs under rather than being hardcoded English — not verified against a non-English locale.
 
 ### How to test it
 1. Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loaded on save (per its own README), so once this branch's files are in place at `~/.config/quickshell/phi`, no restart is needed.
 2. Open the settings panel, go to Theme, and scroll to the new "Clock" group (search "clock" or "time" also finds it). It sits directly above "Lock screen".
-3. Toggle "12-hour clock" on — the bar clock (bottom-right, the segment showing the time) should switch from e.g. "14:07" to "02:07 PM". Toggle it back off to confirm it returns to 24-hour.
+3. Toggle "12-hour clock" on — the bar clock (bottom-right, the segment showing the time) should switch from e.g. "14:07" to "02:07 PM": two hour digits, then the existing minute digits, then a plain "AM"/"PM" label. If the hour reads as something other than two digits, or the label after it is garbled instead of "AM"/"PM", the format split broke. Toggle it back off to confirm it returns to 24-hour.
 4. Toggle "Show seconds" on — a third digit pair should appear after the minutes, e.g. "14:07:32", ticking every second. Toggle it off — the bar clock should return to exactly the same width and look it had before either setting existed.
 5. Click "Short" under "Date" — the bar clock should gain a date prefix like "13/09" before the time. Click "Long" — it should instead read like "Sat 13 Sep 2026" before the time. Click "Off" — the date prefix should disappear and the clock go back to just the time.
 6. Click the clock itself (with any combination of the above set) — it should still open/close the calendar overlay exactly as before; the calendar overlay's own big flip clock is unaffected by these settings and always shows `HH:mm:ss`.
