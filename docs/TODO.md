@@ -70,7 +70,7 @@ loop*.
 
 - alt+tab still does not work: it does not closes when releasing alt, it does not start with the right window selected, it does not focus the selected windom (neither with click, touch, enter, space or whatever), it does not change workspace. It's completely broken, the only part that works is calling it with the gesture
 
-- [taken] the runner's ranking needs its full category order applied: apps, HOME files (non hidden or children of hidden folders), commands, phi commands, search any file, ask ai agent, search web, math, conversion. `internal/query/rank.go` only has six category tiers today (app/window/file/math-and-currency/action/websearch), math's tier sits above commands, ssh, zoxide and web search rather than below them, and the six tiers are deliberately spaced so no per-query match quality can ever promote a result across a tier boundary — a "perfect syntax match ranks higher across categories" rule needs an explicit cross-tier promotion, not a bigger in-tier score. There is also no "ask ai agent" launcher provider at all (`internal/agent` is not wired into `internal/query`), and only one, home-directory-only file-search provider exists, not the broader "search any file" category the order calls for — so multi-word queries have nothing to rank a wider file search below web search / ask-ai against yet.
+- the runner needs a "search any file" category (beyond the existing home-directory-only file search), ranked below phi commands and above ask-ai-agent. A live `fd` pass over the whole filesystem cannot fit `internal/query`'s ~120ms per-provider budget, so this needs a design decision first: an indexed search (e.g. `plocate`, official `extra` repo) means a persisted, always-on-disk index of file paths, which is exactly what `internal/query/files.go`'s own header flags as needing to respect I-08 (an index must live on the encrypted volume and stay excluded from sync) — versus a live `fd` scoped to a short, explicit list of extra roots (which ones — `/mnt/bulk` on `zotac`, `/srv` on `mini`? neither exists on `razer`) with a tighter timeout or a longer debounce than a keystroke. See the Questions section at the end of this file.
 - Add prefix feature to the runner bar: writing "web <anyting>" will automatically set the "search on web" first (but still perform the rest of the ranking). Make the same for: convert, math, ask (ask ai), file, app/run, phi (shows phi completion) and website specific like wiki/yt/arch/rddt. Add more if you can think of some very relevant one. Also if TAB is pressed after the prefix, the prefix will be "locked" visually as itgets background (like the highglighted option) and a "backspace" nerd icon next to it (clicking it removes it), it can also be cancelled but it requires a double click of backspace (to prevent removing it when holding down backspace). While a prefix word is selected, the only results shown will be determined by the prefix. More prefixes will be added with time, each should be configured with a color code (either a theme variable or a specific custom color), that color defines the highlight color when active and the runner bar will transition to that color for the borders when a prefix is active.
 - phi prefixes in the runner bar don't seem to work (will be solved by applying the prefix feature above, any conflict must be removed in order for the prefix feature to work without issues)
 
@@ -184,3 +184,22 @@ loop*.
 - place all phios locals in ~/.local/share/phios/{phi|dotfiles|phi-agent}
 
 - Installer
+
+## Questions for the user
+
+Entries below could not be progressed without a decision only the user can
+make. Each names the TODO entry it blocks.
+
+- **"search any file" runner category** (Bug Fixing / Improvements): a live
+  filesystem-wide `fd` pass cannot fit the launcher's per-provider timeout
+  budget. Indexed search (an official-repo tool like `plocate`) means a
+  persisted, always-on-disk index of file paths across the whole disk,
+  which is a real privacy/policy question (`internal/query/files.go`'s own
+  header already treats a persisted index as something the "index on the
+  encrypted volume, excluded from sync" constraint applies to — the current
+  home-only search avoids this entirely by never persisting anything).
+  Which approach: (a) an indexed tool, and if so should its database be
+  confined to specific directories rather than the whole disk; or (b) a
+  live search scoped to a short, explicit extra-roots list beyond `$HOME`
+  — and if (b), which roots per host, since `/mnt/bulk` only exists on
+  `zotac` and `/srv` only on `mini`?

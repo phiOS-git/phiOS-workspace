@@ -9,6 +9,40 @@ once it is verified.
 
 ---
 
+## The runner bar ranks results by feature novelty, not by a sensible category order
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi / dev
+- **Commits:** 3034499 query: apply full runner ranking category order, add ask-ai-agent provider, 8aefe4f merge: apply full runner ranking category order, add ask-ai-agent provider
+- **Original TODO:** "the runner's ranking needs its full category order applied: apps, HOME files (non hidden or children of hidden folders), commands, phi commands, search any file, ask ai agent, search web, math, conversion. `internal/query/rank.go` only has six category tiers today (app/window/file/math-and-currency/action/websearch), math's tier sits above commands, ssh, zoxide and web search rather than below them, and the six tiers are deliberately spaced so no per-query match quality can ever promote a result across a tier boundary — a \"perfect syntax match ranks higher across categories\" rule needs an explicit cross-tier promotion, not a bigger in-tier score. There is also no \"ask ai agent\" launcher provider at all (`internal/agent` is not wired into `internal/query`), and only one, home-directory-only file-search provider exists, not the broader \"search any file\" category the order calls for — so multi-word queries have nothing to rank a wider file search below web search / ask-ai against yet."
+- **Requires phi rebuild:** yes, once this is on `main` — this is only on `phi`'s `dev` so far (current published version is `v0.16.1`); tagging is cut from `main` per `phi/CLAUDE.md`'s Releasing section, and merging `dev` into `main` is a user decision, not something this change does on its own.
+
+### What was asked
+Reorder `internal/query/rank.go`'s category tiers to match a specific priority list (apps, HOME files, commands, phi commands, search-any-file, ask-ai-agent, search-web, math, conversion), and build the two launcher categories that don't exist yet: an "ask ai agent" result and a broader "search any file" beyond the current home-directory-only search.
+
+### What was done
+`rank.go`'s `providerTiers` now has ten explicit tiers (was six) matching the TODO's order top to bottom: apps, windows (unnamed in the list, kept just under apps as before), HOME files, commands, phi commands, system/ssh/directory (also unnamed — kept grouped with commands/phi rather than dropped to the bottom, see the code comment), ask-ai-agent, search web, math, then currency/conversion at the very bottom. This is a real behaviour flip: math and currency used to outrank commands, ssh, zoxide and web search; now they're the lowest tier of all, below web search.
+
+Added `internal/query/askagent.go` (`AskAgentProvider`, provider name `"agent"`), wired into `Providers()` in `query.go`. It follows `WebSearchProvider`'s exact shape: never answers itself (an A1 round-trip can't fit the 120ms per-provider budget), requires at least two words so it doesn't crowd every keystroke, and offers one result — "Ask AI: "<query>"" — whose action runs `phi agent ask <query>` (shell-quoted) in a terminal, the same `ask` verb `phi/internal/cli/agent.go` already exposes.
+
+Added two new tests in `rank_test.go`: `TestRankAppliesFullCategoryOrder` (nine providers, one per named category except search-any-file, asserting the exact resulting order) and `TestAskAgentProviderRequiresTwoWords` (the word-count floor and the exact shelled-out command). `go build ./...`, `go vet ./...` and `go test ./...` all pass in this checkout (macOS, no compositor — this is Go-only, no QML involved).
+
+### Honest assessment
+<span style="color:red">**NOT DONE: the "search any file" category.**</span> The TODO's own text already flags why this isn't a small addition: a live filesystem-wide `fd` pass cannot fit the ~120ms per-provider timeout, and an indexed approach (`plocate`, official-repo, or similar) means a persisted on-disk file-path index — `files.go`'s own existing header comment already treats a persisted index as something I-08 constrains (must live on the encrypted volume, excluded from sync), which the current home-only provider avoids entirely by being a live search. I didn't want to guess at that privacy-relevant design decision, so I left the category's tier un-reserved (rank.go's comment says exactly where to add it — right below phi commands) and re-added a clean, bare TODO entry describing just this remainder, plus a question at the end of TODO.md about which approach to take.
+
+The unnamed categories (windows; system actions/ssh/zoxide) are a judgment call, not something the TODO text specified — I kept them where they already were relative to their previous tier-mates (windows under apps, the other three grouped with commands/phi) rather than stranding them below math, which the file's own prior "unnamed categories go below math" convention would now do given math moved to the bottom. Reasoning is in `rank.go`'s comment; flag it if it reads wrong once you see real results.
+
+`AskAgentProvider`'s tier placement, wording ("Ask AI: ..."), and two-word floor are this agent's own choices, mirroring `WebSearchProvider`'s existing pattern since none of those specifics were spelled out. The AI agent subsystem itself is still confirmed broken end-to-end per the separate `docs/TODO.md` entry — this provider is correct code that currently hands off to a feature that doesn't work yet; it will start working once that's fixed, nothing here depends on fixing it.
+
+Not verified against a real launcher — this changes `phi query`'s output ordering, which `phi-shell`'s Launcher renders but does not itself compute (ADR 018); only `go test` was run, never the shell.
+
+### How to test it
+1. On the machine with this branch built and installed (or via `go run ./cmd/phi query <text>` from a `phi` checkout on this commit), type a query that matches an app, a file in `$HOME`, and looks like it could be math — e.g. a directory containing a file literally named `42`, with an app also named something close to `42`. The app result should now appear first regardless of match quality, the file second, and any calculator/currency result should sink to the very bottom of the list, below the web-search fallback — before this change, the calculator/currency result would have outranked commands and web search.
+2. Type any two-or-more-word phrase that doesn't strongly match an app, file or command, e.g. `what is the weather`. A new result "Ask AI: "what is the weather"" should now appear near the bottom of the list, just above "Search the web for ...". Selecting it runs `phi agent ask what is the weather` in a terminal (this will currently fail or hang, since the AI agent subsystem itself is still broken per its own separate TODO/VERIFICATION entry — that's expected and unrelated to this change).
+3. `cd phi && go test ./internal/query/...` should pass, including the two new tests `TestRankAppliesFullCategoryOrder` and `TestAskAgentProviderRequiresTwoWords`.
+
+---
+
 ## Design system is missing a checkbox, radio and text-highlight effect; the switch is too wide
 
 - **Date:** 2026-09-13
