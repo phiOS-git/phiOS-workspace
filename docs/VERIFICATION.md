@@ -41,6 +41,41 @@ Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loa
 
 ---
 
+## Confirmation prompts (like the power menu's) are a small inline replace, not a real modal
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 93b83b4 dialogs: add a reusable centered confirmation modal, migrate power confirm, 254b4a6 merge: add a reusable centered confirmation modal, migrate power confirm
+- **Original TODO:** "confirmation modals (like the one for power options) should be centered in the screen, with a dim and block the screen until they are resolved. Also make them a reusable component as other task (eg. the battery saving mode, see below) will use it."
+- **Requires phi rebuild:** none — this doesn't touch the `phi` repo
+
+### What was asked
+The existing "are you sure?" step before Reboot/Shutdown/logout-via-Super+M just swapped the small bar-popout card's own content in place — no screen dim, nothing blocked outside that one small card. Replace it with a real modal: centered on screen, dimmed behind, blocking until Confirm or Cancel — and build it as a reusable component, since other backlog items (the battery-saving-mode alert is the TODO's own example) will need the same thing.
+
+### What was done
+Added `Services/ConfirmDialog.qml` (a singleton owning `shown`/`title`/`message`/`confirmLabel`/`cancelLabel`, opened from anywhere with `Services.ConfirmDialog.open({title, message, confirmLabel, cancelLabel, onConfirm})`) and `Dialogs/ConfirmDialog.qml` (the one shared full-screen surface, declared once in `shell.qml` exactly like `Cheatsheet/Cheatsheet.qml`, whose layer-shell/scrim/centered-panel/keyboard-focus plumbing this is structurally copied from — the closest existing full-screen modal in the repo). Unlike Cheatsheet/Settings/Sidebar, there is deliberately no click-outside-to-close: Confirm, Cancel or Escape are the only ways out, matching "block the screen until they are resolved." Escape and Enter are wired both on the dialog card (Enter defaults to Confirm) and on each button individually — the second part mirrors a landmine `Launcher/Launcher.qml`'s own confirm sub-view already documents: `StyledButton` has no keyboard handling of its own, so without a per-button `Keys.onReturnPressed`, tabbing to Cancel and pressing Return would fall through to the card's own handler and confirm anyway.
+
+`Panels/BarPopout.qml`'s power section (reboot/shutdown, plus the Super+M logout confirmation) now calls `Services.ConfirmDialog.open()` instead of the old inline second-click view. That inline view is gone entirely, along with the `_confirmingAction` state that drove it. The Super+M path used to open the popout at a default corner position purely so it had somewhere to show its inline confirm (`Services.BarPopout.openConfirm()` / `pendingConfirmAction`, added specifically for that) — a centered modal needs no popout to anchor under, so that whole mechanism (now unused) was removed from `Services/BarPopout.qml` rather than left dead. Cancelling the new dialog leaves the popout's action list open underneath if it was already open (button-driven case), same as the old inline confirm did; the Super+M case never opens the popout at all now, simpler than before.
+
+`Launcher/Launcher.qml`'s OWN separate confirm step for reboot/shutdown (reached via Tab+Enter inside the runner bar) was deliberately left untouched — it's a step in the launcher's existing keyboard-driven view-navigation stack (Tab/Enter/Escape between cards), not a small popout replaced in place, and the TODO's own wording ("like the one for power options") points at the popout's version as the thing that needed centering; converting the launcher's internal navigation to a separate floating modal would be a different, larger change nothing in the request asked for.
+
+### Honest assessment
+Not run against a compositor — `phi-shell/CLAUDE.md` is explicit this cannot happen here. Checked brace balance on every changed/new file programmatically and traced every binding by hand against the closest existing precedent for each piece (Cheatsheet.qml for the layer-shell surface itself, Launcher.qml's confirm subview for the `focus: <condition>` / per-button `Keys.onReturnPressed` pattern) rather than inventing new plumbing — but none of it has been seen on screen.
+
+Two judgment calls, not specified in the TODO text: dialog placement is `Dialogs/ConfirmDialog.qml` (a new top-level directory, matching the existing one-directory-per-full-screen-surface convention — Cheatsheet, Screenshot, Overview, AltTab); and the primary Confirm button uses `StyledButton`'s existing `active: true` (accent-inverted) look to read as the primary action, rather than a new "danger/destructive" colour — no red/warning token exists in the design system for this today and design tokens are locked to `phios-dotfiles` (rule 6), so inventing one wasn't in scope here. Flag if a distinct destructive-action colour is wanted; that would be its own small design-token change.
+
+Not migrated to the new dialog: nothing else in the shell currently asks for a blocking confirmation (the "delete VPN config"/"sensible settings" confirmation and the battery-saving-mode alert the TODO itself names are their own still-open backlog entries) — this change only builds the reusable piece and moves its one existing consumer over, it doesn't go looking for other call sites to convert.
+
+### How to test it
+Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loaded on save, so once this branch's files are in place at `~/.config/quickshell/phi`, no restart is needed.
+
+1. Click the power icon in the bar's left isle, then click "Reboot". Before this change, the small popout card's own content flipped in place to a "Reboot now? This cannot be undone." line with two small buttons, nothing else on screen changed. Now, a centered card should appear over a dimmed whole screen (bar included), titled "Reboot" with the body text "This cannot be undone." and two buttons, "Reboot" and "Cancel".
+2. Press Escape — the dialog should close with nothing performed, and the power popout's action list should still be showing underneath (it was never closed).
+3. Click "Shutdown", then click the "Shutdown" button in the dialog — the popout itself should close and (on real hardware) the shutdown should proceed. This cannot be verified here.
+4. Press Super+M — before this change, the power popout opened in the corner of the screen directly on the "Log out now?" step. Now, the popout should NOT open at all; only the centered confirmation dialog should appear, titled "Log out". Confirming it should proceed with logout; Escape or Cancel should close it with nothing else on screen.
+
+---
+
 ## The runner bar ranks results by feature novelty, not by a sensible category order
 
 - **Date:** 2026-09-13
