@@ -71,7 +71,10 @@ loop*.
 
 - alt+tab still does not work: it does not closes when releasing alt, it does not start with the right window selected, it does not focus the selected windom (neither with click, touch, enter, space or whatever), it does not change workspace. It's completely broken, the only part that works is calling it with the gesture
 
-- the runner needs a "search any file" category (beyond the existing home-directory-only file search), ranked below phi commands and above ask-ai-agent. A live `fd` pass over the whole filesystem cannot fit `internal/query`'s ~120ms per-provider budget, so this needs a design decision first: an indexed search (e.g. `plocate`, official `extra` repo) means a persisted, always-on-disk index of file paths, which is exactly what `internal/query/files.go`'s own header flags as needing to respect I-08 (an index must live on the encrypted volume and stay excluded from sync) — versus a live `fd` scoped to a short, explicit list of extra roots (which ones — `/mnt/bulk` on `zotac`, `/srv` on `mini`? neither exists on `razer`) with a tighter timeout or a longer debounce than a keystroke. See the Questions section at the end of this file.
+- the runner needs a "search any file" category (beyond the existing home-directory-only file search), ranked below phi commands and above ask-ai-agent. A live `fd` pass over the whole filesystem cannot fit `internal/query`'s ~120ms per-provider budget, so this needs a design decision first: an indexed search (e.g. `plocate`, official `extra` repo) means a persisted, always-on-disk index of file paths, which is exactly what `internal/query/files.go`'s own header flags as needing to respect I-08 (an index must live on the encrypted volume and stay excluded from sync) — versus a live `fd` scoped to a short, explicit list of extra roots (which ones — `/mnt/bulk` on `zotac`, `/srv` on `mini`? neither exists on `razer`) with a tighter timeout or a longer debounce than a keystroke.
+
+  **Question:** a live filesystem-wide `fd` pass cannot fit the launcher's per-provider timeout budget. Indexed search (an official-repo tool like `plocate`) means a persisted, always-on-disk index of file paths across the whole disk, which is a real privacy/policy question (`internal/query/files.go`'s own header already treats a persisted index as something the "index on the encrypted volume, excluded from sync" constraint applies to — the current home-only search avoids this entirely by never persisting anything). Which approach: (a) an indexed tool, and if so should its database be confined to specific directories rather than the whole disk; or (b) a live search scoped to a short, explicit extra-roots list beyond `$HOME` — and if (b), which roots per host, since `/mnt/bulk` only exists on `zotac` and `/srv` only on `mini`?
+
 - Add prefix feature to the runner bar: writing "web <anyting>" will automatically set the "search on web" first (but still perform the rest of the ranking). Make the same for: convert, math, ask (ask ai), file, app/run, phi (shows phi completion) and website specific like wiki/yt/arch/rddt. Add more if you can think of some very relevant one. Also if TAB is pressed after the prefix, the prefix will be "locked" visually as itgets background (like the highglighted option) and a "backspace" nerd icon next to it (clicking it removes it), it can also be cancelled but it requires a double click of backspace (to prevent removing it when holding down backspace). While a prefix word is selected, the only results shown will be determined by the prefix. More prefixes will be added with time, each should be configured with a color code (either a theme variable or a specific custom color), that color defines the highlight color when active and the runner bar will transition to that color for the borders when a prefix is active.
 - phi prefixes in the runner bar don't seem to work (will be solved by applying the prefix feature above, any conflict must be removed in order for the prefix feature to work without issues)
 
@@ -89,7 +92,11 @@ loop*.
 
 - add trash feature (package to be picked). Options (to be checked if they work as expected): CliFM (cli), ... * check the list on archlinux.org file manager
 
+  **Question:** the entry itself says "package to be picked" and names one candidate (CliFM) with "options to be checked if they work as expected" — rule 2 restricts this to `core`/`extra`/`multilib`, no AUR. Which package: a dedicated trash CLI (e.g. `trash-cli`, in `extra`), a file manager with built-in trash support already in the stack (does `yazi`, already used per the styling section's own yazi entry, have one worth using instead of a second tool), or something else? And is this meant to be reachable only from a TUI file manager, or does it also need a `phi` verb / runner integration (rule on `phi` verb admission: an alias over one command doesn't qualify on its own)?
+
 - system file picker required
+
+  **Question:** no detail beyond "required" — what needs it? A concrete trigger matters here: (a) a native GTK/Qt portal backend (`xdg-desktop-portal-gtk`/`-kde`/a wlroots-specific one) so ordinary apps get a working "Open"/"Save As" dialog under Hyprland, (b) a picker built into `phi-shell` itself for the shell's own surfaces (the wallpaper section, the quick-note feature below), or both? They're different pieces of work with different packages/architecture.
 
 - add a timer and alarm feature to phi, also add tools to the runner to quicky setup timers and alarms. They should have a custom overlay that requires to be turned off, on the higher Z index in the system. It should have a ringtone. The two features must be customisable in the settings.
 
@@ -118,6 +125,8 @@ loop*.
 - add a quick note: when clicking the bottom right corder a quick floating editor window appears, it persists (save it in a specific folder in Documents). Positioning the mouse in the corner should have show a small transition (inspired by macos corner note) * this can be built using the default editor, however an improved version might be provided by the note app
 
 - i added references/default-phios-wallpaper-placeholder-light.jpg as a file that should be included in the phios repositories (dotfiles i think) for fresh installations. It should not be reapplied on updates, but it should be the selected one when first installing the system (apply a color invertion for the dark theme, not at runtime but generate an invertion of the provided image). Also set the default light and dark colors from the colors used in that image (rebuild the palette starting from those, also pick a better pink, inspired by all the references).
+
+  **Question:** rule 6 makes design tokens the only source of colour system-wide, so this one choice would restyle every themed surface across `phi`, `phi-shell` and every template `phios-dotfiles` renders. That's a real design decision, not an implementation one. Would you like a few candidate palettes (derived from the image, each with a WCAG contrast check via `phi theme check`) proposed for a pick before anything is committed, rather than one palette landed unilaterally?
 
 ## Style
 
@@ -176,83 +185,19 @@ loop*.
 
 - Better separation
 
+  **Question:** too open-ended to start without knowing what specifically about the current installer/profile split is considered wrong — which part reads as poorly separated today?
+
 - Cleanup + Optimisation
 
 - Remove AI shenanigans
 
+  **Question:** too unspecific to act on — which files, directories or generated artifacts under `phios-dotfiles` does this refer to? (`phi-agent`-related material already has its own home per the entry right below this one, `~/.local/share/phios/phi-agent`, which reads as the opposite of "remove" — worth confirming these two entries aren't in tension.)
+
 - place all phios locals in ~/.local/share/phios/{phi|dotfiles|phi-agent}
+
+  **Question:** concrete enough to attempt, but it touches `bin/phios-install`'s manifest/backup paths, the `~/.config/phios/dotfiles-root` + `~/.config/environment.d/10-phios.conf` bootstrap files every profile depends on, and potentially every already-installed machine's on-disk state — rule 4 forbids touching the three real machines directly, so this can only be built and dry-run-tested here, never verified end-to-end against an existing install before being handed back. Confirm: is a from-scratch layout change like this wanted even though it can only be verified by re-running the installer on a real machine by hand afterward, and should the installer detect + migrate an existing old-layout install automatically, or is a clean reinstall acceptable?
 
 - Installer
 
-## Questions for the user
+  **Question:** too open-ended on its own to start without knowing what specifically about the current installer is considered lacking — a concrete gap or behaviour to fix/add would make this actionable.
 
-Entries below could not be progressed without a decision only the user can
-make. Each names the TODO entry it blocks.
-
-- **"search any file" runner category** (Bug Fixing / Improvements): a live
-  filesystem-wide `fd` pass cannot fit the launcher's per-provider timeout
-  budget. Indexed search (an official-repo tool like `plocate`) means a
-  persisted, always-on-disk index of file paths across the whole disk,
-  which is a real privacy/policy question (`internal/query/files.go`'s own
-  header already treats a persisted index as something the "index on the
-  encrypted volume, excluded from sync" constraint applies to — the current
-  home-only search avoids this entirely by never persisting anything).
-  Which approach: (a) an indexed tool, and if so should its database be
-  confined to specific directories rather than the whole disk; or (b) a
-  live search scoped to a short, explicit extra-roots list beyond `$HOME`
-  — and if (b), which roots per host, since `/mnt/bulk` only exists on
-  `zotac` and `/srv` only on `mini`?
-
-- **Trash feature** (Features): the entry itself says "package to be
-  picked" and names one candidate (CliFM) with "options to be checked if
-  they work as expected" — rule 2 restricts this to `core`/`extra`/
-  `multilib`, no AUR. Which package: a dedicated trash CLI (e.g. `trash-cli`,
-  in `extra`), a file manager with built-in trash support already in the
-  stack (does `yazi`, already used per the styling section's own yazi
-  entry, have one worth using instead of a second tool), or something else?
-  And is this meant to be reachable only from a TUI file manager, or does
-  it also need a `phi` verb / runner integration (rule on `phi` verb
-  admission: an alias over one command doesn't qualify on its own)?
-
-- **System file picker** (Features): no detail beyond "required" — what
-  needs it? A concrete trigger matters here: (a) a native GTK/Qt portal
-  backend (`xdg-desktop-portal-gtk`/`-kde`/a wlroots-specific one) so
-  ordinary apps get a working "Open"/"Save As" dialog under Hyprland, (b) a
-  picker built into `phi-shell` itself for the shell's own surfaces (the
-  wallpaper section, the quick-note feature above), or both? They're
-  different pieces of work with different packages/architecture.
-
-- **"Remove AI shenanigans"** (Dotfiles improvements): too unspecific to
-  act on — which files, directories or generated artifacts under
-  `phios-dotfiles` does this refer to? (`phi-agent`-related material
-  already has its own home per the very next entry in this same list,
-  `~/.local/share/phios/phi-agent`, which reads as the opposite of
-  "remove" — worth confirming these two entries aren't in tension.)
-
-- **Dotfiles restructuring** ("Better separation", "place all phios locals
-  in `~/.local/share/phios/{phi|dotfiles|phi-agent}`", "Installer" —
-  Dotfiles improvements): the locals-path move is concrete enough to
-  attempt, but it touches `bin/phios-install`'s manifest/backup paths, the
-  `~/.config/phios/dotfiles-root` + `~/.config/environment.d/10-phios.conf`
-  bootstrap files every profile depends on, and potentially every already-
-  installed machine's on-disk state — rule 4 forbids touching the three
-  real machines directly, so this can only be built and dry-run-tested
-  here, never verified end-to-end against an existing install before being
-  handed back. Confirm: is a from-scratch layout change like this wanted
-  even though it can only be verified by re-running the installer on a
-  real machine by hand afterward, and should the installer detect + migrate
-  an existing old-layout install automatically, or is a clean reinstall
-  acceptable? "Better separation" and "Installer" are too open-ended on
-  their own to start without knowing what specifically about the current
-  installer/profile split is considered wrong.
-
-- **Default wallpaper + palette rebuild** (Features): asks to rebuild the
-  whole light/dark palette from `references/default-phios-wallpaper-
-  placeholder-light.jpg` and "pick a better pink" — rule 6 makes design
-  tokens the only source of colour system-wide, so this one choice would
-  restyle every themed surface across `phi`, `phi-shell` and every
-  template `phios-dotfiles` renders. That's a real design decision, not an
-  implementation one. Would you like a few candidate palettes (derived
-  from the image, each with a WCAG contrast check via `phi theme check`)
-  proposed for a pick before anything is committed, rather than one
-  palette landed unilaterally?
