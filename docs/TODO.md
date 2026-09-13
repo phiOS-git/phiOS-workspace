@@ -76,7 +76,7 @@ loop*.
 
 - add in and out transition for the status bar, to be triggered on start, lock and unlock
 
-- add a setting to invert the scroll wheel (mouse/trackpad)
+- [taken] add a setting to invert the scroll wheel (mouse/trackpad)
 
 - "theme auto" which changes automatically on evening time (automatic/manual time). Consider "phi theme set" restarts the qs and that cannot happen automatically, the change should be smooth and non destructive.
 
