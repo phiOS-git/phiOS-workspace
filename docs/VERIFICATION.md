@@ -9,6 +9,37 @@ once it is verified.
 
 ---
 
+## Runner bar shows a meaningless plot for ordinary words instead of the app being searched for
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi / dev
+- **Commits:** 086858c mathx: stop treating an ordinary word as an implicit plot variable, 36f949d merge: stop mathx from plotting ordinary words as implicit variables
+- **Original TODO:** "the ranking of the runner still needs revision. Almost all strings will be accepted as variable for a simple f=x, for example if i write \"stea\" i get f=stea before \"Steam\". Not only it should be ranked differently (the order should be something like: apps, HOME files (non hidden or children of hidden folders), commands, phi commands, search any file, ask ai agent, search web, math, convertion), unless the syntax is a perfect match, in that case the ranking grows. Also if it's multiple words files should be ranked less then web search and \"ask ai\". Mathx should just not consider unusual multi letter variable, unless a prefix \"math\" is used (see below)"
+- **Requires phi rebuild:** yes — no tag covers this yet. This commit is only on `phi`'s `dev` (past the currently-published `v0.16.1`, which is what `main` still points to); merging `dev` into `main` is a user decision (`AGENTS.md` rule 1), so no new tag was created. Once merged, tag `vX.Y.Z` on `main` for this and any other pending `phi` changes to release together.
+
+### What was asked
+The launcher's ranking needs an overhaul. The report bundles several distinct problems: (1) `mathx` treats almost any typed string as a valid one-variable expression and plots it — typing part of an app name like "stea" produces a graph instead of nothing, letting it compete with the real "Steam" app match; (2) results should sort by a specific nine-category order (apps, home files, commands, phi commands, search-any-file, ask-ai, web search, math, conversion) rather than the current tiering; (3) an exact/perfect-syntax match should be able to outrank a result from a normally-higher category; (4) a multi-word query's file results should rank below web search and "ask ai"; (5) `mathx`'s free-variable guessing should be restricted unless an (as yet unbuilt) "math" prefix is typed.
+
+### What was done
+Fixed only (1), at the root cause in `mathx` itself rather than papering over it in the ranking layer: `internal/mathx/engine.go`'s `evalNumeric` used to fall back to plotting *any* expression with exactly one free variable that wasn't a recognized unit name — so a bare word like "stea", "cd", or "steam" became `y = stea` and returned a trusted, high-scoring calculator result. The fallback is now restricted to a single-*character* variable name (`x`, `y`, `t`, `θ`, …) — the conventional shape of an actual unlabelled unknown — so an ordinary multi-letter word is rejected outright (`Evaluate` returns an error, and `CalculatorProvider.Query` correctly turns that into no result at all, per its existing error handling). An explicit `plot <expr>` command is untouched and still accepts any variable name, of any length — only the implicit, nobody-asked-for-it fallback was narrowed. Added `TestImplicitPlotRejectsWords` / `TestImplicitPlotKeepsSingleLetterVariable` in `internal/mathx/mathx_test.go` and `TestCalculatorRejectsBareWordAsVariable` in `internal/query/calculator_test.go`.
+
+Investigated (2)/(3)/(4) in detail before deciding not to touch them (see below) and re-filed the genuine remainder as its own `docs/TODO.md` entry.
+
+### Honest assessment
+<span style="color:red">**NOT DONE:** the nine-category ranking order (point 2), the perfect-match cross-category promotion rule (point 3), and multi-word files ranking below web search / ask-ai (point 4) are all still open — none of that was attempted this round. `internal/query/rank.go` already has a category-tier system (added 2026-09-11, before this backlog entry was even filed) with six tiers, not nine; math/currency's tier sits *above* commands, ssh, zoxide and web search, the opposite of the order asked for; the tiers are deliberately spaced 1000 apart specifically so no per-query match-quality score can ever cross a tier boundary, so "perfect match ranks higher across categories" needs a real design decision (an explicit cross-tier promotion rule) rather than a bigger number; there is no "ask ai agent" launcher provider at all yet (`internal/agent` isn't wired into `internal/query`); and only one, home-directory-only file search provider exists, not the broader "search any file" category the order calls for. Re-filed as a fresh, standalone `docs/TODO.md` entry describing just that remainder.</span> Point 5's "unless a prefix 'math' is used" clause is explicitly out of scope until the separate prefix feature (the next `docs/TODO.md` entry, "Add prefix feature to the runner bar") is built — the ticket itself says "(see below)" — but the non-prefix half of point 5 ("mathx should not consider unusual multi letter variable") is exactly what this change does.
+
+The reported repro itself ("stea" outranks "Steam") did **not** reproduce against current `dev` before this fix — the category-tier system already makes any app match beat any math result by thousands of points. Verified with `go run ./cmd/phi query stea` before the fix: it returned `y = stea` as the *only* result (this darwin dev machine has no matching `Steam` app to rank against), and after the fix it correctly returns no result at all. The underlying defect (an ordinary word silently becoming a trusted plot result) is real and worth fixing regardless of whether the exact "beats Steam" scenario reproduces on `razer`/`zotac` today — it was very likely true against whatever `phi` build the user tested with before the tier system landed.
+
+Not run against a live `phi query` on `razer`/`zotac` — verified with `go test ./...` (all packages pass) and manual `go run ./cmd/phi query <text>` on this development machine only, per rule 4 (the three real machines are off-limits to this agent).
+
+### How to test it
+1. On `razer` or `zotac`, pull the latest `phi` package once it is rebuilt from the tag above (or, for a quick check without a rebuild, run `phi query stea` and `phi query cd` from a terminal with a `phi` checkout that has this commit).
+2. Before this fix: `phi query stea` (redirected, so it prints JSON) returns a `"provider":"calculator"` result titled `"y = stea"`. After this fix: it returns `[]` (unless a real app/file/command happens to match "stea").
+3. Try `phi query x` and `phi query y` — these should still work as before: `x` returns a `"kind":"plot"` calculator result (a single-letter variable is still treated as a legitimate implicit plot); `y` returns `[]` because "y" is already a recognized unit abbreviation for "year", unrelated to this change.
+4. In the launcher itself (Super+Space or however it's bound), type a few letters of an app name that also happens to look like a short word (e.g. "cd", part of an app you have installed) — it should no longer show a graph card above or instead of the app.
+
+---
+
 ## Super+M ends the session immediately, with no confirmation
 
 - **Date:** 2026-09-13
