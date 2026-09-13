@@ -9,7 +9,7 @@ loop*.
 
 - on razer the trackpad does not work after hibernation
 
-- network statistics should not be exclusive to wifi, it can be don to LAN as well. In the status bar as well, the wifi element should also have an icon (with states and animations) for ethernet connection as well.
+- network informations should not be exclusive to wifi, but for LAN as well. In the status bar, the network element (unified, see next task) should also have a specific icon (with states and animations as usual) for ethernet connection.
 
 - tailscale/vpn and network overlay and status bar icon should be merged in a single element, showing network informations. It should display in the bar: the type of connection (LAN/WIFI), its status (enabled, disabled, wifi intensity, and an X on the LAN/WIFI icon if connected but without internet), and a VPN icon if active, tailscale icon if connected. The overlay pannel should have 2 states: compressed and expanded. It should show most of the relevant network informations and switches: type of connection, firewall, VPN, the network speed and ping visual, a list of active servers (grouped by source) with killswitches, and so on. All the advanced settings should be available in the settings panel, while most commont interactions should be available in this panel as well.
 
@@ -31,22 +31,22 @@ loop*.
 
 - improve the neovim chroma integration, with as many mapping as possible. When I press a key only valid options in the keyboard should be backlit, with color codes to understand the nature of the command (eg. If I press “g” I should have the numbers in a color, the g in another color, and so on). Currently the colors change smoothly, in this integration it should be instant instead.
 
-- add specific settings for the “ambient effect”. Add more “screensaver” type of “ambient effect” (always only played in the lock screen). Also add a live preview of the effect when one is selected
-
-- add a deliberate gesture (e.g. double-tap-and-hold fn+f3) to intentionally push volume past 100%.
+- ad settings specific for the “ambient effect”. Add more types to pick, taking inspirations by cool terminal effects or screensavers (always only played in the lock screen). Also add a live preview of the effect in the settings when one is selected
 
 - super+shift+left/right and super+ctrl+left/right do not do anything (not workspace change, not window focus/move) — only bare super+left/right (focus change) works. Working alternatives exist (super+shift+h/j/k/l, super+ctrl+h/l — see VERIFICATION.md), but the arrow-key binds themselves are still broken. Root cause NOT found: four independent source-level checks against Hyprland's own code (`keybinds/Bind.cpp`'s `CBind::make`/modifier parsing, `keybinds/Resolver.cpp`'s keycode resolution, `config/lua/bindings/LuaBindingsToplevel.cpp`'s `hlBind`, and its `parseKeyString`/`CVarList2` tokenizer in `hyprutils`) found no defect — modifier names, key names ("left"/"right"), and bind-string tokenization/trimming all check out correctly for 3-token binds with word-name keys, so this isn't a config-file or Hyprland-core bug as far as static reading can tell. Next time this happens: run `hyprctl binds -j | grep -i left` on the affected machine (razer) — if the Super+Shift/Ctrl+Left/Right binds are ABSENT from that output, registration is failing at runtime for some reason not visible in source; if they're PRESENT with the expected modmask, the binds are registering fine and something else (an app stealing the shortcut, a modifier-detection quirk with this specific keyboard) is consuming the keypress before Hyprland's own matcher sees it. That single check discriminates between "config/registration bug" and "runtime/input-layer issue" and should be the starting point instead of re-deriving the source-level checks already done here.
 
-- hyprland resize does not seem to work — investigated 2026-09-11: checked whether `hl.bind("left", hl.dsp.exec_cmd("hyprctl dispatch resizeactive -40 0"))` (and h/j/k/l/arrows siblings, `phios-dotfiles/profiles/desktop/templates/.config/hypr/hyprland.lua.tmpl`'s "resize" submap, entered via Super+R) has a shell-quoting bug — it's the only dispatch call in the file with a space inside an unquoted argument, unlike every other `hyprctl dispatch X Y` call which uses a single token. Confirmed NOT a bug: pulled `hyprctl`'s actual CLI parser (`hyprctl/src/main.cpp`, `main()`), which has an explicit exception for exactly this shape — an argument starting with `-` is only treated as a hyprctl flag if it does NOT parse as a number (the code's own comment: "For stuff like -2 or -2,"), so `-40` correctly falls through to the joined dispatcher request string instead of being misread as a flag. The submap's dispatch syntax is correct. Did not find another concrete defect in the submap definition (entry bind, four direction binds, three ways out via Escape/Return/catchall all look structurally sound) and could not reproduce or observe the actual failure without the real compositor. This entry and the "windows management keybinding (move, resize) do not work *to be checked first" entry look like the same underlying report — worth checking together. Next time this happens: confirm Super+R actually enters the submap at all (`hyprctl` has no direct "am I in a submap" query, but the cheat sheet / `hyprctl binds -j` can confirm the binds are registered), and try running the exact `hyprctl dispatch resizeactive -40 0` command directly in a terminal while the submap is NOT involved, to isolate submap-entry vs. dispatcher-execution as the failure point.
+- *Check for updates*: hyprland resize does not seem to work — investigated 2026-09-11: checked whether `hl.bind("left", hl.dsp.exec_cmd("hyprctl dispatch resizeactive -40 0"))` (and h/j/k/l/arrows siblings, `phios-dotfiles/profiles/desktop/templates/.config/hypr/hyprland.lua.tmpl`'s "resize" submap, entered via Super+R) has a shell-quoting bug — it's the only dispatch call in the file with a space inside an unquoted argument, unlike every other `hyprctl dispatch X Y` call which uses a single token. Confirmed NOT a bug: pulled `hyprctl`'s actual CLI parser (`hyprctl/src/main.cpp`, `main()`), which has an explicit exception for exactly this shape — an argument starting with `-` is only treated as a hyprctl flag if it does NOT parse as a number (the code's own comment: "For stuff like -2 or -2,"), so `-40` correctly falls through to the joined dispatcher request string instead of being misread as a flag. The submap's dispatch syntax is correct. Did not find another concrete defect in the submap definition (entry bind, four direction binds, three ways out via Escape/Return/catchall all look structurally sound) and could not reproduce or observe the actual failure without the real compositor. This entry and the "windows management keybinding (move, resize) do not work *to be checked first" entry look like the same underlying report — worth checking together. Next time this happens: confirm Super+R actually enters the submap at all (`hyprctl` has no direct "am I in a submap" query, but the cheat sheet / `hyprctl binds -j` can confirm the binds are registered), and try running the exact `hyprctl dispatch resizeactive -40 0` command directly in a terminal while the submap is NOT involved, to isolate submap-entry vs. dispatcher-execution as the failure point.
 
 
-- opening a panel on a special workspase (11, 12) should automatiically open it in the highest possible panel up to 10
+- opening a panel on a special workspase (11, 12), should automatiically open it in the highest possible panel up to 10
 
 - when in full screen, the status bar does not appear by moving the cursor on the top edge
 
-- the status bar overlays (those that open with the status bar icons) are still lower that they should be. This has been fixed many times but changes never worked. Clean up the whole feature and make it so that the overlay is few px below the bar. The gap is now few px, clearly it's not an issue of gap, they probably have a fixed position or a wrong parent relative position or something like that.
+- when a window is set to floating (using the keybind) it cannot be resized
 
-- confirm the wifi speed graph (settings + bar overlay) now reads real numbers on hardware, and make its visual match the reference more closely: https://github.com/programmersd21/flow
+- the status bar overlays (those that open with the status bar icons) are still lower that they should be. This has been fixed many times but changes never worked. Clean up the whole feature and make it so that the overlay is few px below the bar. The gap variable is now of few px, clearly it's not an issue of gap, they probably have a fixed position or a wrong parent relative position or something like that.
+
+- The network speed graph (settings + bar overlay) does not show real numbers: it's always around 1Kb/s both upload and download. Also make it visually match the reference more better: https://github.com/programmersd21/flow
 
 - zsh in dark theme has the directory in black on black
 
@@ -72,6 +72,10 @@ loop*.
 - Add prefix feature to the runner bar: writing "web <anyting>" will automatically set the "search on web" first (but still perform the rest of the ranking). Make the same for: convert, math, ask (ask ai), file, app/run, phi (shows phi completion) and website specific like wiki/yt/arch/rddt. Add more if you can think of some very relevant one. Also if TAB is pressed after the prefix, the prefix will be "locked" visually as itgets background (like the highglighted option) and a "backspace" nerd icon next to it (clicking it removes it), it can also be cancelled but it requires a double click of backspace (to prevent removing it when holding down backspace). While a prefix word is selected, the only results shown will be determined by the prefix. More prefixes will be added with time, each should be configured with a color code (either a theme variable or a specific custom color), that color defines the highlight color when active and the runner bar will transition to that color for the borders when a prefix is active.
 - phi prefixes in the runner bar don't seem to work (will be solved by applying the prefix feature above, any conflict must be removed in order for the prefix feature to work without issues)
 
+- add settings for the status bar time in the settings panel. Allow to set the format with day/number/year/second etc.
+
+- confirmation modals (like the one for power options) should be centered in the screen, with a dim and block the screen until they are resolved. Also make them a reusable component as other task (eg. the battery saving mode, see below) will use it.
+
 ## Features
 
 - add in and out transition for the status bar, to be triggered on start, lock and unlock
@@ -80,9 +84,9 @@ loop*.
 
 - add suspension/hibernation settings in the settings panel
 
-- color picker (maybe compatible with the magnifying glass)
+- add a color picker
 
-- three finger gestures on trackpad and touchscreen: up/down (open/closes overview), left/right (change workspace). Add more if not too error-prone.
+- three finger gestures on trackpad and touchscreen: up/down (open/closes overview, alredy workinf), left/right (change workspace). Add more if not too error-prone.
 
 - add trash feature (package to be picked). Options (to be checked if they work as expected): CliFM (cli), ... * check the list on archlinux.org file manager
 
@@ -90,12 +94,11 @@ loop*.
 
 - add a timer and alarm feature to phi, also add tools to the runner to quicky setup timers and alarms. They should have a custom overlay that requires to be turned off, on the higher Z index in the system. It should have a ringtone. The two features must be customisable in the settings.
 
-- add option for automated night mode (automatic time at nighttime or manual hours range)
-
+- add option for automated night mode (automatic time at nighttime or manual hours range), with settings
 
 - clicking on the wifi icon should show the list of available wifi to connect. Same in the settings.
 
-- spotlight cursor: super+super (double tap hold) * blocked by issue on hyprland 0.56
+- spotlight cursor: super+super (double tap hold) * blocked by issue on hyprland 0.56 *check if fixed*
 
 - consideration: usare alt come super, così avrei 2 super invece che 2 alt. Da valutare con software che usano alt [TBD]
 
@@ -107,7 +110,9 @@ loop*.
 
 - when pressing SUPER+L instead of locking immediatly, evoke an overlay menu with options (lock, suspend, hibernate, shutdown, reboot). Use a smart UI/UX grammar and hierarchy, add icons with hover animations. SUPER+L+L (double click) will instantly lock (same behavior as now).
 
-- have a battery saving mode, it automatically kicks in when not in charge and lower then 20% battery (or notifies the user to  do so), configurable. automatically disabled when plugged in and over the threshold. It must have visual feedback on the battery in the status bar and settings. The battery overlay must have the switch.
+- have a battery saving mode, it automatically kicks in when not in charge and lower then 20% battery (automation can be toggled in the settings, there will be an alert, see next task ), configurable in the settings panel. automatically disabled when plugged in and over the threshold (if the user activates while it's charging, it should not disable automatically, this flag is cleared once the charge is plugget off again). It must have visual feedback on the battery in the status bar and settings. The battery overlay (from the status bar) must have the switch.
+
+- add an overlay for low battery level, with option to set on battery saving mode if not up yet (see previous task)
 
 - there should always be at least 1 workspace (other then the special ones), also there should always be at lest an empty workspace (so if i ope)
 
