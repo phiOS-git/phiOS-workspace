@@ -48,7 +48,7 @@ loop*.
 
 - The network speed graph (settings + bar overlay) does not show real numbers: it's always around 1Kb/s both upload and download. Also make it visually match the reference more better: https://github.com/programmersd21/flow
 
-- zsh in dark theme has the directory in black on black
+- [taken] zsh in dark theme has the directory in black on black
 
 - wifi speed graph does not show real values, it's stable at 1kb/s with 5kb/s peaks (it should be ~20Mb), both upload and download
 
