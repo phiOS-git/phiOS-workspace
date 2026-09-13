@@ -9,6 +9,43 @@ once it is verified.
 
 ---
 
+## The status bar has no in/out transition on start, lock or unlock
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 6075487 bar: slide in/out on shell start and session lock/unlock, 9b57897 merge: bar slide in/out on shell start and session lock/unlock
+- **Original TODO:** "add in and out transition for the status bar, to be triggered on start, lock and unlock"
+
+### What was asked
+The status bar should play an entrance transition when the shell first starts, and an exit/entrance pair around locking and unlocking the session, instead of just appearing/disappearing instantly.
+
+### What was done
+`Bar/Bar.qml` already had a slide mechanic for a different purpose — auto-hiding while the active window on that screen is fullscreen (`barContent`'s own `y`, animated by an existing `Behavior on y`). Reused that exact mechanic for all three new triggers instead of building a second, parallel animation system: a new `concealed` condition (`autoHidden || startupReveal || Services.LockState.locked`) now drives `barContent.y`, so the same slide plays whether the bar is concealing itself for fullscreen, for a fresh startup, or for a lock.
+
+Added `Services/LockState.qml`, a minimal singleton exposing one `locked` boolean, written only by `Lock/Lock.qml` (the file already sanctioned to touch `WlSessionLock` directly) — `Bar/Bar.qml` is a separate top-level surface with no other way to observe lock state. It goes true the moment `Lock/Lock.qml` starts locking and false only once its own conceal fade finishes on a successful unlock (not at the earlier instant PAM succeeds), so a bar reveal is timed to when the desktop actually becomes visible again.
+
+`startupReveal` starts the bar off-screen at session start. It clears from `registryFile`'s own `onLoaded` (the async load of `Bar/modules.json` that populates the isles), deferred one further `Qt.callLater` turn for the `Loader`s it creates to report a real `implicitHeight` — not plain `Component.onCompleted`, which fires before `bar.height` has settled to anything but a placeholder, which would have made the reveal slide in from a few-pixel-tall bar that only reaches its real height after the animation had already finished.
+
+`exclusiveZone` (the strip of screen Hyprland reserves for the bar, so tiled windows don't sit under it) stays keyed to the existing fullscreen-only `autoHidden`, deliberately NOT the new, wider `concealed` — a decision made and caught in review before landing, not after: dropping the reserved zone during a lock (as an earlier draft did) would un-reserve the bar's strip and reflow every tiled window on that screen to fill it, then reflow back on unlock — a real, visible layout jump on every single lock cycle. Only the bar's own visual content slides for the lock/startup cases; the window itself keeps reserving its space throughout.
+
+### Honest assessment
+Not run against a compositor — `phi-shell/CLAUDE.md` is explicit this cannot happen here.
+
+The lock-side hide is **not independently visible in practice** — worth saying plainly so it isn't tested and reported as broken. The ext-session-lock protocol requires a locked output to stay painted opaque the instant locking starts (`Lock/Lock.qml`'s own header), so the bar is already covered before any slide-out could be seen. The lock-side write to `Services.LockState.locked` still matters: it's what positions the bar off-screen so the UNLOCK side has something to visibly slide in FROM, once the lock surface's own fade reveals the desktop again. The two user-observable transitions are start and unlock; lock itself is plumbing for unlock, not its own visible moment.
+
+The startup reveal's timing (waiting for `registryFile.onLoaded` plus one deferred turn) is a best-effort fix for a real problem caught in review — the isles' `implicitHeight` depends on `Loader`-instantiated module components, which may in principle need more than one extra event-loop turn to fully settle after `registryRows` changes. If the reveal still starts from a shorter-than-final bar height on real hardware (visible as the bar growing taller mid-slide, or the slide distance looking slightly short), that one-turn assumption is the place to revisit, not the mechanism itself.
+
+### How to test it
+Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loaded on save, so once this branch's files are in place at `~/.config/quickshell/phi`, no restart is needed. The startup case specifically needs a fresh process to see, though: `pkill -x qs; qs -p ~/.config/quickshell/phi`.
+
+1. Kill and restart `qs` as above. Expected: the status bar slides down into view from off-screen at its normal full height, rather than simply appearing already in place.
+2. Lock the session (however you normally trigger `lock` — e.g. the power menu, or `qs ipc call lock lock` from a terminal). Expected: no visible bar animation at this moment — the lock screen should simply appear, covering everything at once. This is correct, not a missed case (see Honest assessment).
+3. Unlock (enter the correct password). Expected: once the lock screen's own content fades away and the desktop becomes visible again, the status bar should slide down into view from off-screen, the same motion as the startup case in step 1 — not just be sitting there already.
+4. With nothing locked and no fullscreen window, confirm ordinary bar behavior is unaffected: hovering near the top edge while a fullscreen app is active should still reveal the bar exactly as before this change.
+5. Confirm no window layout jump happens during step 2 or 3 — any already-tiled windows on screen should stay in their exact same position and size throughout locking and unlocking; only the bar's own content should move.
+
+---
+
 ## The calendar overlay's flip clock reads as a slot machine, not a flip
 
 - **Date:** 2026-09-13
