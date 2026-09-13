@@ -36,6 +36,10 @@ Super+M now depends on `qs` (phi-shell) actually being alive to answer the IPC c
 
 The cheat sheet (Super+Shift+/) reads bind descriptions straight from `hyprctl binds -j` — both new binds got a `description` (the same reason every other `qs ipc call`-driven bind in this file has one), so they should show up there as "Log out (asks for confirmation)" and "Log out immediately, no confirmation" rather than an opaque entry. Not seen rendered.
 
+Both logout commands are `command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch exit` — `hyprshutdown` is not in any profile's `packages.txt` (grepped all of them, no match) and isn't in `core`/`extra`/`multilib` regardless (rule 2 rules it out), so on all three machines the `command -v` check fails and `hyprctl dispatch exit` is the only branch that ever actually runs. Not a defect — the `||` fallback was clearly written for exactly this — just worth knowing that "step 5 ends the session" is testing `hyprctl dispatch exit`, not `hyprshutdown`, in case that command is ever added later and changes which branch runs.
+
+Cosmetic, not functional: `openConfirm()` always opens at the anchor-less corner fallback (`_setAnchor(0, "right")`). If the power popout happened to already be open from clicking the left-isle power icon (anchored under that icon) and Super+M fires while it's open, the card will jump from under the icon to the top-right corner as it switches into the confirm step. Single frame, not incorrect, but don't mistake it for a bug if seen.
+
 ### How to test it
 1. Update both checkouts: `phi-shell` at `~/.config/quickshell/phi` to `dev` (Quickshell hot-reloads the QML on save), and `phios-dotfiles` to `dev`.
 2. Re-render the Hyprland config from the updated template and reload it — `phi theme set <your current variant, e.g. dark>` does both (it re-renders every `design/adapters.txt` row, including this one, and automatically runs that row's `hyprctl reload`); a plain `qs`/QML reload does NOT pick up this half of the change, since it's a Lua config file, not QML.
