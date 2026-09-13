@@ -142,7 +142,7 @@ Not verified: the installer's own `--dry-run` couldn't be exercised on this mach
 
 - **Date:** 2026-09-13
 - **Repo / branch:** phi-shell / dev
-- **Commits:** 6783bab hyprland: leave Steam/btop's dedicated workspace when a panel opens, 89266e3 merge: leave Steam/btop's dedicated workspace when a panel opens
+- **Commits:** 6783bab hyprland: leave Steam/btop's dedicated workspace when a panel opens, 89266e3 merge: leave Steam/btop's dedicated workspace when a panel opens, 0299815 hyprland: derive reserved workspace ids from workspace-icons.json, fix multi-monitor scan, fe1802d merge: derive reserved workspace ids from workspace-icons.json, fix multi-monitor scan
 - **Original TODO:** "opening a panel on a special workspase (11, 12), should automatiically open it in the highest possible panel up to 10"
 - **Requires phi rebuild:** none — this doesn't touch the `phi` repo
 
@@ -160,6 +160,8 @@ Not run against a compositor — `phi-shell/CLAUDE.md` is explicit this cannot h
 The exact meaning of "highest possible" was a judgment call, not spelled out in the one-line TODO entry: implemented as "the highest workspace id in 1–10 that currently has at least one window" (since a non-persistent, non-special workspace with zero windows doesn't appear in Hyprland's own workspace list at all), not "most recently used" — a reasonable, literal reading, but flag it if "go back to whatever I was just doing" (workspace history) was actually meant instead.
 
 Applied uniformly to all four panel singletons, including the small bar popouts (volume/wifi/etc.) — not just the three "main" panels — for consistency with the exact same four-surface grouping the mutual-exclusion entry below already established, even though the TODO text's "a panel" could be read more narrowly. Flag if a volume-level check shouldn't force a full workspace switch away from Steam/btop.
+
+**Follow-up fix, same entry:** review caught two real bugs in the first version, both fixed in 0299815/fe1802d. First, `reservedWorkspaceIds` was a second `[11, 12]` literal hand-copied from `Bar/workspace-icons.json`, which already defines those same ids for `Workspaces.qml`'s pinned-app glyphs — a real drift risk if one is ever edited without the other. It's now read from that one file via a `FileView`, so there is a single source for the two ids. Second, the "highest ordinary workspace" scan had no per-monitor filter, so on a two-monitor machine (`zotac`) it could pick a workspace that actually lives on the *other* monitor; `.activate()`-ing that would just refocus the other monitor rather than clearing `screens[0]`, the opposite of the intended effect. The scan is now filtered to `screens[0]` the same way `current` already was — untested against real multi-monitor hardware, same constraint as everything else in this entry, but the logic now matches the single-monitor case's own filtering instead of being inconsistent with it.
 
 ### How to test it
 Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loaded on save, so once this branch's files are in place at `~/.config/quickshell/phi`, no restart is needed.
