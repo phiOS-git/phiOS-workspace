@@ -9,6 +9,42 @@ once it is verified.
 
 ---
 
+## Status bar clock has no format settings (12/24-hour, seconds, date)
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** fc93d77 bar: add clock format settings (12/24-hour, seconds, date), f3958b5 merge: add clock format settings (12/24-hour, seconds, date)
+- **Original TODO:** "add settings for the status bar time in the settings panel. Allow to set the format with day/number/year/second etc."
+- **Requires phi rebuild:** none — this doesn't touch the `phi` repo
+
+### What was asked
+A way to configure how the bar clock displays the time, covering (per the TODO's own list) the day (weekday name), a day number, the year and seconds — i.e. a date/time format setting, not just the bare `HH:mm` the bar has always shown.
+
+### What was done
+Added a new `Config/ClockPrefs.qml` singleton — same flat-JSON-at-`$XDG_STATE_HOME/phi/clock.json` mechanism `Config/LockPrefs.qml` already uses for the lock screen's ambient effect (deliberately not `phi state`, whose key set is closed and would need a `phi` rebuild, and not the repository, since this is runtime UI state) — holding three settings: `hour12` (12-hour clock with AM/PM vs. the existing 24-hour), `showSeconds`, and `dateStyle` (`off` / `short` — day/month, e.g. "13/09" / `long` — weekday, day, month name, year, e.g. "Sat 13 Sep 2026"). A new "Clock" group in `Settings/sections/Theme.qml` (right above the existing "Lock screen" group) exposes all three as a toggle, a toggle and a three-way button choice, matching the exact pattern the lock screen's own "Ambient effect" row already uses. `Bar/modules/Clock.qml` reads the three settings and builds the digit/date/AM-PM segments around the existing `Widgets.FlipDigit` cells; `Settings/sections.json`'s Theme row gained clock/time/date search keywords.
+
+Kept the default look pixel-identical to before this feature: every new segment (the date text, the seconds cell pair, the AM/PM text) is wired with `visible: <its setting>`, and Qt Quick's `Row`/`Column` positioners exclude invisible children from layout entirely (not just hide them in place) — so with every new setting at its default (24-hour, no seconds, no date) the bar renders exactly the same tree of visible elements as before this change. Caught one layout bug in my own first draft before committing: a single flat `Row` with `spacing: root.gap` would have opened a gap between every individual digit, not just between the date/time/AM-PM segments — fixed by nesting the digit run in its own zero-spacing inner `Row`, with `root.gap` spacing only on the outer one.
+
+Scoped this to the bar clock specifically, since that's what the TODO names ("the status bar time") — the separate large flip-clock in the calendar overlay (`Panels/Calendar.qml`) is untouched and still always shows `HH:mm:ss` regardless of these new settings.
+
+### Honest assessment
+Not verified on real hardware or a compositor — `phi-shell/CLAUDE.md` is explicit that this cannot be run here ("You cannot run this. Every visual result is verified by the user with a screenshot."). Checked what static analysis is available: brace-balance on every changed/new file, and a full manual re-read of both the new `Config/ClockPrefs.qml` (line-by-line diffed against the working `Config/LockPrefs.qml` it's modelled on) and the restructured `Bar/modules/Clock.qml` render tree. No `qmllint`/`qmlformat` was available in this environment to check QML syntax any more rigorously than that.
+
+One design call made without being asked: 12-hour mode zero-pads the hour to two digits ("09:05 AM" not "9:05 AM"), so the digit-cell count stays fixed at two `FlipDigit`s regardless of hour — say if a single unpadded leading digit was actually wanted instead.
+
+The "long" date style's weekday/month names come from Qt's own locale-aware `ddd`/`MMM` format tokens, so they'll follow whatever locale the shell runs under rather than being hardcoded English — not verified against a non-English locale.
+
+### How to test it
+1. Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loaded on save (per its own README), so once this branch's files are in place at `~/.config/quickshell/phi`, no restart is needed.
+2. Open the settings panel, go to Theme, and scroll to the new "Clock" group (search "clock" or "time" also finds it). It sits directly above "Lock screen".
+3. Toggle "12-hour clock" on — the bar clock (bottom-right, the segment showing the time) should switch from e.g. "14:07" to "02:07 PM". Toggle it back off to confirm it returns to 24-hour.
+4. Toggle "Show seconds" on — a third digit pair should appear after the minutes, e.g. "14:07:32", ticking every second. Toggle it off — the bar clock should return to exactly the same width and look it had before either setting existed.
+5. Click "Short" under "Date" — the bar clock should gain a date prefix like "13/09" before the time. Click "Long" — it should instead read like "Sat 13 Sep 2026" before the time. Click "Off" — the date prefix should disappear and the clock go back to just the time.
+6. Click the clock itself (with any combination of the above set) — it should still open/close the calendar overlay exactly as before; the calendar overlay's own big flip clock is unaffected by these settings and always shows `HH:mm:ss`.
+7. Settings persist across a shell restart: `pkill -x qs; qs -p ~/.config/quickshell/phi`, then confirm the bar clock still shows whatever format was last chosen.
+
+---
+
 ## No way to invert scroll direction for the mouse or trackpad
 
 - **Date:** 2026-09-13

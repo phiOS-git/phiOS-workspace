@@ -74,8 +74,6 @@ loop*.
 - Add prefix feature to the runner bar: writing "web <anyting>" will automatically set the "search on web" first (but still perform the rest of the ranking). Make the same for: convert, math, ask (ask ai), file, app/run, phi (shows phi completion) and website specific like wiki/yt/arch/rddt. Add more if you can think of some very relevant one. Also if TAB is pressed after the prefix, the prefix will be "locked" visually as itgets background (like the highglighted option) and a "backspace" nerd icon next to it (clicking it removes it), it can also be cancelled but it requires a double click of backspace (to prevent removing it when holding down backspace). While a prefix word is selected, the only results shown will be determined by the prefix. More prefixes will be added with time, each should be configured with a color code (either a theme variable or a specific custom color), that color defines the highlight color when active and the runner bar will transition to that color for the borders when a prefix is active.
 - phi prefixes in the runner bar don't seem to work (will be solved by applying the prefix feature above, any conflict must be removed in order for the prefix feature to work without issues)
 
-- [taken] add settings for the status bar time in the settings panel. Allow to set the format with day/number/year/second etc.
-
 - confirmation modals (like the one for power options) should be centered in the screen, with a dim and block the screen until they are resolved. Also make them a reusable component as other task (eg. the battery saving mode, see below) will use it.
 
 ## Features
