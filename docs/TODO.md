@@ -111,7 +111,6 @@ loop*.
 
 - full screen alert should appear when battery level is low (2 thresholds warn and danger, configurable)
 
-- [taken] sensible settings (eg. deleting the VPN config) should ask confirmation with a blocking alert (same fullscreen blocking alert/warning used by other systems)
 
 - when pressing SUPER+L instead of locking immediatly, evoke an overlay menu with options (lock, suspend, hibernate, shutdown, reboot). Use a smart UI/UX grammar and hierarchy, add icons with hover animations. SUPER+L+L (double click) will instantly lock (same behavior as now).
 

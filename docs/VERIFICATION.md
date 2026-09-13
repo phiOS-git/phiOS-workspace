@@ -171,6 +171,42 @@ Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loa
 
 ---
 
+## Destructive settings actions (deleting a VPN config, etc.) run with no confirmation
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 4f7e33e settings: confirm before deleting a VPN config, notification history, or all Chroma key overrides, 6063a89 merge: confirm before deleting a VPN config, notification history, or all Chroma key overrides
+- **Original TODO:** "sensible settings (eg. deleting the VPN config) should ask confirmation with a blocking alert (same fullscreen blocking alert/warning used by other systems)"
+- **Requires phi rebuild:** none — this doesn't touch the `phi` repo
+
+### What was asked
+Destructive actions inside the settings panel should ask for confirmation with a full-screen blocking alert before running, the way the power actions already do (the same "used by other systems" surface the TODO points at) — the entry's own named example is deleting a VPN config.
+
+### What was done
+Wired `Services/ConfirmDialog.qml` (the reusable centered modal built for the power-confirm entry earlier this session) onto three destructive settings actions:
+- `Settings/sections/Connectivity.qml`: the VPN "Forget" button — the TODO's own named example.
+- `Settings/sections/Devices.qml`: Chroma's "Clear all keys" — a bulk clear of every per-key colour override.
+- `Settings/sections/Notifications.qml`: "Clear all notifications" — deletes the whole notification history.
+
+Each opens the dialog with the action's own name as the title, a short one-line consequence as the message, and the confirm button labelled with the action itself (e.g. "Forget", "Clear all") rather than a generic "Confirm" — the same convention the power actions already established.
+
+### Honest assessment
+Deliberately NOT confirmed, a scope decision this agent made rather than something specified: the single-item Firewall rule "remove" link (`Connectivity.qml`) and Chroma's "Clear this key" button (`Devices.qml`, right next to the now-confirmed "Clear all keys"). Both are one quick, trivially-reversible action — re-typing the same port number or re-picking the same key's colour undoes either in seconds — unlike the three now-confirmed actions, which are either bulk (every key, the whole history) or lose something not trivially re-enterable (a VPN config's imported state). If either of these two should also confirm, that's a one-line addition following the exact same pattern, easy to extend.
+
+Not run against a compositor — `phi-shell/CLAUDE.md` is explicit this cannot happen here. Checked brace balance on every changed file programmatically; the `Services.ConfirmDialog.open({...})` call shape is identical to the two already-landed, already-described call sites from the earlier power-confirm and Power-settings entries, not new plumbing.
+
+This inherits the earlier power-confirm entry's own exclusivity fix (opening the dialog closes the settings panel itself, since Settings is one of the four panels `Services/ConfirmDialog.qml` now closes on open) — clicking "Forget" closes the whole settings panel behind the dialog, not just that one row. Confirming or cancelling leaves the settings panel closed either way; reopening it (Super+S) returns to wherever it was.
+
+### How to test it
+Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loaded on save, so once this branch's files are in place at `~/.config/quickshell/phi`, no restart is needed.
+
+1. Open Settings → Connectivity, import a WireGuard config if none is already managed, then click "Forget" next to it. The settings panel should close and a centered dialog should appear: "Forget <name>" / "Deletes the imported config from ~/.config/phi/wireguard. This cannot be undone." with "Forget" and "Cancel" buttons. Cancel should leave the config in place.
+2. Open Settings → Devices → Chroma keyboard (needs `Config.Capabilities.chroma`, razer only) → Per-key colours, set at least one override, then click "Clear all keys". The same style of dialog should appear before anything is actually cleared.
+3. Open Settings → Notifications → History, click "Clear all notifications". Same dialog, this time titled "Clear all notifications".
+4. In each case, confirming should actually perform the action (config gone / keys cleared / history empty) and Cancel should perform nothing.
+
+---
+
 ## The runner bar ranks results by feature novelty, not by a sensible category order
 
 - **Date:** 2026-09-13
