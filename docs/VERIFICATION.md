@@ -9,6 +9,39 @@ once it is verified.
 
 ---
 
+## Design system is missing a checkbox, radio and text-highlight effect; the switch is too wide
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 6fea395 widgets: add Checkbox, Radio and Highlighter; fix Toggle width, 3769c4e merge: add Checkbox, Radio and Highlighter; fix Toggle width
+- **Original TODO:** "add/replace to the design system: checkbox (square border with inner x), radio (square border with inner small filled square), switch (it's too wide, also the color transition is faster then the switch moving), highlighter effect (similar to the status bar hover effect, but applied to texts, not to full button or element background, it should only highlight the text, with a transition L to R, the text should change color but following the highlight like a mask, it can be used on hoverable texts. add also a highlighter-out effect closing L to R to use for triggered highlights like the search results. when unhovering it just goes back R to L)"
+- **Requires phi rebuild:** none — this doesn't touch the `phi` repo
+
+### What was asked
+Four additions/fixes to the shared widget library (`Widgets/`): a new checkbox control (a square outline with an inner X when checked), a new radio control (a square outline with an inner filled square when checked — square, not the usual circle), a fix to the existing `Toggle` switch (it reads too wide, and its colour transition looks faster than the knob's slide), and a new "highlighter" text effect — a highlighter-marker-style colour reveal that sweeps left-to-right across hoverable text, retreats right-to-left on unhover, and has a separate one-shot "closes left-to-right" version for a highlight that gets triggered rather than hovered (the TODO's own example: a search result).
+
+### What was done
+Added `Widgets/Checkbox.qml` and `Widgets/Radio.qml`: both reuse `Widgets/WidgetStates.js`'s existing seven-state resolution (hover/focus/disabled/invalid all read exactly like every other control in this directory — a `Checkbox`/`Radio` sitting next to a `Toggle` or a `StyledButton` in the same settings row behaves identically to keyboard/mouse) and the same controlled-component contract as `Toggle` (`checked`/`toggled(bool)`, caller owns the source of truth). Unlike `Toggle`'s full-inversion "selected" grammar, both stay an outline box at every state — only `.border` from `surfaceColors()` is used, never `.bg`/`.fg` — since the TODO's own wording ("square BORDER with...") describes an outline that gains an inner mark, not a box that inverts. The checkbox's X is two rotated `Rectangle` bars (not a `Canvas` stroke — a plain X needs no curved geometry, and a `Rectangle` stays trivially colour-reactive with no repaint bookkeeping, unlike this directory's `Canvas`-drawn icons); the radio's mark is a plain filled `Rectangle` that scales in from its centre.
+
+Added `Widgets/Highlighter.qml`: two stacked `Text` items (rest colour underneath, highlight colour on top) with the top one clipped to a `[left, right]` window (both 0..1 fractions of the text's width). Plain hover only ever moves the right edge (0 at rest, 1 hovered) — that one parameter's `Behavior` alone gives both the L→R reveal-on-hover and, played in reverse, the "goes back R to L" on unhover the TODO asks for. A separate `trigger()` function drives the "closing L to R" motion for a triggered (non-hover) highlight: opens the window fully, then sweeps the LEFT edge across to meet the right edge (closing it away from the left), then resets both edges back to rest in one uninterruptible instant (`PropertyAction`, which sets a value without going through that property's `Behavior`) so the reset itself is never visible.
+
+Fixed `Widgets/Toggle.qml`'s width: it used the `space5` design token (6ch) against a 2ch height, a 3:1 track — the file's own header comment says it intends "a ~5:2 track" (2.5:1), so the token name (`space5`, the fifth step) was mistakenly read as "5ch" on a scale that is actually non-linear past `space4` (1,2,3,4,6,8ch). Switched to `space4` (4ch), the nearest token that actually narrows it, giving an exact 2:1 track.
+
+### Honest assessment
+<span style="color:red">**NOT DONE: the switch's "colour transition is faster than the switch moving" complaint.**</span> Read every `Behavior` in `Toggle.qml` (track colour, track border colour, knob position, knob colour) and all four already use the identical `motionBDuration`/`motionBCurve` pair — no mismatched token exists in the file to fix, and the file has exactly one commit in its history, so there is no earlier, different value either. The cause was not diagnosed, so nothing was changed for it rather than guessing. Left a comment in the file with a concrete discriminating test for whoever picks this up next (does the gap scale if `motion-b-duration` is changed in Theme settings, or stay fixed regardless), and re-added a clean, bare TODO entry for it under Style.
+
+None of the three new widgets (`Checkbox`, `Radio`, `Highlighter`) have an existing call site — this adds them to the design system as literally asked ("add ... to the design system"), it does not migrate any current control onto them. Concretely: the Dark/Light variant picker, the lock-screen ambient-effect picker and the new clock date-style picker (all `StyledButton`-based) were NOT converted to use `Radio`; no existing settings row uses `Checkbox`; no existing hover effect (Segment's own bar-icon hover sweep, any settings-row label) was converted to use `Highlighter`. Nothing currently on screen looks different from these three additions alone — only the `Toggle` width fix changes an existing, already-visible control.
+
+Not verified on real hardware or a compositor — `phi-shell/CLAUDE.md` is explicit this cannot be run here. Checked brace balance on every changed/new file and did a full manual re-read of all four; caught and fixed two real issues before committing (an assumption that `font: otherItem.font` group-assignment is safe, reworked to set the three sub-properties individually like every other font-matching pair in this codebase; and a reset that relied on two independent same-duration `Behavior`s happening to animate in lockstep, reworked to an explicit, deterministic animation sequence with no such assumption). `Highlighter`'s exact visual proportions (reveal speed, mark sizes on `Checkbox`/`Radio`) are judgment calls, not measured against anything — flag if they read wrong once seen.
+
+### How to test it
+Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loaded on save, so once this branch's files are in place at `~/.config/quickshell/phi`, no restart is needed. None of `Checkbox`/`Radio`/`Highlighter` are wired into any existing screen yet (see above), so there is nothing new to look at in the running shell for those three — they can only be checked by placing one in a QML file directly, e.g. temporarily drop `Widgets.Checkbox { checked: true }` into any panel to see it render, then remove it again.
+
+1. Open the settings panel, go to any section with a switch (e.g. Theme > Night shift). The switch should visibly read narrower/more compact than before — roughly a 2:1 width:height rectangle instead of the previous 3:1.
+2. Toggle it on and off a few times, watching specifically whether the track/knob colour still appears to finish changing before the knob visually finishes sliding across. This is the part that was NOT fixed — confirm it is still reproducible (it should be, unchanged from before), and if it is now NOT reproducible, that is worth noting since the code made no change that should have affected it.
+
+---
+
 ## Status bar clock has no format settings (12/24-hour, seconds, date)
 
 - **Date:** 2026-09-13
