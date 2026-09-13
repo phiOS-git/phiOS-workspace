@@ -54,6 +54,8 @@ loop*.
 
 - the scratchpad icon does not call the scratchpad nor it reacts to its activation, it's broken
 
+- the power overlay buttons show no text and don't do anything on click — investigated 2026-09-13: read `Panels/BarPopout.qml`'s power section, `Widgets/SmallButton.qml` and `Services/PowerActions.qml` end to end; the label binding, the `TapHandler` → `clicked()` → `_requestPowerAction`/`_confirmPowerAction` chain, and `PowerActions.title()`/`perform()` all look correctly wired with no defect found by reading alone. Could not reproduce or observe the actual failure — needs a screenshot of what's actually on screen next time this happens, since the source doesn't show an obvious cause.
+
 - the calendar overlay in the status bar shows a flip clock, it should have the real flip animation, not a slot
 
 - the status bar icons can be touched with touch screen near their top border, triggering the hover effect but not the activation
