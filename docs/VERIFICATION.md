@@ -108,6 +108,36 @@ Rebuild is not required — `phi-shell` hot-reloads every `.qml` file it has loa
 
 ---
 
+## Terminal windows have no breathing room around their text
+
+- **Date:** 2026-09-13
+- **Repo / branch:** phios-dotfiles / dev
+- **Commits:** a5be071 kitty: add generous window padding via a new design token, fc45888 merge: add generous kitty window padding via a new design token
+- **Original TODO:** "terminal panels should have larger padding. reference to references/panel-reference-1.JPG and references/panel-reference-2.JPG"
+- **Requires phi rebuild:** none — this doesn't touch the `phi` repo
+
+### What was asked
+Give kitty (this project's confirmed default terminal) more inset around its text, matching the generous padding visible in the two reference screenshots (both show terminal windows with a comfortable margin between the window edge and the text).
+
+### What was done
+Read both reference images. `kitty.conf` had no `window_padding_width` set at all (kitty's own default is 0 — text flush against the window edge), so this was a real, concrete gap, not a subjective "make it bigger."
+
+Added a new design token, `PHI_TERM_PADDING='16'`, to `design/tokens.common.sh` — its own token rather than reusing the existing `PHI_PANEL_PADDING` (phi-shell's own `Panel.qml` inset), on the same "distinct role, may diverge later" reasoning the file already uses for `PHI_BORDER_WIDTH_STRONG` vs `PHI_BORDER_WIDTH`. Unlike every other size token here it carries no unit suffix, because kitty's `window_padding_width` directive takes a bare point value — documented in the file's own PLACEHOLDERS header, matching its established convention for every other invented constant.
+
+New `profiles/desktop/templates/.config/kitty/padding.conf.tmpl` (`window_padding_width ${PHI_TERM_PADDING}`), registered in `design/adapters.txt` with the same `[unknown]` reload gap and class B as kitty's two existing template rows (`theme.conf.tmpl`, `fonts.conf.tmpl`), and included from the base `kitty.conf`.
+
+### Honest assessment
+Verified further than most `phios-dotfiles` changes can be in this environment: built `phi` from this session's checkout and ran the real `phi theme render --variant dark profiles/desktop/templates/.config/kitty/padding.conf.tmpl` and `phi theme list` against the actual template — both work, producing valid kitty syntax (`window_padding_width 16`) and listing the new adapter row correctly. This is real end-to-end confirmation that the token resolves and the template renders, not a static read.
+
+Not verified: the installer's own `--dry-run` couldn't be exercised on this machine — `bin/phios-install` calls `realpath -m`, a GNU coreutils flag BSD/macOS `realpath` doesn't support, so it fails immediately here with an unrelated, pre-existing platform gap (this workspace runs on macOS; the installer targets real Arch/Linux machines only). The exact `16` padding value is a placeholder chosen by eye against the two reference images, same "judgment call, flagged" status as every other invented size constant in this token file (`PHI_RADIUS_BASE`, `PHI_PANEL_PADDING`, etc.) — flag it if it reads too generous or not generous enough once actually seen in a real kitty window.
+
+### How to test it
+1. On a real machine, run `bin/phios-install` (default mode, not `--dry-run`) so the new `.config/kitty/padding.conf` template gets rendered and symlinked, or manually run `phi theme render profiles/desktop/templates/.config/kitty/padding.conf.tmpl ~/.config/kitty/padding.conf` from the `phios-dotfiles` checkout.
+2. Open a new kitty window (or reload an existing one — `Ctrl+Shift+F5` reloads kitty's config in a running instance, or just close and reopen). The text should now sit with a visible, comfortable margin from every window edge, instead of touching it — compare against `references/panel-reference-1.JPG`/`-2.JPG`.
+3. `phi theme set dark` (or `light`) should still regenerate the file without error, same as any other themed target.
+
+---
+
 ## The runner bar ranks results by feature novelty, not by a sensible category order
 
 - **Date:** 2026-09-13
