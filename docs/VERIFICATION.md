@@ -66,6 +66,27 @@ This is a documentation-integrity fix, not a functional one — no phi-shell or 
 
 ---
 
+## Battery saver had no presence in Settings → General's read-only machine report
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** d8e4c0b settings: show battery-saver on/off in General's read-only Battery report
+- **Original TODO:** none — found during the continued review, a small follow-on to this round's earlier battery-saver visibility work (the bar icon's hatch pattern, the manual-override fix).
+
+### What was asked
+Nothing specific — `Settings/sections/General.qml`'s whole stated purpose is read-only reporting of the machine's current state (charge, time remaining, health, cycles, power profile), and battery saver — now a more visible, better-behaved feature after this round's other fixes — had no row there at all.
+
+### What was done
+Added a "Battery saver" tile (`Services.PowerBridge.batterySaverActive`, "on"/"off") to the Battery card's stat grid, next to Charge/Time remaining/Health/Charge cycles.
+
+### Honest assessment
+Trivial, read-only addition — no new logic, just a new binding into an existing static grid. UNVERIFIED — no compositor in this session, though the risk surface here is minimal.
+
+### How to test it
+Open Settings → General, scroll to the Battery card, and confirm a "Battery saver" tile shows "on" or "off" matching the actual current state (toggle it from the battery popout card or Devices settings and confirm this tile updates).
+
+---
+
 ## Agent panel: Escape always closed the whole panel, skipping past up to three levels of "‹ Back" navigation
 
 - **Date:** 2026-09-15
