@@ -9,6 +9,32 @@ once it is verified.
 
 ---
 
+## Status bar icons don't activate on a touch near their top border
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** f3899b4 segment: widen tap release tolerance to fix top-edge touch misses, dada8fc Merge branch 'fix-segment-tap-margin' into dev
+- **Original TODO:** the status bar icons can be touched with touch screen near their top border, triggering the hover effect but not the activation
+
+### What was asked
+A finger tapping a status bar icon near its top edge lights up the hover/pressed highlight but the tap never activates the button (no popout opens, no toggle fires).
+
+### What was done
+`Widgets/Segment.qml`'s `tapHandler` already uses `gesturePolicy: TapHandler.ReleaseWithinBounds` (a prior fix, commit `877955e`, for a different touchscreen symptom — in-flight jitter between press and release). That policy cancels the tap if the *release* point lands outside the Segment's own `Item` bounds. A finger landing near the icon's top edge very plausibly lifts a few px past that edge by release time — outside the bounds, so `onTapped` never fires, while `pressed` alone already drove the full inverted highlight the instant the finger landed.
+
+Confirmed against Qt's own current source (`qtdeclarative`'s `qquickpointerhandler.cpp`) that `PointerHandler.margin` is real and — critically — that `parentContains()`, the exact bounds test `ReleaseWithinBounds` itself calls, expands by that margin once it is greater than 0 (`localPosition >= -m && <= size + m`), not merely an activation-only radius as the property's own one-line doc description could be read to imply. Set `tapHandler.margin: root.paddingV` — the Segment's own existing token-derived vertical padding, not a new literal (rule 6) — so a release just outside the painted button by about that same distance still counts as "within bounds." Deliberately left off `hoverHandler`: the report says hover already fires correctly, and `BarIsle` packs Segments with zero spacing, so widening hover too would let two adjacent buttons' hover zones overlap at their shared edge.
+
+### Honest assessment
+The mechanism is verified from Qt's real source, not guessed (rule 7) — but nothing here was run or compiled (`phi-shell/CLAUDE.md`: "You cannot run this"), so it is not confirmed against the actual touchscreen. `margin` is uniform on all four sides, not just the top: it also (very slightly) widens the left/right release tolerance toward a zero-spacing neighbour button. `parentContains()`'s own code shows the initial *press* grab is margin-expanded the same way the release check is, so a press genuinely inside that few-px overlap between two adjacent icons is arbitrated by Qt's own internal grab-conflict resolution — which handler wins in that narrow case was not verified here. This is an already-tiny edge case at zero spacing made only marginally wider, but it is the one real trade-off of this fix and worth watching for on real hardware.
+
+### How to test it
+1. On `razer` (or any machine with a touchscreen), with `phi-shell` running, tap deliberately at the very top edge of a status bar icon (e.g. the wifi or bluetooth icon) several times in a row, aiming for the topmost sliver of the button.
+2. Before this fix, those top-edge taps light the icon's hover/pressed highlight but nothing opens — the popout never appears. After this fix, every one of those top-edge taps should open the icon's popout, same as tapping dead centre.
+3. As a control, tap the dead centre of the same icon several times — it should keep working exactly as before (this fix does not change centre-of-button behaviour).
+4. As a check on the one honest trade-off above: start a tap on one bar icon and lift your finger over its immediate neighbour (two adjacent icons with no gap between them, e.g. two icons in the same island). Confirm it either activates the icon you pressed or does nothing — not the neighbour it lifted over.
+
+---
+
 ## Scratchpad bar icon does nothing
 
 - **Date:** 2026-09-14

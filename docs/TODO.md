@@ -75,9 +75,6 @@ loop*.
 - the power overlay buttons show no text and don't do anything on click — investigated 2026-09-13: read `Panels/BarPopout.qml`'s power section, `Widgets/SmallButton.qml` and `Services/PowerActions.qml` end to end; the label binding, the `TapHandler` → `clicked()` → `_requestPowerAction` chain, and `PowerActions.title()`/`perform()` all look correctly wired with no defect found by reading alone. Could not reproduce or observe the actual failure — needs a screenshot of what's actually on screen next time this happens, since the source doesn't show an obvious cause. (2026-09-13, later same day: the confirm step this chain used to lead into — `_confirmPowerAction`, named in an earlier version of this note — was replaced by `Services/ConfirmDialog.qml`, a separate centered modal; unrelated to this report, which is about the plain action buttons themselves, but if this is re-investigated, the confirm step is no longer inline in this card at all.)
 
 
-- [taken] the status bar icons can be touched with touch screen near their top border, triggering the hover effect but not the activation
-
-
 
 - h/j/k/l alternatives for the broken super+shift/ctrl+arrow binds stil don't work. none of those bindins change the workspace number . only usinf SUPER+number or clicking works. I need the keybind for changing workspace (and gesture, see later)
 
