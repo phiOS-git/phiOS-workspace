@@ -42,7 +42,7 @@ point (`phi`), one visual identity.
 | `phi` CLI — theme, state, doctor, pkg, completions | **Working**, packaged, installed on all three hosts |
 | `phi` CLI — vpn, firewall, wallpaper, query, update | **Built**, in use; some paths only exercised on `razer` |
 | `phi-shell` — bar, session integration, Hyprland autostart | **Working** on `razer` and `zotac`, but a 2026-09-11 hardware verification round found real bugs still open: overlay panels sit lower than the bar, the scratchpad icon doesn't call the scratchpad, the bar doesn't reveal on a top-edge hover in fullscreen, touchscreen taps near an icon's top edge hover instead of activating — tracked in `docs/TODO.md` |
-| `phi-shell` — panels, launcher, lock, overview, screenshot, notifications, settings, magnifier, OSD | **Built and in use**, refined over four restyle rounds + a settings overhaul, but the same verification round found Alt-Tab "completely broken" (no focus, no close-on-release, no workspace change), the magnifier still doesn't zoom, and screenshot/OCR/QR area-selection offset is still wrong — tracked in `docs/TODO.md` |
+| `phi-shell` — panels, launcher, lock, overview, screenshot, notifications, settings, magnifier, OSD | **Built and in use**, refined over four restyle rounds + a settings overhaul + a 2026-09-14 expert UI/UX pass (cursor affordance, a shared tab-vs-button grammar, search clear buttons, a Settings "Advanced" toggle, a rebuilt clipboard tab, a lock-screen lockout, a two-intensity scrim — see `docs/VERIFICATION.md`), but the same 2026-09-11 verification round found Alt-Tab "completely broken" (no focus, no close-on-release, no workspace change), the magnifier still doesn't zoom, and screenshot/OCR/QR area-selection offset is still wrong — tracked in `docs/TODO.md`. The 2026-09-14 pass is itself not yet hardware-verified (no compositor in that session) and not yet pushed to `origin` (no SSH access in that session either) |
 | Identity & advanced styling — final palette, typography, motion, Plymouth, cursor theme | **Built**, pending a clean end-to-end verification pass |
 | AI agent (`phi agent` + shell agent panel + containment) | **Working end-to-end on `zotac`** (2026-09-14) — the mechanics were sound; nothing had ever actually been configured/started (`broker.json`/`provider-key`/`opencode.json`, the A1/A2 systemd units) on either host. Real gap found and fixed: every failure state (a rejected turn, a down support service) used to vanish silently instead of being shown anywhere — see `docs/VERIFICATION.md`. One remaining blocker is outside phiOS: the configured account (opencode.ai Zen) has no payment method, so a real completion still errors — now surfaced clearly instead of hidden. Needs the same real-hardware pass on `razer` (`docs/ai-agent.output` is `razer`-only and predates this fix) |
 | Server services (`mini`) — cloud sync, photos, Jellyfin, \*arr, LanguageTool | **Not started** |
@@ -142,7 +142,9 @@ questions (`Q-F04`, `Q-F06`) remain for whenever Chroma is finished.
 `design/adapters.txt` (the list of themed targets), `design/preview.tmpl`,
 `design/brand/` (Φ SVGs, ASCII mark, PNG render script). `phi theme`
 consumes these. `bin/phios-render` is kept as the comparison target for
-`phi theme render`.
+`phi theme render`. 2026-09-14: added `PHI_OVERLAY_SCRIM_STRONG` (both
+variants) for `phi-shell`'s two-intensity dim split — a screen needs `phi
+theme set <variant>` re-run to pick it up.
 
 ### ClamAV real-time protection — built, applied on `zotac`
 
@@ -283,6 +285,14 @@ package categories, check + upgrade).
 The panel went through four restyle rounds (R1–R4) and a full section-by-
 section overhaul (A–K), plus an `I-05` / motion audit. A few visual
 results remain unverified without a compositor.
+
+2026-09-14: gained a session-only "Advanced" toggle (`Services/
+SettingsPanel.qml`'s `showAdvanced`, next to the search field) that hides
+a `SettingsRow`/`SettingsGroup` marked `advanced: true` unless a live
+search already matches it. Applied so far to Connectivity's raw firewall
+port-editor/blocked-log rows and AI Agent's blocklist/services/broker-
+readout groups — not yet swept across the other seven sections, tracked in
+`docs/TODO.md`.
 
 ### Identity & advanced styling — built, pending verification
 

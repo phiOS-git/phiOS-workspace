@@ -22,6 +22,27 @@ both places.
    an explicit extra-roots list — and which roots per host?
 2. **Scratchpad bar icon:** reopen ADR 134 to give the scratchpad its own
    independent active-state, polled via `hyprctl monitors -j`?
+   **Recommendation (2026-09-14, style pass):** yes, buildable — Hyprland's
+   documented `hyprctl monitors -j` schema gives each monitor object a
+   `specialWorkspace.name` field, empty when none is open and (per the
+   toggle command already in use, `toggle_special("scratch")`)
+   `"special:scratch"` when the scratchpad is. A `Process` + `Timer` poll
+   in `Services/HyprlandBridge.qml`, same shape as this project's other
+   `Quickshell.Io.Process` bridges, would let `Bar/modules/Workspaces.qml`
+   bind the scratchpad Segment's `active` to
+   `specialWorkspace.name === "special:scratch"` for its own screen — ADR
+   134's actual concern (a numbered workspace and the scratchpad both
+   reading "active" at once) doesn't apply, since Segment's `active` is
+   per-button, not a single shared flag. NOT implemented this pass: this
+   would be a new always-on background poll and a JSON field this project
+   has not confirmed against `hyprctl monitors -j` on real hardware — this
+   session's own Lua-eval `dispatch()` bug (see `Services/
+   HyprlandBridge.qml`) is a direct example of this exact Hyprland build
+   deviating from documented/typical behaviour, so shipping this without a
+   real check felt like repeating that mistake rather than learning from
+   it. Next session with terminal access to a live Hyprland instance: run
+   `hyprctl monitors -j` with the scratchpad open and closed, confirm the
+   field name/value, then wire it up as above.
 3. **Trash feature:** which package/integration, and does it need a `phi`
    verb / runner integration?
 4. **System file picker:** a native portal backend, a picker built into
@@ -34,9 +55,28 @@ both places.
    (WCAG-checked) before one is committed?
 8. **VPN panel restructure:** single master row + picker — exclusive
    (switching configs brings the old one down) or independently toggleable?
+   **Answer (2026-09-14, style pass):** independently toggleable — this is
+   already how `Services.Vpn`/`wg-quick` actually work (each tunnel is its
+   own independent interface; nothing about running two at once is
+   incorrect or conflicting), and the Settings page and bar popout already
+   render it that way, per-tunnel. No restructure needed beyond the one
+   real bug found: `Panels/BarPopout.qml`'s "network" card showed a
+   disabled-but-visible switch when zero tunnels existed, reading as "on
+   and transparent" — replaced with plain status text (the Settings page's
+   own disabled-with-reason pattern stays, unchanged, since that page has
+   room to explain why and already applies that pattern to every
+   capability-gated group, not just VPN).
 9. **Scrim/dim split:** what does "the scratchpad" dim refer to (nothing
    implements a scratchpad dim today), and is it acceptable for Clipboard
    to share whatever change is made to the Notifications panel's dim?
+   **Partial answer (2026-09-14, style pass):** the two-intensity half is
+   done — `PHI_OVERLAY_SCRIM_STRONG` (a new design token, both variants) for
+   the "covers the bar" surfaces (screenshot selection, Alt-Tab/overview,
+   battery/timer alerts, and — a judgment call — a destructive
+   confirmation), `PHI_OVERLAY_SCRIM` unchanged for everything else. The
+   "does/doesn't cover the bar" half is still open — see the Style section's
+   own bare entry on it, split out separately since a real fix needs a
+   Wayland layer-shell change this session could not verify.
 10. **Dotfiles "Better separation":** which part of the installer/profile
     split reads as poorly separated today?
 11. **"Remove AI shenanigans":** which files/directories/artifacts,
@@ -228,54 +268,6 @@ both places.
 
 ## Style
 
-- many elements and options don't have basic UX features. This needs a
-  full expert UI/UX pass. Concrete issues found so far:
-  - chat panel has no settings button
-  - wallpaper list has no "browse wallpaper folder"
-  - most options don't have hover effects
-  - cursor never changes state on clickable elements or fields
-  - tabs are indistinguishable from buttons
-  - some elements are clickable with no visible affordance (e.g. the
-    bluetooth elements in the list)
-  - lock screen has no "locked" state/timer after too many failed
-    attempts, and no wrong-password visual feedback
-  - no clear/clean button for searchbars
-  - accordions don't differentiate the body, sometimes have the arrow icon
-    and sometimes don't, and often don't align content with the title
-    (should compensate for the arrow's width when present)
-  - elements with the same behaviour don't share the same visual grammar
-  - trigger buttons don't show loading states or result feedback; no
-    skeleton loading anywhere
-  - the settings panel needs its options better organised, grouped and
-    ordered
-  - the settings, chat and notification panels all use poor spacing/layout
-  - the clipboard looks clunky and awful, it is not minimal, thin and modern as expected
-  - the VPN switch looks on and transparent when no available confgs are there, that makes no sense, if it's not available it should not show (those are basic UX rules, be smart as a UX designer to pick the right design choices)
-  - 
-
-  There are more issues than this list captures. Be critically honest
-  about every feature and detail, and polish the system UI/UX to a
-  coherent, optimal standard, focused on functionality. No element
-  currently has a definitive style — everything can be reworked, but all
-  elements must end up coherent, sharing the same grammar and styling
-  options where possible. Map as many values as possible into the theme
-  settings. `references/settings-layout-reference.PNG` is a reference
-  layout to match the spirit of (generous spacing, sections clearly
-  separated, an "advanced options" switch to simplify navigation, etc. —
-  down to small details like the close button not aligning with the
-  search bar/title).
-
-- the status bar overlays (those that open with the status bar icons)
-  should be reworked, as they don't fit the system style — overlaps the
-  general UX entry above, left for that pass. They also have layout
-  issues: the VPN row goes out of bound and is not aligned; it should show
-  VPN and the toggle switch, then the list of configs to pick. The raw
-  overflow looks very likely already fixed (VPN rows now use a widget
-  built for exactly this, hardware-verified elsewhere) — worth a quick
-  look to confirm before assuming it still reproduces. The restructure
-  itself ("VPN + toggle, then a config list") is real, unbuilt work — see
-  Open Questions #8.
-
 - the settings-panel switch's color transition still looks like it
   finishes before the knob finishes sliding across. Investigated: no
   mismatched duration/easing found in `Toggle.qml` — every transition
@@ -284,16 +276,28 @@ both places.
   is looked at on real hardware.
   *(full notes: `docs/investigations.md#settings-switch-color-transition`)*
 
-- the dim from the notification, chat panel and scratchpad should not
-  overlay the status bar, while the dim from screenshot, overview
-  (alt+tab) and warning/alert (eg. battery) should cover it. Have the 2
-  types of dim have different intensity as well (the one that overlays
-  should be stronger). Investigated: every dim surface today already
-  covers the bar uniformly — no split exists in either direction yet.
-  Battery alert, screenshot and alt-tab/overview are already correctly in
-  the "covers" category, no change needed there. A second-intensity token
-  would match an existing precedent (`PHI_BORDER`/`PHI_BORDER_STRONG`).
-  See Open Questions #9.
+- the dim from the notification panel, the chat panel, the clipboard tab
+  and the scratchpad should not visually cover the status bar; the dim
+  from screenshot, overview (alt+tab) and a warning/alert (e.g. battery)
+  should. Every dim surface in this shell today uses `WlrLayer.Overlay`
+  (`Quickshell.Wayland`), which Wayland's layer-shell protocol always
+  stacks above the bar's own `WlrLayer.Top` regardless of anything drawn
+  in QML — a real fix needs a per-surface layer change
+  (`Notifications`/`Clipboard` in `Panels/Sidebar.qml`,
+  `Panels/AgentPanel.qml`, and wherever a scratchpad dim eventually lives),
+  and same-layer stacking order between several Top-layer surfaces at once
+  needs checking on real hardware, not just reasoned about.
+
+- continue the UI/UX pass across the parts of `phi-shell` a first round did
+  not reach in depth: `Overview`/`AltTab`'s own row rendering, `Osd`,
+  `Tooltip`, `Spotlight`, `Magnifier`, `Dialogs/PowerMenu`, and the
+  `Settings` sections not yet swept for the "Advanced" toggle (General,
+  Devices, Keybindings, Notifications, Security, Updates — only
+  Connectivity and AI Agent have any rows/groups marked `advanced` so
+  far). Also worth building: a reusable loading-skeleton placeholder for
+  async lists (Wi-Fi/Bluetooth scans, the updates check) — every trigger
+  button's own `loading` state is now correctly wired, but nothing shows a
+  skeleton while a list itself is still loading.
 
 - add status bar icons for active sensors (microphone, camera); the
   overlay should show a list of apps with the sensor they are using and

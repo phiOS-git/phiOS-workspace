@@ -9,6 +9,309 @@ once it is verified.
 
 ---
 
+## The shell had no coherent, expert-level UI/UX pass — cursor affordance, tabs-as-buttons, dead switches, a clunky clipboard, and more
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev, phios-dotfiles / dev
+- **Commits:** see the end of this entry — **this session had no SSH/push
+  access from its sandbox at all** (`git@github.com: Permission denied
+  (publickey)`, confirmed before starting and again at the end), so nothing
+  here is pushed to `origin` yet. Every commit below exists only in the
+  local checkouts at `~/Development/phiOS-workspace`; `git log` there is
+  the source of truth for exact hashes, not this line.
+- **Original TODO:** "many elements and options don't have basic UX
+  features. This needs a full expert UI/UX pass. Concrete issues found so
+  far: chat panel has no settings button; wallpaper list has no 'browse
+  wallpaper folder'; most options don't have hover effects; cursor never
+  changes state on clickable elements or fields; tabs are indistinguishable
+  from buttons; some elements are clickable with no visible affordance
+  (e.g. the bluetooth elements in the list); lock screen has no 'locked'
+  state/timer after too many failed attempts, and no wrong-password visual
+  feedback; no clear/clean button for searchbars; accordions don't
+  differentiate the body, sometimes have the arrow icon and sometimes
+  don't, and often don't align content with the title; elements with the
+  same behaviour don't share the same visual grammar; trigger buttons
+  don't show loading states or result feedback; no skeleton loading
+  anywhere; the settings panel needs its options better organised, grouped
+  and ordered; the settings, chat and notification panels all use poor
+  spacing/layout; the clipboard looks clunky and awful; the VPN switch
+  looks on and transparent when no available configs are there. … Be
+  critically honest about every feature and detail, and polish the system
+  UI/UX to a coherent, optimal standard." Plus a second, related entry:
+  "the status bar overlays … should be reworked … the VPN row goes out of
+  bound and is not aligned … [restructure] see Open Questions #8" — folded
+  into this same pass, as that entry itself said to. The dim/scrim-split
+  entry (Open Questions #9) is **not** folded in here — only its
+  intensity half shipped; see below and its own still-open `docs/TODO.md`
+  entry.
+
+### What was asked
+An open-ended, critical UI/UX audit of the whole shell — not just the
+concrete bullets already found, but every component and interaction,
+judged as a UX designer would, with a coherent shared visual grammar
+across every panel. No fixed finish line was given (the entry says so
+itself: "there are more issues than this list captures").
+
+### What was done
+Read the shared widget library (`Widgets/`, `WidgetStates.js`'s seven-state
+model) first — it turned out to already be a genuinely deliberate,
+well-documented design system (hover/active/focus/loading/invalid, shared
+colour resolution, motion tokens). Most of what follows is either a real
+gap in that system, or a surface that never adopted it.
+
+**Cursor affordance** (system-wide gap: only 3 files in the whole repo set
+`cursorShape` at all, on non-button uses). Added `cursorShape:
+Qt.PointingHandCursor` to every interactive `HoverHandler` in the shared
+widget library (`StyledButton`, `SmallButton`, `Toggle`, `Checkbox`,
+`Radio`, `ListRow`, `Segment`, `Accordion`, `KeyboardMap`, the
+`QuickNote` corner tab) and to every hand-rolled clickable element found
+along the way (Launcher's prefix-cancel "×", every new search-bar clear
+button below, the wallpaper picker thumbnails, the clipboard cards and pin
+button, the notification group header).
+
+**Tabs indistinguishable from buttons.** Confirmed as a real, concrete bug:
+`Panels/Sidebar.qml`'s Notifications/Clipboard tab strip was built from
+`Widgets/Segment` with `active` bound to the current tab — the exact same
+full-inversion "just pressed" look every ordinary button uses.
+`Panels/AgentPanel.qml`'s nav rail had independently grown its own bespoke
+hover-wash + hairline marker to work around the same gap — two different
+ad-hoc "current tab" looks in one shell. Added a shared `ambient: "tab"`
+colour recipe to `Widgets/WidgetStates.js` (no resting box, a hover wash,
+accent-coloured content when current) and a new `Widgets/TabButton.qml` on
+top of it, with an `indicatorEdge` for a thin accent bar on whichever side
+faces the content it controls. Both `Panels/Sidebar.qml` and
+`Panels/AgentPanel.qml`'s rail now use it — one grammar, not two.
+
+**No clear button on search bars.** `Widgets/TextField.qml` gained a
+`clearable` property (default on; off for `NumberField`/`ColorField`'s
+narrow fields, where clearing to empty isn't useful) with a muted-till-
+hovered "×". The four search bars that never used that shared widget at
+all (each inlines its own bare `TextInput`, predating it) — the launcher,
+Settings' own search, the clipboard tab's filter, and the cheat sheet's
+filter — got the same "×" affordance added by hand instead of a risky
+migration onto `TextField` (each has load-bearing arrow-key/Tab/Escape
+keyboard wiring `TextField` doesn't forward).
+
+**Dead-looking / falsely-interactive controls.**
+- `Widgets/WifiNetworkList.qml`: a row for an already-connected network, or
+  a secured network never joined before, rendered fully hoverable/tappable
+  while `onActivated` silently did nothing — now `enabled: false` for
+  those two cases, so an inert row reads as inert (ListRow's own disabled
+  dimming and hover/cursor already key off `enabled`).
+- `Panels/BarPopout.qml`'s "network" card: with zero WireGuard tunnels
+  configured, showed a disabled-but-unchecked `Toggle` — literally "off,
+  dimmed," but reported as reading "on and transparent." Replaced with
+  plain status text; the deep-link to Settings is the one real action
+  available there. (Settings' own VPN section deliberately keeps a
+  visible-but-disabled row with an explanation — an existing, documented,
+  general convention every capability-gated `SettingsGroup` already
+  follows, not something specific to VPN — left unchanged.)
+- Settings' wallpaper picker thumbnails (`Settings/sections/Theme.qml`):
+  plain `Rectangle`s with a `TapHandler` and zero hover feedback of any
+  kind. Added a hover border brighten + cursor. ("Browse wallpaper
+  folder" already existed as an "Open folder" button next to the picker —
+  confirmed by reading the code, not rebuilt.)
+
+**Accordions.** `Widgets/Accordion.qml` (already shared, but only used in
+two settings sections) gained an optional `trailingAction` slot — with a
+toggle hit-region that stops short of it, so a trailing button (a "clear")
+can't also toggle the disclosure — and a left-edge hairline down the body,
+so a body visually reads as "inside" its header. `Panels/tabs/
+Notifications.qml`'s hand-rolled notification-group header (the one real
+accordion-shaped UI outside that widget) got the same hover-wash and body
+hairline applied by hand rather than migrated onto the shared widget:
+`Accordion` self-mutates its own `expanded` on tap, and this header's
+`expanded` state is owned externally (`root.collapsed`/`toggleGroup`) —
+binding the two would have silently broken on the first tap, the exact
+"assigning to a bound property" bug class this codebase has hit and fixed
+before.
+
+**The clipboard tab** (`Panels/tabs/Clipboard.qml`). Every entry was a
+`Widgets.Panel` — full 2px border + fill, the surface this shell otherwise
+reserves for a standalone framed block — stacked once per entry with only
+a rhythm unit between them, reading as a dense pile of boxes. Rebuilt as
+flat rows: no border, background matches the dock exactly at rest, a hover
+wash, full inversion when keyboard-selected — the same recipe `ListRow`
+already uses everywhere else a list lives in this shell. Also added the
+search-bar clear button here.
+
+**Chat panel** (`Panels/tabs/agent/Chat.qml`). Added a "Settings" deep-link
+button next to "New" (opens Settings' own AI Agent section — activation,
+broker, model/provider — rather than duplicating those controls inline).
+Also found and fixed a real dead prop while in this file: "Start
+service"/"Recheck" had `loading: false` hardcoded. `Services/Agent.qml`
+gained two real readonly signals for this (`activating` off the
+`systemctl` process, `checkingHealth` off the health-check process, kept
+separate so clicking one doesn't light up the other's spinner) and both
+buttons are wired to them now.
+
+**Settings — an "advanced" toggle**, in the spirit of `references/
+settings-layout-reference.PNG` (a different shell's own skin — matched the
+idea, not the pixels). `Services/SettingsPanel.qml` gained a session-only
+`showAdvanced` flag (not a `phi state` key — that closed set lives in the
+`phi` Go repo, out of scope here) and a switch next to the search field.
+`SettingsRow`/`SettingsGroup` gained a matching `advanced` property: hidden
+until the switch is on, UNLESS a live search already matches it (search
+always surfaces things, never hides them — the same rule this panel
+already applies everywhere else). Fixed a real edge case while adding
+this: `SettingsRow`'s leading-hairline logic checked literal
+`parent.children[0]`, which breaks the moment an earlier sibling collapses
+out of the layout — now walks for the first *visible* sibling instead.
+Applied to `Connectivity.qml`'s raw firewall port editor + blocked-log
+viewer, and `AiAgent.qml`'s coding-agent blocklist, services and
+broker/engine-readout groups — a first, real application of the pattern,
+not an exhaustive sweep of all nine sections (see Honest assessment).
+
+**Lock screen** (`Lock/Lock.qml`) — the one genuinely security-critical
+file in this shell, per its own header. Added, strictly on top of the
+existing fail-closed `PamResult.Success`/else switch (never touching the
+`Success` branch): a shake animation + a red/invalid tint on the password
+field on every wrong attempt, and a 5-attempts/30-second lockout (field
+disabled, red status text with a live countdown) before a fresh PAM
+conversation is allowed to start again. The lockout is purely additive —
+every branch it touches already led to "stay locked" before this; the only
+behaviour change is that enough consecutive failures also disables the
+field instead of letting `retryTimer` immediately reopen a new PAM
+conversation every 600ms.
+
+**Dim/scrim intensity split** (Open Questions #9, half of it — see Honest
+assessment for the other half). New design token `PHI_OVERLAY_SCRIM_STRONG`
+(`phios-dotfiles/design/tokens.{dark,light}.sh`, `preview.tmpl`, the
+phi-shell `Tokens.qml.tmpl` this renders into, `Config/Appearance.qml`,
+`docs/tokens-example.md`), a harder alpha step of the same hue as the
+existing scrim. `Widgets/Scrim.qml` gained a `strong` property; applied to
+the small set of full-attention blocking surfaces — screenshot selection,
+Alt-Tab, overview, the battery/timer alerts, and (a judgment call, not
+literally named by the entry) a destructive confirmation dialog. Every
+other scrim (notifications, clipboard, chat, settings, cheat sheet, power
+menu) is unchanged.
+
+### Honest assessment
+**Nothing here is hardware-verified — no compositor exists in this
+session's sandbox**, the same standing caveat every `phi-shell` change in
+this project carries. Every visual claim above is a reasoned prediction
+from reading the code and this project's own established conventions, not
+a screenshot.
+
+<span style="color:red">**NOT DONE:** the "does the dim cover the status
+bar" half of the scrim-split request.</span> Every dim surface in this
+shell uses `WlrLayer.Overlay`, which Wayland's layer-shell protocol always
+stacks above the bar's own `WlrLayer.Top` — no QML-level change can make
+an Overlay-layer surface sit under a Top-layer one. A real fix needs
+`Panels/Sidebar.qml`, `Panels/AgentPanel.qml` (and wherever a scratchpad
+dim eventually lives) moved to a different layer, and same-layer stacking
+order between several Top-layer surfaces at once verified on real
+hardware — not something this session could responsibly guess at, given
+this project's own history of exactly this kind of unverified layer-shell
+assumption going wrong (the bar-popout `exclusiveZone` double-count bug).
+Re-added as its own clean `docs/TODO.md` entry.
+
+Also genuinely partial, by design, given the scope:
+- The Settings "Advanced" toggle mechanism is built and confirmed applied
+  in two sections (Connectivity, AI Agent) — not swept across all nine.
+  Left as a follow-up entry in `docs/TODO.md` rather than guessing at
+  which of ~150 remaining rows across General/Devices/Keybindings/
+  Notifications/Security/Updates count as "advanced" without more time.
+- No reusable loading-skeleton widget was built ("no skeleton loading
+  anywhere" from the original list) — the concrete dead-`loading`-prop
+  bug found (Chat's two buttons) is fixed, but a skeleton placeholder for
+  a *list itself* still loading (Wi-Fi/Bluetooth scans, the updates
+  check) does not exist yet.
+- This was not a literal file-by-file audit of all 157 `.qml` files in
+  this repo — it prioritised the concretely-named complaints plus the
+  highest-traffic surfaces (bar, sidebar, agent panel, settings shell,
+  lock, clipboard, launcher, cheat sheet). `Overview`/`AltTab`'s own row
+  rendering, `Osd`, `Tooltip`, `Spotlight`, `Magnifier` and
+  `Dialogs/PowerMenu` were read for context but not independently
+  re-audited for this same class of issue.
+- Open Questions #2 (scratchpad active-state) got a concrete recommended
+  implementation, not the implementation itself — it needs a new
+  always-on background poll and a Hyprland JSON field this session had no
+  way to confirm against a real `hyprctl monitors -j`, and this project
+  has already been burned once this cycle by an unverified assumption
+  about this exact Hyprland build's IPC behaviour (the `dispatch()`
+  Lua-eval bug). See `docs/TODO.md`'s Open Questions for the exact
+  recommendation on file.
+- Two design-decision judgment calls were made without asking, per this
+  session's instructions to prefer a reasoned UX decision over stopping to
+  ask: Open Questions #8 (VPN restructure — answered "independently
+  toggleable," matching how WireGuard tunnels actually work) and which
+  surfaces get the "strong" scrim beyond the three the entry named by
+  example (added a destructive confirmation dialog to that set).
+- **This session's local checkouts were already behind `origin/dev` before
+  any of this started, and could not be fetched to check** (see the push
+  note right below — no network access to `origin` at all, in either
+  direction). Merging the local topic branch back into local `dev` for
+  both `phi-shell` and `phios-dotfiles` reported "Your branch is behind
+  origin/dev by 4 commits" and "by 2 commits" respectively, from BEFORE
+  this session's own commits landed on top — so this work was built on a
+  stale base, not on whatever is actually newest on GitHub. The user needs
+  to fetch, then merge (never rebase — AGENTS.md rule 1, and these commits
+  may already be shared once pushed) `origin/dev` into local `dev` for
+  both repos, resolving anything that conflicts, before pushing.
+- **No push access at all from this sandbox** (`ssh -T git@github.com` —
+  `Permission denied (publickey)`, no `gh` CLI either). Every commit below
+  is local only; `docs/TODO.md`'s claim step (fetch/prefix `[taken]`/push
+  before starting) could not accomplish anything a parallel session could
+  see either, for the same reason — flagging this rather than silently
+  skipping it. The user needs to push `phi-shell/dev`,
+  `phios-dotfiles/dev`, and this superproject's `dev` from a machine with
+  real access before any of this is visible on GitHub or usable by another
+  session.
+- Given the size of this change, it likely deserves a `phi-shell` version
+  tag once verified — not done here, since tagging still needs a push.
+
+### How to test it
+This needs the shell actually running (`pkill -x qs; qs -p
+~/.config/quickshell/phi`) after re-rendering tokens, since a new design
+token was added:
+1. `phi theme set dark` (or `light`) — regenerates `Config/Tokens.qml`
+   with the new `overlayScrimStrong` field. Skipping this step will make
+   every screen using it (Screenshot, Overview, Alt-Tab, the battery/timer
+   alerts, confirm dialogs) fail to resolve `Tokens.overlayScrimStrong` in
+   `Config/Appearance.qml`.
+2. **Cursor + hover:** hover any button, toggle, list row, tab, or the
+   wallpaper picker tiles in Settings → Theme — the pointer should change
+   to a hand, and something should visibly react (a wash, a border
+   change) before you click.
+3. **Tabs vs buttons:** open the notification panel (bell icon, or
+   Super+N) — the Notifications/Clipboard tab strip should show the
+   current tab with a thin accent bar along its bottom edge and
+   accent-coloured text, never a filled/inverted box. Open the agent
+   panel (Φ bar segment, or Super+P) — its left nav rail should read the
+   same way (accent bar on the right edge of the current icon).
+4. **Search clear buttons:** type into the launcher (Super, or however
+   it's bound), Settings' search field, the clipboard tab's filter, and
+   the cheat sheet's filter — each should show a "×" once there is text,
+   clearing the field and refocusing it on click.
+5. **VPN popout:** with zero WireGuard tunnels configured, click the
+   network bar icon — it should read "VPN — no tunnels configured" as
+   plain text, no switch. (With at least one tunnel imported, each still
+   shows its own working toggle, unchanged.)
+6. **Clipboard tab:** Super+Shift+V — entries should read as a flat list
+   (no boxes/borders), with a hover wash and the keyboard-selected entry
+   fully inverted.
+7. **Chat panel:** open the agent panel → Chat — a "Settings" button
+   should sit next to "New" and open Settings on the AI Agent section. If
+   the agent service is down, "Start service"/"Recheck" should show a
+   spinner while their own process is in flight.
+8. **Settings Advanced toggle:** open Settings (Super+S) — an "Advanced"
+   switch should sit on the search row. Off, Connectivity's firewall
+   "Open ports"/"Recently blocked" rows and AI Agent's "Coding-agent
+   blocklist"/"Services"/"Broker & engine" groups should be gone; on,
+   they should reappear. Searching for something inside one of them
+   (e.g. "blocklist") should reveal it even with the switch off.
+9. **Lock screen:** lock the session (`qs ipc call lock lock`, or however
+   it's bound), type a wrong password 5 times — the field should shake
+   and tint red-ish on each miss, then disable itself with a "Too many
+   attempts — try again in Ns" countdown; typing should resume once it
+   hits zero.
+10. **Dim intensity:** open the notification panel and take a screenshot
+    (or open Alt-Tab) back to back — the screenshot/Alt-Tab dim should
+    read visibly darker than the notification panel's own dim.
+
+---
+
 ## `phi-packages` build script kept building the old version after a new phi tag
 
 - **Date:** 2026-09-14
