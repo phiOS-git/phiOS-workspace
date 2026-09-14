@@ -66,6 +66,27 @@ This is a documentation-integrity fix, not a functional one — no phi-shell or 
 
 ---
 
+## The volume/brightness slider had no keyboard path at all
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 798cce5 widgets: make the volume/brightness slider keyboard-accessible
+- **Original TODO:** none — found during the continued review, checking whether the earlier systemic keyboard-activation fix (Enter/Space on every discrete shared widget) had a counterpart for the analog ones.
+
+### What was asked
+Nothing specific — a gap found by extending the reasoning behind an earlier fix (every discrete control — buttons, toggles, tabs — got a systemic Enter/Space activation fix this session) to check whether the shell's continuous/analog controls had an equivalent keyboard story. They didn't.
+
+### What was done
+`Widgets/Meter.qml` — the real slider behind the volume and brightness bar popout cards — was drag-only. Added: `activeFocusOnTab` (only while `interactive`, so a read-only meter like the OSD or a battery gauge stays correctly non-focusable), arrow-key nudging (`keyStep`, default 5%, each press an atomic `moved()`+`released()` commit since a single key press has no "drag" to track), and a focus ring using the same `focusRing` token every other focusable control's own "focus" state already borders itself with. Also made a plain click grab keyboard focus, so arrow keys work immediately after a drag without a separate Tab press.
+
+### Honest assessment
+<span style="color:red">**NOT DONE:** `Widgets/ColorPicker.qml`'s saturation/value box and hue strip, and `Widgets/BezierEditor.qml`'s curve handles, have the identical gap and were deliberately left alone this pass — each is a different 2D (or curve-handle) geometry that a plain "arrow key nudges a fraction" mapping doesn't mechanically carry over to, and guessing at three different interaction shapes in one sitting felt like exactly the kind of under-considered batch fix this round has been trying to avoid. Logged as its own fresh `docs/TODO.md` Style entry.</span> The Meter fix itself is UNVERIFIED — no compositor in this session.
+
+### How to test it
+Open the Volume or Brightness bar popout (click the icon), press Tab until the slider shows a focus ring around its track, then use the arrow keys (any of the four) to nudge the value up/down in 5% steps. Confirm the percentage readout and the fill both update on each press, matching what a drag would do. Click-and-drag should still work exactly as before, and immediately grant the slider focus so arrow keys work right after without a separate Tab.
+
+---
+
 ## The Ethernet popout card showed a lowercase "ethernet" as its title
 
 - **Date:** 2026-09-15
