@@ -9,6 +9,96 @@ once it is verified.
 
 ---
 
+## No quick way to jot down a persistent scratch note
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** b3949d4 shell: add a persistent quick note corner tab, 7a3b584 land: add a persistent quick note corner tab
+- **Original TODO:** add a quick note: when clicking the bottom right corder a quick floating editor window appears, it persists (save it in a specific folder in Documents). Positioning the mouse in the corner should have show a small transition (inspired by macos corner note) * this can be built using the default editor, however an improved version might be provided by the note app
+
+### What was asked
+A small, always-present corner surface that opens into a floating text
+editor when clicked, growing/transitioning when the mouse approaches the
+corner (the macOS "Notes" hot-corner gesture named in the TODO), whose
+content is saved to a specific folder under Documents and survives
+closing/reopening.
+
+### What was done
+- `Services/QuickNote.qml` (new): owns the note's text and open/closed
+  state, debounced autosave (800ms after the last keystroke) to
+  `$HOME/Documents/phiOS Quick Notes/quick-note.md` via a plain
+  `Quickshell.Io.FileView` — the same mechanism already used for every
+  other runtime-state file in this repo. Scoped as **one persistent
+  note**, not a multi-note system: a separate, bigger "Notes app" idea
+  already sits in `docs/TODO.md`'s own Ideas section as a distinct concept,
+  and this entry's own wording treats that as a possible future upgrade,
+  not what this task is building.
+- `Panels/QuickNote.qml` (new): a small corner tab, always present,
+  anchored to the true bottom-right screen corner with no margin (so the
+  hot-corner fling the TODO describes actually lands on it), that grows on
+  hover and expands into a full `Widgets.Panel`-based editor on click.
+  Follows `Notifications/Toast.qml`'s established shape for small,
+  non-blocking corner surfaces (a content-sized window, not full-screen,
+  so it never intercepts clicks elsewhere on screen) rather than the
+  full-screen-modal shape used by this repo's confirm/alert dialogs.
+  `PanelWindow.implicitWidth`/`implicitHeight` are animated between the
+  tab size and the editor size with a `Behavior`, gated on the fade-out
+  actually finishing (not on the open/closed flag directly) so the window
+  doesn't shrink out from under its own closing animation.
+- `Config/Paths.qml` gains the note's directory/file paths, rooted at
+  plain `$HOME/Documents` (not an XDG-user-dirs lookup — see Honest
+  assessment). `shell.qml` registers one shared instance on the primary
+  screen, same as every other focused/toggled (not per-monitor) surface
+  in this repo.
+
+### Honest assessment
+Everything here is a deliberate scope decision, not a shortcut, but check
+each one:
+- **One note, not a note library.** If what was actually wanted is
+  multiple named notes, this is the wrong shape — that's the separate
+  "Notes app" idea the TODO itself points at.
+- **`$HOME/Documents` is hardcoded**, not resolved through XDG user-dirs
+  (`~/.config/user-dirs.dirs`). A user whose Documents folder is relocated
+  gets a note written to the wrong place. Fixing this properly would need
+  either a new package dependency (`xdg-user-dirs`, not currently declared
+  anywhere in `phios-dotfiles`) or async file parsing this repo's
+  `Config/Paths.qml` deliberately avoids elsewhere. Documented as a known,
+  narrow gap rather than fixed blind.
+- **Animating a `PanelWindow`'s own `implicitWidth`/`implicitHeight` via
+  `Behavior` is new in this repo** — every other surface here is either
+  fixed-size or full-screen; nothing else animates a layer-shell surface's
+  own geometry. Whether Hyprland renders that resize smoothly or snaps it
+  is genuinely unverified from here (see below).
+- **Single instance on the primary screen, not per-monitor** — flagged for
+  cheap veto, same standing caveat every prior single-vs-per-screen
+  surface in this repo carries.
+- Cannot verify visually at all (this repo's standing constraint) — doubly
+  true here given the novel animated-window-geometry technique above, with
+  no prior sibling in this repo to sanity-check the approach against.
+
+### How to test it
+1. `pkill -x qs; qs -p ~/.config/quickshell/phi` to get a fresh process
+   (or just wait for hot-reload after pulling `dev`).
+2. Look at the bottom-right corner of the primary screen — a small,
+   semi-transparent accent-coloured square tab should be visible, sitting
+   flush in the true corner.
+3. Move the mouse over it — it should grow noticeably and brighten.
+4. Click it — it should expand into a floating panel titled "Quick note"
+   with a text editor, growing/animating rather than appearing instantly.
+5. Type some text, then click "Close" (or press Escape). The panel should
+   shrink back down to the small corner tab.
+6. Run `cat ~/Documents/"phiOS Quick Notes"/quick-note.md` — it should
+   contain the text just typed (autosave fires ~800ms after the last
+   keystroke, so check a second or two after typing, not instantly).
+7. Click the tab again — the editor should reopen with the same text still
+   there (seeded from the saved file / the in-memory value, whichever is
+   current).
+8. Restart the shell (`pkill -x qs; qs -p ~/.config/quickshell/phi`) and
+   reopen the note — the text should still be there, confirming the save
+   actually persisted to disk rather than only in memory.
+
+---
+
 ## Lock screen ambient effect: no way to add more types, no live preview in settings
 
 - **Date:** 2026-09-14
