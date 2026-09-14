@@ -153,6 +153,8 @@ loop*.
 
   **Question:** this entry asks for four things at once — a mic icon, a camera icon, a per-app usage list with killswitches, and settings for killswitches/permission rules. The killswitch and permission-rules pieces are not a feature gap on top of existing groundwork; there is no permission model anywhere in this stack today, so building them means designing one from scratch, a real architectural decision. Is a plain mic-active/camera-active bar indicator wanted on its own first (buildable now for the mic; the camera half would still need a fresh, unverified detection mechanism), or is the whole thing meant to land together as one piece once a permission-model shape is decided?
 
+  **Answer**: yes, the permission system must be built. It should be generally restrictive, always asking permission the first time an app requires it (granted once, always or never). 
+
 
 - yazi's folder colouring only distinguishes /mnt and /srv from $HOME (the two non-home locations this project actually uses today) — a general "anything outside $HOME" rule isn't portable in yazi's static theme.toml (no ~/$HOME expansion in its own path matching, and this repo's template renderer deliberately leaves $HOME untouched). If a real per-user $HOME path becomes available to templates some other way, extend profiles/base/templates/.config/yazi/theme.toml.tmpl's prepend_globs to match generally instead of by fixed path.
 
