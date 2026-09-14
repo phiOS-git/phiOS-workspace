@@ -66,6 +66,32 @@ This is a documentation-integrity fix, not a functional one — no phi-shell or 
 
 ---
 
+## NumberField committed an unrounded value while its own display showed a rounded one
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 9c22729 widgets: fix NumberField committing an unrounded value while its display rounds — 2e6ea12 bar: fix Wifi.qml's stale "popout is a placeholder" comment
+- **Original TODO:** none — found reviewing `Settings/sections/Devices.qml`, `Checkbox.qml`, `Radio.qml` and Wifi at the user's request.
+
+### What was asked
+Continue the review, specifically over `Settings/sections/Devices.qml`, `Widgets/Checkbox.qml`, `Widgets/Radio.qml` and the Wi-Fi surface (bar module, popout card, shared network list, Settings section, `Services/WifiBridge.qml`).
+
+### What was done
+- **`Widgets/NumberField.qml` (real bug, widget-level, ~20+ call sites affected).** `_apply(v)` clamped the incoming value and rounded it only for the DISPLAYED text (`_fmt(c)`) — `root.value` itself and the value passed to `committed(c)` both kept whatever precision was typed or accumulated from stepping, unrounded. A `decimals: 0` field could show "6" while actually holding 5.7, and hand that same 5.7 to the caller's `onCommitted`. Found because `Settings/sections/Devices.qml`'s Chroma battery-row/col/threshold fields defensively wrap every `onCommitted` in their own `Math.round(v)` — a strong signal something upstream wasn't already rounding. Checked every other `NumberField` caller in the repo: several others (Notifications' retention days and sound volume, the battery alert warn/danger thresholds) do **not** defensively round, and would have silently stored a fractional value in a field that only ever displays and means a whole number. Fixed at the source: `_apply()` now rounds to the field's own `decimals` (not just to the nearest integer, so `decimals: 1`/`2` fields like the lock-effect speed field or the wallpaper-scale field are covered too) before assigning `value` or emitting `committed`. Every existing defensive `Math.round(v)` wrapper becomes a harmless no-op on an already-correct value, not double-rounding.
+- **`Bar/modules/Wifi.qml`'s stale comment** — same class of staleness already fixed this round for Volume/Brightness: described the wifi bar popout as "placeholder... lands there later" when it has long since been built out in full (the shared network list, live speed graph/ping, the nmtui deep-link).
+- **Checked and found clean, no changes needed:** `Devices.qml`'s remaining rows (audio, monitors, pointer, battery, Chroma) all read correctly by inspection; `Widgets/Checkbox.qml` and `Widgets/Radio.qml` are both correctly built (already keyboard-accessible, already integrated with the shared seven-state model) and DELIBERATELY unused anywhere in the shell — confirmed against an existing `docs/VERIFICATION.md` entry recording that exact, reasoned decision (added "to the design system" per a literal TODO ask, explicitly not migrated onto any existing working chooser); `Widgets/WifiNetworkList.qml`, `Services/WifiBridge.qml` and the Wi-Fi Settings section are all thorough and internally consistent — one theoretical double-scan race in `WifiBridge.rescan()` turned out to already be prevented in practice by the Refresh button's own `loading` state disabling itself for the whole window.
+
+### Honest assessment
+The NumberField fix is UNVERIFIED — no compositor in this session — but is a straightforward, well-reasoned arithmetic correction (verified by hand-tracing `_round()` against both `decimals: 0` and `decimals: 1/2` cases) rather than a guess. No behavioural change is expected for the vast majority of real interactions (a user dragging the −/+ buttons or typing a value that already matches the field's own precision was never affected); the fix only changes what happens when someone types more decimal precision than a field declares, or after enough floating-point step drift to matter.
+
+### How to test it
+1. Open Settings → Notifications → History retention (a `decimals: 0`, whole-days field). Click into the text field, type "7.5", press Enter. The field should settle on "8 days" (rounded), and the actual retained-history behaviour should match 8 days, not 7.5.
+2. Open Settings → Devices → Battery → Warn/Danger threshold. Type a value like "15.4" into either — it should settle on "15%".
+3. Open Settings → Theme → Lock screen → Speed (a `decimals: 2` field). Type "1.256" — it should round to "1.26×", not truncate or keep the extra digit.
+4. Click the Wi-Fi icon in the status bar and confirm the popout still shows the network list, speed graph and "Manage networks…" as before (no visible change expected — this commit only fixed a comment).
+
+---
+
 ## The volume/brightness slider had no keyboard path at all
 
 - **Date:** 2026-09-15
