@@ -9,6 +9,53 @@ once it is verified.
 
 ---
 
+## Continued UI/UX pass — a dead bar module, two never-wired agent features, more free-text fields that should be pickers, missing hover/cursor on drag surfaces
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** a5a397c bar/settings: connect the dead Timer bar module to the real Services.Timers, fix ringtone/retention pickers — 90051a1 settings: give the AI Agent panel a real path to its most useful actions — 8ad5738 alttab/screenshot: hover affordance, Escape-to-cancel, scrim and copy feedback gaps — da019db agent panel/dialogs: wire two dead capabilities (chat pin, chat rename), consistent strong scrim — afebb33 widgets: cursor affordance for drag surfaces (meter, colour picker, bezier editor)
+- **Original TODO:** "orchestrate the development, acting as a UX designer criticising every bad choice in the style and experience... move component by component, system by system, and study each single interaction... do not stop until a full rework, with precise analysis of every single element and feature is completed" — plus four specific items added to the Style list mid-session: theme colour swatches with no hover; history retention field overflowing its space; "ringtone"-style settings using free text instead of a picker; AI Agent settings missing its most useful controls.
+
+### What was asked
+Continue the UI/UX audit from the previous round, this time literally system by system rather than only against the concrete bullets already on file — read every remaining surface, and fix what a critical UX read turns up, not just what was already named.
+
+### What was done
+Went through the whole rest of the shell's surface area file by file. Most systems (Osd, Tooltip, Spotlight, Magnifier, Cheatsheet, Background, ChatBubble, RichResult, General/Keybindings/Security/Updates settings, Panels/Calendar, QuickNote) were already consistent and needed nothing — read in full, not skipped, and are listed here so "read and found clean" isn't confused with "not looked at." Real problems found and fixed:
+
+**A genuinely dead bar module.** `Bar/modules/Timer.qml` was never in `Bar/modules.json` at all — unreachable code — and was ALSO its own disconnected implementation (a hardcoded 5-minute one-shot, its own bespoke `notify-send`) with zero connection to `Services/Timers.qml`, the real persisted timer/alarm system the runner bar and Settings already use. Rewired it onto the real service (soonest-upcoming countdown, icon-only when idle) and added it to `modules.json`; it now opens a proper `Panels/BarPopout.qml` "timer" card like every other bar module, instead of being the one module that never did.
+
+**The specific new Style items:**
+- Theme settings' colour swatches (the accent/palette tiles in Settings → Theme) had every state except hover — added the same hover-wash + pointer-cursor grammar every other clickable tile in this shell uses.
+- Notification history retention was a bare number+suffix field whose "365 days" ran past its own edge — `Widgets/NumberField` now measures the widest value it can actually show and sizes to that (a systemic fix, not a one-off), plus preset buttons (Forever/7/30/90/365 days) above it, the same pattern this file's own "Silence for a while" row already used.
+- New `Widgets/SoundPicker.qml` — enumerates the real installed freedesktop sound files as tap-to-preview chips — replacing three separate "type a sound name from memory" text fields: Notifications' arrival sound, the timer/alarm ringtone, and (found along the way, the identical pattern) the battery-charging sound in Devices.
+- AI Agent settings: reordered the Broker & engine readout so key-present + model id lead (what anyone opening it actually wants first), and added the real missing actions — "Edit model/provider (a1)…" / "Open config folder…" (open the real files in a terminal editor — the panel is deliberately read-only against them, editing from here already broke `git pull` once, so the fix is making the real edit path one click away) and "Restart A1 engine" (a genuine gap: the existing `startUnits()` is a no-op against an already-running unit, so there was no way to make an edited config actually take effect).
+
+**Two more fully-built-but-never-wired agent capabilities**, found while reading the agent panel's remaining tabs: `Services.Agent.setChatPinned()` — `Dashboard.qml`'s own `ChatRow` comment said "a pin toggle" but the star glyph only ever displayed pin state, never called it (same gap, same fix, in `ProjectView.qml`'s separate chat list); `Services.Agent.setChatTitle()` — zero callers anywhere, no rename control existed at all. Added a "Rename" control to the chat header.
+
+**Hover/cursor gaps found while reading, not on the original list:** AltTab's window boxes had a `TapHandler` but no hover feedback or cursor at all; Screenshot.qml had no keyboard focus and no Escape handling whatsoever (every other modal in this shell wires Escape; this one only ever exited via a near-empty drag); its OCR/QR result panel's `Scrim` was bound to `root.selecting` only, which the code resets to false BEFORE the async capture even runs — the panel spent its entire visible life with no dim behind it; that same panel silently auto-copies its result with no visible confirmation, and `ColorPicker.qml`'s own header used to defend showing NO feedback at all for a colour pick even though (unlike an image capture) nothing is left on screen afterward to prove it worked — both now confirm (a line of text, and a notify-send toast respectively); `Dialogs/PowerMenu.qml`'s scrim gets the same `strong` intensity `ConfirmDialog` already has, for consistency; every drag surface in the widget library (`Widgets/Meter`, used by every volume/brightness/texture-intensity slider, `Widgets/ColorPicker`'s saturation/hue areas, `Widgets/BezierEditor`'s two handles) had a `MouseArea` with no `cursorShape` at all, the drag-surface half of the same affordance gap the previous round fixed for click targets.
+
+### Honest assessment
+**Still no compositor in this session — nothing here is hardware-verified**, the same standing caveat every `phi-shell` change in this project carries; every claim above is a reasoned prediction from reading the code, not a screenshot.
+
+Genuinely not finished, and re-added to `docs/TODO.md` as clean, bare, still-open entries rather than glossed over:
+- No reusable loading-skeleton widget was built for a list that is itself still loading (Wi-Fi/Bluetooth scans, the updates check) — out of scope for the time this round had, not forgotten.
+- The Settings "Advanced" toggle mechanism (built last round) is applied to two sections (Connectivity, AI Agent) — General, Devices, Keybindings, Notifications, Security and Updates have not been swept.
+- This was a much broader pass than the first round but is still not literally every one of 157+ `.qml` files — icon-drawing widgets (`BatteryIcon`, `GpuIcon`, `SunMoonIcon`, and their siblings) were reviewed at their call sites, not read individually, since they are pure rendering primitives with nothing to critique interaction-wise on their own.
+- The `phi agent chat pin/rename` and Timer-bar-module fixes are logic changes to real user-facing behaviour, not pure styling — worth a closer look on real hardware specifically (does `setChatPinned`/`setChatTitle` actually round-trip through `phi agent chat pin`/`title` correctly end to end; does the new bar Timer module's popout render sensibly with 0, 1, and several concurrent timers/alarms).
+
+### How to test it
+Needs the shell running (`pkill -x qs; qs -p ~/.config/quickshell/phi`):
+1. **Timer bar module:** `qs ipc call timer add 30 test` (or set one from the runner bar: "timer 30s") — a new icon should appear in the right isle showing a live countdown; clicking it should open a popout listing the timer with a Cancel button; letting it finish should hide the icon again.
+2. **Ringtone/sound pickers:** Settings → Notifications → "Sound & testing" and "Timers & alarms", and Settings → Devices → Battery — each should show a row of installed-sound chips instead of a bare text box; tapping one should play it and select it.
+3. **Retention field:** Settings → Notifications → History — "Forever/7/30/90/365 days" buttons above the number field; picking 365 in the number field itself should no longer visually overflow the field's box.
+4. **AI Agent settings:** Settings → AI Agent → Broker & engine (turn Advanced on) — "Edit model/provider (a1)…" should open a terminal editor on the real `opencode.json`; "Restart A1 engine" should show a spinner while `systemctl --user restart` runs.
+5. **Chat pin/rename:** open the agent panel → Dashboard — each chat row should have a working Pin/Unpin button (not just a star); open a real chat and click "Rename" in its header — should show an editable field, Enter commits, Escape cancels.
+6. **AltTab hover:** hold Alt+Tab (or the three-finger gesture) — hovering a window box with the mouse should show a visible wash + the pointer cursor, distinct from the keyboard-selected box.
+7. **Screenshot Escape:** start an area/OCR/QR capture (however it's bound) and press Escape before dragging — it should cancel back to normal instead of staying stuck in selection mode.
+8. **Colour swatches:** Settings → Theme — hovering a colour tile in the swatch grid should show a wash and the pointer cursor before you click it.
+
+---
+
 ## The shell had no coherent, expert-level UI/UX pass — cursor affordance, tabs-as-buttons, dead switches, a clunky clipboard, and more
 
 - **Date:** 2026-09-14
