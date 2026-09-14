@@ -96,19 +96,9 @@ both places.
 
 3. ambient effects look great, they should have many settings: some shared (eg. speed) some specific for the selected one
 
-4. the timer, alarm and stopwatch features need to be implemented: they should appear in the status bar overlay and can be called from the runner as well
-
-5. [taken] the battery icon does not have different states for battery saving mode
-
-6. [taken] battery saving gets automatically toggled on everytime the battery updates and is below 20%. However this should not happen if i manually turned it off, at least until it hits another threshold.
-
-7. [taken] the notification icon keeps the same state with the red dot even when i clear all notifications
-
 8. i suggest adding a new element: context menu (right click). It will be useful in many places in the system (so it need to be implemented on all elements that can benefit from it).
 
 9. there is no way to remove elements from the clipboard history (the context menu might be a good candidate to avoid crowding the ui). Also there is not way to set rules for what should not be saved in the clipboard history
-
-10. [taken] switch ui element is not readable. I won't accept increasing the width, but it needs to have an understandable state
 
 ### Older 
 
