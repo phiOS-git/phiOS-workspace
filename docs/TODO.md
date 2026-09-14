@@ -69,7 +69,7 @@ both places.
   config exists anywhere in this repo — nothing here to misconfigure.
   *(full notes: `docs/investigations.md#idle-timeout-after-hibernation`)*
 
-- the ai agent a1 always fails starting: the broker binds correctly, but
+- [taken] the ai agent a1 always fails starting: the broker binds correctly, but
   the chat panel reports the containment failed to start, and `phi agent
   code .` fails with a socat error connecting to the proxy socket. No code
   defect found by reading; the whole AI feature needs a real debugging
