@@ -98,7 +98,7 @@ loop*.
 
 - add option for automated night mode (automatic time at nighttime or manual hours range), with settings
 
-- clicking on the wifi icon should show the list of available wifi to connect. Same in the settings.
+- [taken] clicking on the wifi icon should show the list of available wifi to connect. Same in the settings.
 
 - spotlight cursor: super+super (double tap hold) * blocked by issue on hyprland 0.56 *check if fixed*
 
