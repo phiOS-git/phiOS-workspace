@@ -187,18 +187,6 @@ both places.
   to lead into is now `Services/ConfirmDialog.qml`, a separate modal.
   Needs a screenshot of the actual on-screen failure to progress further.
 
-- alt+tab still does not work: it does not close when releasing alt, it
-  does not start with the right window selected, it does not focus the
-  selected window (neither with click, touch, enter, space or whatever),
-  it does not change workspace. It's completely broken, the only part that
-  works is calling it with the gesture. **Partially fixed 2026-09-14** as
-  a side effect of a different investigation (see `VERIFICATION.md`,
-  "Several window-management keybinds silently do nothing"): focusing the
-  window and changing workspace are fixed (the dispatch calls were
-  rejected by this Hyprland build's Lua config; switched to the Lua-call
-  form). Still open: doesn't close on Alt release, doesn't start with the
-  right window selected — a different mechanism, not yet investigated.
-
 - the runner needs a "search any file" category (beyond the existing
   home-directory-only file search), ranked below phi commands and above
   ask-ai-agent. A live filesystem-wide `fd` pass can't fit the launcher's

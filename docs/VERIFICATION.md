@@ -9,6 +9,36 @@ once it is verified.
 
 ---
 
+## Alt+Tab was still listed as broken for two symptoms that were actually already fixed
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev (no code change — a `docs/TODO.md` correction only)
+- **Commits:** none in phi-shell; the superproject commit for this entry also removes the stale TODO line
+- **Original TODO:** "alt+tab still does not work: it does not close when releasing alt, it does not start with the right window selected, it does not focus the selected window (neither with click, touch, enter, space or whatever), it does not change workspace. It's completely broken, the only part that works is calling it with the gesture. **Partially fixed 2026-09-14**... Still open: doesn't close on Alt release, doesn't start with the right window selected — a different mechanism, not yet investigated."
+
+### What was asked
+Nothing specific — found while doing the open-ended "keep analysing the system" pass, by reading `AltTab/AltTab.qml` end to end as part of a broader sweep for Timer/state-persistence bugs and noticing its own header comment described exactly the two behaviours the TODO entry called "still open" as already-implemented, working mechanisms.
+
+### What was done
+Traced both supposedly-open symptoms to already-existing, already-shipped fixes that predate even the "Several window-management keybinds silently do nothing" investigation this TODO note pointed back to:
+
+- **"Doesn't close on Alt release"** — fixed by `phios-dotfiles` commit `ed947e7` (2026-09-08, "hyprland: fix recording stop reachability and Alt+Tab confirm reliability"). `hyprland.lua.tmpl` binds `ALT_L`/`ALT_R` release globally with `submap_universal = true` to a `confirmAndReset()` function that calls the shell's `alttab confirm` IPC target then resets the submap — with a detailed comment tracing the original bug to hyprwm/Hyprland#15785 (a modifier held from before a submap is entered doesn't fire its release bind on the first release inside that submap) and explaining why binding it globally instead, outside the submap's own scope, sidesteps that issue entirely.
+- **"Doesn't start with the right window selected"** — fixed by `phi-shell` commit `2432ecc` (2026-09-11, "alttab: guard against stale active-window responses"). `AltTab/AltTab.qml`'s `_snapshotSeq`/`_userMoved` properties guard `_applyStartSelection()` against two real races (a fast second Tab press, or a fast Alt-release) that could otherwise let a stale `hyprctl activewindow -j` response overwrite either the user's own already-made cycle or the just-confirmed selection — closing exactly the "always the first window, not the active one" bug the TODO text described.
+- Also re-confirmed, reading the same file, that "does not focus the selected window (neither with click, touch, enter, space or whatever)" and "does not change workspace" are independently covered: a window box's own `TapHandler` (click/touch) and the submap's `Return` bind both call `_confirm()`/`_focusWindow()`, and `_focusWorkspace()` uses the corrected Lua-dispatch form from the keybinds fix.
+
+Since every symptom the original entry listed is now demonstrably fixed by code already on `dev`, the entry is removed from `docs/TODO.md` in full rather than left with a corrected "still open" clause.
+
+### Honest assessment
+This is a documentation-integrity fix, not a functional one — no phi-shell or phios-dotfiles code changed. **UNVERIFIED — no compositor in this session**, same as every other finding this pass: the reasoning above is a from-the-code trace (the release-bind mechanism, the race-guard logic, the confirm/focus call graph), not a live keypress-by-keypress reproduction. The two fixes being closed out here were apparently never screenshotted/confirmed on real hardware either, going by the absence of any later VERIFICATION.md entry doing so — so this closes the *bookkeeping* gap (the entry said "still broken" when the code says "fixed"), not a fresh hardware confirmation of either mechanism.
+
+### How to test it
+1. Pull `phi-shell` and `phios-dotfiles` `dev` (no new commits from this entry itself, just confirming what's already there).
+2. Press and hold Alt, tap Tab a few times to cycle through open windows, then release Alt. The overlay should close and focus should land on whichever window was highlighted at the moment of release — not always the first one in the grid.
+3. Reopen Alt+Tab (hold Alt+Tab again) without cycling at all, and release Alt immediately. It should focus the window Hyprland reports as "next after the currently active one," not always the same first window in the grid.
+4. Separately, open Alt+Tab via the three-finger swipe-up gesture (no Alt involved), click a window box directly, and confirm it focuses that window and switches to its workspace.
+
+---
+
 ## Loading looked disabled, most controls couldn't be reached from the keyboard, and Do Not Disturb quietly lost track of itself
 
 - **Date:** 2026-09-14
