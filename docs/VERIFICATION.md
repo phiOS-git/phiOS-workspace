@@ -9,6 +9,43 @@ once it is verified.
 
 ---
 
+## Night shift has to be turned on and off by hand every evening/morning
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev (Services/NightShift.qml, Settings/sections/Theme.qml), phi / dev (internal/state/state.go)
+- **Commits:** phi-shell: a68020c shell: add an automated schedule to night shift, 19fc248 merge: add an automated schedule to night shift — phi: a3e501d state: add nightmode.schedule keys for automated night-mode scheduling, d95360d merge: add nightmode.schedule keys for automated night-mode scheduling
+- **Original TODO:** add option for automated night mode (automatic time at nighttime or manual hours range), with settings
+- **Requires phi rebuild:** yes — no tag covers this yet. `d95360d` is only on `phi`'s `dev` (past the currently-published `v0.16.1`, which `main` still points to); merging `dev` into `main` is a user decision (`AGENTS.md` rule 1), so no new tag was created. Once merged, tag `vX.Y.Z` on `main` for this and any other pending `phi` changes to release together.
+
+### What was asked
+Night shift (the evening warm-colour display shift, `Services/NightShift.qml`) currently only turns on/off by hand. Add a way for it to switch automatically — either at some automatic nighttime, or on a manually-set hour range — with settings to control it.
+
+### What was done
+- `Services/NightShift.qml` gains `scheduleMode`: `"off"` (unchanged — the existing manual toggle), `"auto"` (a fixed 20:00–07:00 default window turns night shift on/off automatically), or `"custom"` (the same automatic on/off behaviour, using a user-set start/end hour instead of the fixed default). A 60-second `Timer` (matching the existing True Tone ambient-light timer's own interval) re-evaluates the schedule and flips `enabled` when it disagrees with the current wall-clock hour, handling a window that wraps midnight (the normal case — the "auto" default included).
+- This is a clock-driven feature, distinct from and independent of True Tone just below it in the same settings group (which reacts to ambient light, not the time of day) — both can be on at once, same as before.
+- Three new `phi state` keys (`nightmode.schedule`, `nightmode.schedule-start`, `nightmode.schedule-end`) since `phi state`'s key set is closed (`internal/state/state.go`), same shape as the pre-existing `nightmode.temp`/`toggle.night-mode`/`toggle.true-tone` rows.
+- `Settings/sections/Theme.qml`'s "Night shift" group gets a mode picker (Off / Automatic / Custom hours, the same button-row picker already used for the ambient-effect and spotlight-effect choices elsewhere in this file) and, for Custom hours, start/end hour fields. The manual toggle is disabled (greyed via the same `WidgetStates` mechanism the pre-existing True Tone toggle already uses for its own disabled state) whenever a schedule is active, since the schedule owns `enabled` in that case.
+
+### Honest assessment
+- **`Requires phi rebuild` above is not optional context — it changes what "done" means for this feature.** Until the user rebuilds and reinstalls `phi` from `d95360d` (or later), `phi state set nightmode.schedule ...` is rejected by the currently-installed binary. The schedule still *works* within a running shell session (nothing here depends on the state file round-tripping mid-session), but the chosen mode and hours will not survive a shell restart — they'll reset to "Off" / 20:00–07:00 every time, silently, except for a `console.warn` in the shell's own log. Rebuild first, or expect the setting to not stick.
+- **"Automatic" is a fixed 20:00–07:00 default, not a real sunset/sunrise calculation.** No geolocation source exists anywhere in this repo (`phi-shell` or `phi`) to compute an actual "nighttime" for wherever the machine is — building one would mean either a location permission/config surface that doesn't exist today or a network geolocation call, both out of scope for what this entry asked for. A fixed default was the scoped reading of "automatic time at nighttime." Flagged for veto — if a real sunset-based schedule was actually wanted, this doesn't deliver it, only "Custom hours" does (by hand).
+- **Setting `scheduleStartHour === scheduleEndHour` is treated as "always on,"** not "always off" — documented in the source; a zero-width window has no other non-dead reading given hours only run 0–23.
+- **Turning the schedule back to "Off" leaves `enabled` wherever the scheduler last set it**, rather than resetting to any particular state — flipping to Off at 3am while the schedule had it on leaves night shift on until the manual toggle is used. This matches how the toggle already behaved before this change (it always just holds whatever it was last set to); flagged in case a reset-on-Off behaviour was expected instead.
+- Cannot verify visually (this repo's standing constraint) — in particular, whether `hyprctl hyprsunset` actually applies/reverts audibly-on-schedule the way it does for the existing manual toggle is assumed, not newly re-verified, since this reuses the exact same `_apply()`/`setEnabled()` path the manual toggle already exercises.
+
+### How to test it
+1. Rebuild and reinstall `phi` from `phi`'s `dev` branch (commit `d95360d` or later) — the new state keys will not save without it. Building here only produced a local `/tmp` binary for the round-trip check below; the user does the real install per `phi/CLAUDE.md`'s Releasing section.
+2. Once reinstalled, pull `phi-shell`'s `dev` (or wait for hot-reload if already running against a checkout tracking it).
+3. Open Settings → Theme → "Night shift". A new "Schedule" row should show three buttons: Off, Automatic, Custom hours.
+4. Click "Automatic" — a new "Automatic window" line should appear below it reading "Fixed default — 20:00 to 07:00. …". The main "Night shift" toggle above should grey out and stop responding to clicks; its description should change to "Controlled by the schedule below."
+5. Click "Custom hours" instead — two number fields, "Starts at" / "Ends at", should appear (0–23, step 1). Set them to something that includes the CURRENT hour (e.g. if it's 14:00 now, set Starts at 13, Ends at 15).
+6. Within about a minute, the main "Night shift" toggle (still greyed/non-interactive) should flip to its "on" position on its own, and the display should visibly warm (same effect the manual toggle already produces) — no need to touch anything else.
+7. Change the hours so the current hour falls OUTSIDE the window — within about a minute, night shift should turn itself back off and the display should return to normal.
+8. Click "Off" — the toggle should become clickable again, staying at whatever state it was last in.
+9. `phi state get nightmode.schedule` (and `-start`/`-end`) from a terminal should reflect whatever was last chosen in the UI, confirming step 1's rebuild actually took.
+
+---
+
 ## No quick way to jot down a persistent scratch note
 
 - **Date:** 2026-09-14
