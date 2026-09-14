@@ -9,6 +9,113 @@ once it is verified.
 
 ---
 
+## No warning when the battery is about to run out
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** c6e101b battery: full-screen alert at configurable warn/danger thresholds, 0f54930 merge: full-screen low-battery alert at configurable warn/danger thresholds
+- **Original TODO:** full screen alert should appear when battery level is low (2 thresholds warn and danger, configurable)
+
+### What was asked
+A full-screen alert that appears when the battery is low, with two
+separately configurable thresholds — a less urgent "warn" level and a
+more urgent "danger" level. (Deliberately scoped to just this alert, not
+the separate, still-open "battery saving mode" backlog entry — that one
+needs real root/systemd actions this environment can't verify and is
+tracked on its own.)
+
+### What was done
+- `Services/PowerBridge.qml`: two new configurable thresholds,
+  `alertWarnThreshold` (default 15%) and `alertDangerThreshold` (default
+  5%), persisted to a new `battery-alert.json` state file. `alertLevel`
+  ("none"/"warn"/"danger") is computed from the live battery percentage,
+  gated so it can never fire while charging, while the battery is absent,
+  or on a machine with no battery capability at all (`mini`).
+- A dismiss/escalation state machine: dismissing the alert silences it for
+  the current severity, but if the battery keeps dropping and crosses into
+  the more urgent threshold, the alert re-opens at "danger" even if "warn"
+  was already dismissed. The reverse (recovering from danger back to warn)
+  stays quiet. Once the battery is no longer low at all (charged back up
+  or plugged in), the dismissal is forgotten, so the next time it drops
+  low is a fresh alert, not permanently suppressed by one old dismissal.
+- `Dialogs/BatteryAlert.qml`: a new full-screen modal — dim scrim,
+  centered card, "Battery low" / "Battery critically low" title (coloured
+  warn/error to match), current percentage, and a single Dismiss button
+  (also Enter/Escape). Built on the exact same layer-shell plumbing as the
+  existing `Dialogs/ConfirmDialog.qml` (`WlrLayer.Overlay` +
+  `exclusiveZone: -1` + a scrim that covers the bar), but its own
+  self-contained state rather than reusing `Services.ConfirmDialog` — that
+  singleton force-closes every other open panel when it opens, which is
+  right for a confirmation the user just triggered but wrong for a
+  spontaneous low-battery alert that shouldn't interrupt whatever else is
+  open.
+- `Settings/sections/Devices.qml`: two new rows in the existing "Battery"
+  group — "Warn threshold" / "Danger threshold" (both shown and edited as
+  whole percent), and a "Test alert" row with "Test warn" / "Test danger"
+  buttons that show the real dialog without needing to actually drain a
+  battery down to 5%.
+
+### Honest assessment
+Three judgment calls worth a look, none of them hidden requirements, all
+things a different call could easily be made on:
+
+- **A pre-existing threshold now sits right next to this one, at a
+  different value.** `Bar/modules/Battery.qml`'s bar icon already turns
+  red (`tone: "error"`) below `PowerBridge.lowPercentThreshold` (20%,
+  unrelated to this change). This new alert's own "danger" threshold
+  defaults to 5% — lower. That means the bar icon will already be red for
+  a while before the full-screen alert ever appears, which may read as
+  inconsistent. Deliberately did NOT unify the two (see the commit
+  message) since the bar's threshold is a different, already-shipped
+  concern with its own history — but if a single unified threshold is
+  actually wanted, say so and I'll fold them together.
+- **The escalation/dismissal behaviour is invented, not specified.** The
+  TODO only asked for "2 thresholds, configurable" — the rule that
+  dismissing "warn" doesn't suppress a later "danger", but dismissing
+  "danger" does suppress a later "warn" if it recovers, is my own call
+  about what a sane low-battery alert should do, modeled loosely on how
+  desktop OSes already behave. Veto/adjust if a simpler "always show,
+  every time it's low" (or the opposite — dismiss once, stay dismissed
+  until fully recharged) was actually wanted.
+- **This is the first spontaneous surface in this repo to take keyboard
+  focus.** Every other `Services.LayerFocus` consumer (Sidebar, Settings,
+  ConfirmDialog, Cheatsheet) is something the user just opened themselves.
+  This alert can pop up uninvited — if it fires while typing somewhere
+  else, that keystroke goes to the dialog instead. This is a deliberate
+  choice (a full-screen alert reads as meant to interrupt), not an
+  oversight, but flagging it explicitly since it's a new category of
+  behaviour for this shell.
+
+Cannot verify any of the visual/behavioural result on real hardware — the
+usual `phi-shell/CLAUDE.md` "you cannot run this" limit. The QML was
+statically re-read for the two known landmines this session already hit
+twice (a duplicate `Component.onCompleted` on one object, a reserved word
+used as a property name) — neither is present in the new files.
+
+### How to test it
+1. Pull `phi-shell` `dev` and reload Quickshell (`pkill -x qs; qs -p
+   ~/.config/quickshell/phi`, or just save any `.qml` file to trigger a
+   hot reload if the shell is already running).
+2. Open Settings → Devices → Battery (requires a machine with a battery —
+   the whole group is disabled on `mini`). Two new fields, "Warn
+   threshold" and "Danger threshold", default to 15% and 5%. Change either
+   and confirm it sticks after a reload (`cat
+   $XDG_STATE_HOME/phi/battery-alert.json` should show the new values).
+3. Click "Test warn" in the new "Test alert" row. A full-screen dim should
+   appear with a centered card reading "Battery low", the current battery
+   percentage, and a Dismiss button, coloured with the warn (not error)
+   tone. Click Dismiss (or press Enter/Escape) — it should fade out.
+4. Click "Test danger". Same overlay, but the title reads "Battery
+   critically low" and uses the error tone instead.
+5. The real test: unplug the charger and let the battery actually drop
+   below the warn threshold (or lower the threshold to just above the
+   current battery level first, to avoid a long wait). The alert should
+   appear on its own, without touching the Test buttons. Plug the charger
+   back in — the alert should not reappear until the next time the battery
+   genuinely drops low again.
+
+---
+
 ## Three-finger trackpad/touchscreen gestures for overview and workspace switch
 
 - **Date:** 2026-09-14
