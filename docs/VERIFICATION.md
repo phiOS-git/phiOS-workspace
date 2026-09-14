@@ -9,6 +9,32 @@ once it is verified.
 
 ---
 
+## Scratchpad bar icon does nothing
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** d9faba4 shell: fix the scratchpad bar icon's dead dispatch call, f130368 land: fix the scratchpad bar icon's dead dispatch call
+- **Original TODO:** the scratchpad icon does not call the scratchpad nor it reacts to its activation, it's broken
+
+### What was asked
+Clicking the scratchpad toggle in the bar should open/close the scratchpad, and the icon should reflect whether the scratchpad is currently shown, however it was opened (icon or MOD+A).
+
+### What was done
+Fixed the trigger half. `Bar/modules/Workspaces.qml`'s scratchpad `Segment` called `Services.HyprlandBridge.dispatch("togglespecialworkspace scratch")` — `Hyprland.dispatch()`, Quickshell's own IPC call, no `hyprctl` subprocess involved. That is the exact same mechanism the old, deleted `Bar/modules/SpecialWorkspaces.qml` used for its own special-workspace toggles, and this file's own ADR 134 comment already records that module as having "never worked on real hardware." `HyprlandBridge.qml`'s own `dispatch()` comment goes further: it admits this passthrough has never been proven at all, since the numbered-workspace strip switches through the model's own `activate()` and never needed it — it's the only real call site of that function in the whole repo. Every other Hyprland-triggering action here (`Launcher.qml`, `AltTab.qml`, `Services/Agent.qml`, `Services/PowerActions.qml`, `Services/NightShift.qml`) instead shells out via `Quickshell.execDetached(["hyprctl", "dispatch", ...])` — switched the scratchpad toggle to that same proven pattern.
+
+<span style="color:red">**NOT DONE:** the icon still has no visual "shown" state — it looks identical whether the scratchpad is visible or not. `Workspaces.qml`'s own header explains this is not an oversight: ADR 134 deliberately left the scratchpad with no `active` binding, because sharing the numbered-workspace strip's `active` state would make it lie whenever a numbered workspace also reads as active. That's still true, and reversing it is a real decision, not something to fold into this bug fix — re-added as its own entry in docs/TODO.md, `**Question:**`ed, with a citation for the one new fact that changes the calculus: `hyprctl monitors -j` (confirmed against current Hyprland source, not guessed) exposes `specialWorkspace.name` per monitor — `"special:scratch"` when shown, `""` when not — a source outside Quickshell's own broken tracking that didn't exist as a confirmed option when ADR 134 was written.</span>
+
+### Honest assessment
+The trigger fix is a strong, precedented lead — not a confirmed-by-running-it fix (`phi-shell/CLAUDE.md`: "You cannot run this"). ADR 134's "never worked on real hardware" doesn't isolate whether the OLD module's failure was the dispatch call itself, its own separate visibility-tracking gap, or both — I'm relying on the strong circumstantial case (same broken-by-inconsistency call, zero other proven callers of that function, every other real action in this repo uses the subprocess form instead) rather than a hardware trace. If clicking the icon still does nothing after this, the dispatch mechanism was not the (or not the only) cause and this needs a fresh look with real hardware in the loop.
+
+### How to test it
+1. Open the scratchpad app if you haven't already (MOD+SHIFT+A on a focused window, or launch whatever app your scratchpad rule targets).
+2. Click the scratchpad icon in the bar (the console/terminal-shaped glyph after the workspace numbers). The scratchpad should toggle into view.
+3. Click it again — it should hide. Confirm this works repeatedly, not just once.
+4. The icon itself still won't visually change between these two states — that's the known, separate gap described above, not something to expect from this fix.
+
+---
+
 ## Runner bar has no prefix shortcuts, and "phi" prefixed queries don't work
 
 - **Date:** 2026-09-14
