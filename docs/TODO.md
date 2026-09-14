@@ -133,7 +133,7 @@ loop*.
 
 - the status bar overlays (those that open with the status bar icons) should be reworked, as they don't fit the system style. They also have layout issues (the vpn goes out of bound and is not aligned, it should show VPN and the toggle switch, then the list of configs to pick)
 
-- the settings-panel switch's color transition still looks like it finishes before the knob finishes sliding across
+- [taken] the settings-panel switch's color transition still looks like it finishes before the knob finishes sliding across
 
 - the hyprland scratchpad should slde in from below, have slighlty more out spacing than other workspace and have a accent-colored border all around the screen. I think an old change made windows in the scratchpad had thiink borders, that has to be removed (i can't even see which one is focused) and restored to default, the border should be at the edge of the screen, like the whole workspace is bordered.
 
