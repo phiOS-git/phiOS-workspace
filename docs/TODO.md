@@ -98,6 +98,12 @@ loop*.
 
 - spotlight cursor: super+super (double tap hold) * blocked by issue on hyprland 0.56 *check if fixed*
 
+  **Rechecked 2026-09-14: still broken, not something this project can fix.** The current latest Hyprland release is still v0.56.2 (published 2026-08-05, no newer release exists as of this check), and a 2026-08-17 comment on `hyprwm/Hyprland#6946` — testing a plain keysym bind, the documented "modifier tap" pattern, and a raw keycode bind, all against 0.56.2 — confirms release events never fire for a bare-modifier-only key: press is delivered, release is not, across every variant tried. This is the same finding `phios-dotfiles`' own `hyprland.lua.tmpl` already documents in its "ROUND SIX" comment (commit `48d0a16c`, 2026-09-09), which is why the cursor-spotlight hold gesture is bound to SUPER+G (an ordinary key, reliably delivered both ways) rather than bare Super — that revert is already shipped and is the correct, working shape; nothing about it needs to change.
+
+  **A trap for the next recheck:** `#6946` shows as *closed*, and a separate, unrelated issue (`#6946`'s bot-closed sibling `hyprwm/Hyprland#15952`, about `Control_R` rather than Super) asserts in its own body that "#6946 was closed after a targeted fix" — that claim is the `#15952` reporter's own unverified inference from the closed state, not something they tested, and it is directly contradicted by the newer, rigorously-tested 2026-08-17 comment sitting on `#6946` itself. Checking only whether `#6946` is closed, or only `#15952`'s text, will wrongly conclude this is fixed — read `#6946`'s actual latest comments instead.
+
+  The only known alternative that does receive both press and release for a bare modifier is an app grabbing `/dev/input/eventN` directly via evdev, bypassing Hyprland's own bind dispatch entirely (named in that same 2026-08-17 comment). Not pursued: it would mean a new raw-input-device dependency and a very different architecture from `phi-shell`'s existing IPC-from-Hyprland model, for one gesture — a much bigger trade than this entry asks for. Nothing to recheck again until a Hyprland release newer than v0.56.2 ships.
+
 - consideration: usare alt come super, così avrei 2 super invece che 2 alt. Da valutare con software che usano alt [TBD]
 
 - add gestures to open the chat and notifications panel: 2 finger swipe from edge (touchpad) or swipe from screen edge (touchpad). Make the inverted gesture to close the panel as well. It should move progressively with the scroll, not only a toggable state.
