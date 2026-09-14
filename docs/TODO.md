@@ -86,8 +86,6 @@ loop*.
 
 
 
-- three finger gestures on trackpad and touchscreen: up/down (open/closes overview, alredy workinf), left/right (change workspace). Add more if not too error-prone.
-
 - add trash feature (package to be picked). Options (to be checked if they work as expected): CliFM (cli), ... * check the list on archlinux.org file manager
 
   **Question:** the entry itself says "package to be picked" and names one candidate (CliFM) with "options to be checked if they work as expected" — rule 2 restricts this to `core`/`extra`/`multilib`, no AUR. Which package: a dedicated trash CLI (e.g. `trash-cli`, in `extra`), a file manager with built-in trash support already in the stack (does `yazi`, already used per the styling section's own yazi entry, have one worth using instead of a second tool), or something else? And is this meant to be reachable only from a TUI file manager, or does it also need a `phi` verb / runner integration (rule on `phi` verb admission: an alias over one command doesn't qualify on its own)?

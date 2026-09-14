@@ -9,6 +9,61 @@ once it is verified.
 
 ---
 
+## Three-finger trackpad/touchscreen gestures for overview and workspace switch
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phios-dotfiles / dev (no code change — see below)
+- **Commits:** none — docs-only, see the superproject commit landing this entry
+- **Original TODO:** three finger gestures on trackpad and touchscreen: up/down (open/closes overview, alredy workinf), left/right (change workspace). Add more if not too error-prone.
+
+### What was asked
+Three-finger swipe up/down should open/close the overview (already working
+per the entry's own text), and three-finger swipe left/right should switch
+workspace — on both trackpad and touchscreen — plus "add more [gestures]
+if not too error-prone" as an open-ended, optional invitation.
+
+### What was done
+No code change. Before starting, checked whether this already existed —
+`profiles/desktop/templates/.config/hypr/hyprland.lua.tmpl`'s GESTURES
+section already implements exactly this, landed in commit `c204c58`
+("hypr: workspace prev/next on keyboard and 3-finger swipe", 2026-09-10,
+well before this backlog entry was worked): three-finger up/down already
+opens/closes the unified Alt+Tab/overview surface (the entry's own text
+confirms this half already works), and three-finger left/right already
+dispatches `workspace m+1`/`m-1` (monitor-relative, wrapping). The commit's
+own message notes Hyprland 0.51+'s unified gesture engine fires the same
+`hl.gesture` bind from both the touchpad and the touchscreen with no
+separate per-device config needed, satisfying the "trackpad and
+touchscreen" half of the request. Both binds are `pcall`-wrapped so a
+Hyprland build rejecting a direction token can't abort the whole config
+reload. Removed the duplicate backlog line rather than leaving it to be
+rediscovered and re-investigated.
+
+### Honest assessment
+The core, concrete ask (up/down + left/right, both device classes) is
+fully built and was apparently already working per the entry's own text
+for at least the up/down half. The trailing "add more if not too
+error-prone" is a vague, explicitly optional invitation, not a concrete
+requirement — no specific additional gesture is named, so nothing further
+was added. If a specific extra gesture was actually wanted (pinch to
+zoom, four-finger something, etc.), re-add a bare entry naming it
+specifically.
+
+### How to test it
+1. On `razer` (the only machine with both a touchpad and a touchscreen),
+   swipe up with three fingers on either input — the overview/Alt+Tab
+   surface should open. Swipe down with three fingers to close it.
+2. Swipe left with three fingers — the focused monitor's workspace should
+   switch to the next one (`m+1`), wrapping around at the highest
+   workspace. Swipe right — switches to the previous one (`m-1`).
+3. If any of the four directions do nothing, check `hyprctl` logs for a
+   rejected gesture direction token (the left/right binds are wrapped in
+   `pcall` specifically because this is a possibility on some Hyprland
+   builds) — that would mean this Hyprland version needs the gesture
+   syntax re-verified against its own docs, not that the config is wrong.
+
+---
+
 ## Hyprland scratchpad doesn't slide in, has no extra spacing, focus not visible
 
 - **Date:** 2026-09-14
