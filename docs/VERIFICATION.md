@@ -9,6 +9,87 @@ once it is verified.
 
 ---
 
+## Lock screen ambient effect: no way to add more types, no live preview in settings
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** c8f49d1 lock: add plasma and life ambient effects, live preview in settings, 43b0eb4 merge: add plasma and life ambient effects, live preview in settings
+- **Original TODO:** ad settings specific for the "ambient effect". Add more types to pick, taking inspirations by cool terminal effects or screensavers (always only played in the lock screen). Also add a live preview of the effect in the settings when one is selected
+
+### What was asked
+More lock-screen ambient effect choices (the existing set was lava lamp,
+matrix rain, starfield), inspired by terminal effects/screensavers, plus a
+live preview in Settings so picking one shows what it looks like without
+having to actually lock the screen.
+
+### What was done
+- Two new effects, both classic terminal/screensaver references:
+  **Plasma** (`Lock/Plasma.qml`) — the demoscene/XScreenSaver plasma
+  effect, three overlaid sine waves on a coarse grid, coloured through
+  the same accent/info pairing the existing lava lamp already uses.
+  **Life** (`Lock/Life.qml`) — Conway's Game of Life (the real inspiration
+  for several actual terminal screensavers), standard rules on a
+  wraparound grid, advancing one generation every 10 redraw ticks (not a
+  new timing value — a frame-skip ratio layered on the same shared redraw
+  interval every existing effect already uses) so it reads as a pattern
+  rather than flicker, with cells fading between states. A board that
+  dies out completely reseeds itself rather than going permanently blank.
+- Both wired into `Config/LockPrefs.qml` (the known-effects list) and
+  `Lock/Lock.qml` (the effect loader), the exact same shape the three
+  existing effects already use.
+- `Settings/sections/Theme.qml`: a new "Ambient effect preview" group
+  (same `preview: true` treatment as the existing "Colour preview" group)
+  runs the currently-selected effect live, in a fixed-size box, right
+  below the picker — updates instantly when a different effect is chosen.
+
+### Honest assessment
+Which two effects to add was not specified by the TODO — "cool terminal
+effects or screensavers" named no particular ones, so Plasma and Life are
+my pick, not a literal instruction. Landing exactly two, not more, was
+also a judgment call — each addition is small and mechanical (a new
+Canvas file following the established contract, one switch case, one
+picker entry), so more are a cheap follow-up if two isn't enough variety.
+
+The preview box's aspect ratio is a plain wide rectangle, shorter and
+wider than a real lockscreen. Plasma's grid is a smooth colour field, so
+it should still read fine at that ratio; **Life's 48×27 grid may render
+as visually noisy, squashed slivers in the shorter preview box** — its
+cell math is unchanged from what runs on the real lock screen, only the
+box it's rendered into is a different shape. If it looks bad in the
+preview specifically, the fix is sizing the preview box itself (or
+deriving each effect's grid from the box's own aspect ratio), not a
+rewrite of the effect.
+
+The preview runs continuously (Canvas repainting roughly 41 times a
+second) for as long as the Theme settings page is open — fine on a
+desktop, worth knowing about for battery use on `razer` if the Theme page
+is left open.
+
+Cannot verify any of this visually — the usual `phi-shell/CLAUDE.md` "you
+cannot run this" limit, doubly true here since these are the first two
+effects in this project with no prior hardware-verified sibling to sanity
+against (lava/matrix/starfield all have real usage history; plasma/life
+do not).
+
+### How to test it
+1. Pull `phi-shell` `dev` and reload Quickshell.
+2. Open Settings → Theme → "Lock screen". The "Ambient effect" row should
+   now show six buttons: None, Lava lamp, Matrix, Starfield, Plasma, Life.
+3. Click "Plasma". A new "Ambient effect preview" group should appear
+   right below (or update if already showing) with a live, moving
+   colour-field animation inside a framed box.
+4. Click "Life". The preview should switch to a grid of cells appearing,
+   surviving, dying and reappearing — check whether it reads as a
+   recognisable pattern or just noise at this box size (see the honest
+   assessment above).
+5. Click "None" — the preview group should disappear entirely.
+6. Lock the screen (however you normally do — SUPER+L, double-tap, per
+   the entry above) with Plasma or Life selected, to confirm the same
+   effect actually plays full-screen on the real lock surface, not just
+   in the settings preview.
+
+---
+
 ## SUPER+L locks immediately, with no way to suspend/hibernate/shut down/reboot from the keyboard
 
 - **Date:** 2026-09-14
