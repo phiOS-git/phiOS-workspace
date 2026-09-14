@@ -276,30 +276,30 @@ both places.
   is looked at on real hardware.
   *(full notes: `docs/investigations.md#settings-switch-color-transition`)*
 
-- the dim from the notification panel, the chat panel, the clipboard tab
-  and the scratchpad should not visually cover the status bar; the dim
-  from screenshot, overview (alt+tab) and a warning/alert (e.g. battery)
-  should. Every dim surface in this shell today uses `WlrLayer.Overlay`
-  (`Quickshell.Wayland`), which Wayland's layer-shell protocol always
-  stacks above the bar's own `WlrLayer.Top` regardless of anything drawn
-  in QML — a real fix needs a per-surface layer change
+- [taken] the dim from the notification panel, the chat panel, the
+  clipboard tab and the scratchpad should not visually cover the status
+  bar; the dim from screenshot, overview (alt+tab) and a warning/alert
+  (e.g. battery) should. Every dim surface in this shell today uses
+  `WlrLayer.Overlay` (`Quickshell.Wayland`), which Wayland's layer-shell
+  protocol always stacks above the bar's own `WlrLayer.Top` regardless of
+  anything drawn in QML — a real fix needs a per-surface layer change
   (`Notifications`/`Clipboard` in `Panels/Sidebar.qml`,
   `Panels/AgentPanel.qml`, and wherever a scratchpad dim eventually lives),
   and same-layer stacking order between several Top-layer surfaces at once
   needs checking on real hardware, not just reasoned about.
 
-- a reusable loading-skeleton placeholder for async lists (Wi-Fi/Bluetooth
-  scans, the updates check) — every trigger button's own `loading` state
-  is correctly wired now, but nothing shows a skeleton while a list itself
-  is still loading.
+- [taken] a reusable loading-skeleton placeholder for async lists (Wi-Fi/
+  Bluetooth scans, the updates check) — every trigger button's own
+  `loading` state is correctly wired now, but nothing shows a skeleton
+  while a list itself is still loading.
 
-- sweep the rest of the Settings sections for the "Advanced" toggle
-  (`Services.SettingsPanel.showAdvanced`, `SettingsRow`/`SettingsGroup`'s
-  own `advanced: true`) — only Connectivity (the firewall's raw port
-  editor and blocked-log viewer) and AI Agent (the coding-agent blocklist,
-  services and broker/engine-readout groups) have anything marked
-  `advanced` so far; General, Devices, Keybindings, Notifications,
-  Security and Updates have not been swept at all.
+- [taken] sweep the rest of the Settings sections for the "Advanced"
+  toggle (`Services.SettingsPanel.showAdvanced`, `SettingsRow`/
+  `SettingsGroup`'s own `advanced: true`) — only Connectivity (the
+  firewall's raw port editor and blocked-log viewer) and AI Agent (the
+  coding-agent blocklist, services and broker/engine-readout groups) have
+  anything marked `advanced` so far; General, Devices, Keybindings,
+  Notifications, Security and Updates have not been swept at all.
 
 - continue the file-by-file UI/UX read-through into whatever a session
   with more time doesn't reach: this repo has 157+ `.qml` files, and two
