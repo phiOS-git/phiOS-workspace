@@ -85,13 +85,6 @@ both places.
   config exists anywhere in this repo — nothing here to misconfigure.
   *(full notes: `docs/investigations.md#idle-timeout-after-hibernation`)*
 
-- [taken] the ai agent a1 always fails starting: the broker binds correctly, but
-  the chat panel reports the containment failed to start, and `phi agent
-  code .` fails with a socat error connecting to the proxy socket. No code
-  defect found by reading; the whole AI feature needs a real debugging
-  pass on hardware (the UI also needs rework, see Style).
-  *(full notes: `docs/investigations.md#ai-agent-a1-fails-to-start`)*
-
 - area selection in screenshot, OCR and QR reading is never right — the
   offset changes as the size and position of the area change. Hardware-
   measured: not a coordinate bug — at integer monitor scale, capture is

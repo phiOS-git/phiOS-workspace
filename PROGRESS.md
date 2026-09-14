@@ -44,7 +44,7 @@ point (`phi`), one visual identity.
 | `phi-shell` — bar, session integration, Hyprland autostart | **Working** on `razer` and `zotac`, but a 2026-09-11 hardware verification round found real bugs still open: overlay panels sit lower than the bar, the scratchpad icon doesn't call the scratchpad, the bar doesn't reveal on a top-edge hover in fullscreen, touchscreen taps near an icon's top edge hover instead of activating — tracked in `docs/TODO.md` |
 | `phi-shell` — panels, launcher, lock, overview, screenshot, notifications, settings, magnifier, OSD | **Built and in use**, refined over four restyle rounds + a settings overhaul, but the same verification round found Alt-Tab "completely broken" (no focus, no close-on-release, no workspace change), the magnifier still doesn't zoom, and screenshot/OCR/QR area-selection offset is still wrong — tracked in `docs/TODO.md` |
 | Identity & advanced styling — final palette, typography, motion, Plymouth, cursor theme | **Built**, pending a clean end-to-end verification pass |
-| AI agent (`phi agent` + shell agent panel + containment) | **Built**, hardware verification run on `razer` 2026-09-11 and **failed end-to-end** — the broker binds and the systemd units report active, but the shell's agent panel reports the containment failed to start, and `phi agent code .` (A2) fails on a missing `run/phi-agent/net/proxy.sock`; raw session log at `docs/ai-agent.output`, tracked in `docs/TODO.md` |
+| AI agent (`phi agent` + shell agent panel + containment) | **Working end-to-end on `zotac`** (2026-09-14) — the mechanics were sound; nothing had ever actually been configured/started (`broker.json`/`provider-key`/`opencode.json`, the A1/A2 systemd units) on either host. Real gap found and fixed: every failure state (a rejected turn, a down support service) used to vanish silently instead of being shown anywhere — see `docs/VERIFICATION.md`. One remaining blocker is outside phiOS: the configured account (opencode.ai Zen) has no payment method, so a real completion still errors — now surfaced clearly instead of hidden. Needs the same real-hardware pass on `razer` (`docs/ai-agent.output` is `razer`-only and predates this fix) |
 | Server services (`mini`) — cloud sync, photos, Jellyfin, \*arr, LanguageTool | **Not started** |
 | Custom apps (`phi-notes`, `phi-music`, `phi-media`) | **Not started** |
 
@@ -323,7 +323,7 @@ Current published version: **`phi` 0.16.1** (firewall / sudoers fix). The
 
 ---
 
-## 7. AI agent — built, verification failed end-to-end 2026-09-11
+## 7. AI agent — working end-to-end on `zotac` 2026-09-14
 
 Two agents (ADRs 084–100): **A1** an assistant with system/app skills over
 an MCP server, **A2** a coding agent. Containment is `bubblewrap` from
@@ -341,17 +341,30 @@ engine↔client contract (opencode over loopback HTTP only, ADR 098/099).
 - `phi-shell` agent panel: four sections — Dashboard, Chat, Coding
   Sessions, Memory Proposals, plus a Personality editor and Project view.
   Summonable from the shell.
-- All seven agent milestone steps are written, committed and pushed.
-  Hardware verification on `razer` started 2026-09-09; a 2026-09-11 pass
-  found the broker binds correctly and `phi-agent-broker@a1.service` /
-  `phi-agent-a1.service` both report active, but the shell's agent panel
-  still reports the containment failed to start ("nothing runs outside the
-  containment"), and `phi agent code .` (A2) fails with `socat` unable to
-  connect to `run/phi-agent/net/proxy.sock`. No part is signed off; the
-  feature does not currently work end-to-end and needs debugging, not just
-  more verification. Raw session transcript kept at `docs/ai-agent.output`.
-  Tracked in `docs/TODO.md`, which also asks for the agent panel UI to be
-  reworked once the underlying containment is fixed.
+- **2026-09-14, `zotac`:** the 2026-09-11 `razer` failure ("containment
+  failed to start", `socat` unable to reach `proxy.sock`) turned out to
+  have no code defect behind it, confirmed by actually running the whole
+  pipeline on real hardware: `broker.json` / `provider-key` /
+  `opencode.json` had never been created on this machine, and none of
+  `phi-agent-broker@a1`, `phi-agent-a1`, `phi-agent-broker@a2`,
+  `phi-agent-proxy`, `phi-agent-net-bridge` had ever been started — all are
+  declared, none auto-enabled, by design. Once set up: A1's health check
+  passes, `phi agent code .` opens a real contained opencode TUI (socat
+  bridge working, no socket error), and the broker forwards correctly to
+  the configured provider. The one genuine remaining failure is external:
+  the opencode.ai Zen account behind the configured key has no payment
+  method, so a real completion still errors — confirmed independent of
+  phiOS (the same error reproduces with plain, unconfined `opencode`).
+  The real bug this session fixed: **every one of these failure states was
+  invisible in the product** — `phi agent ask` dumped raw JSON, the chat
+  panel silently dropped a rejected turn's message instead of showing it,
+  the "Agent offline" panel state was one sentence for five different real
+  causes, and `phi agent code` / the coding-sessions panel spawned a
+  terminal blind when A2's support services weren't running. Fixed in
+  `phi` (`ask.go`, `code.go`) and `phi-shell` (`Services/Agent.qml`,
+  `Services/AgentInfra.qml`, the Chat/CodingSessions panels, Settings).
+  Full write-up in `docs/VERIFICATION.md`. Not yet re-verified on `razer` —
+  `docs/ai-agent.output` is `razer`-only and predates this fix.
 
 ---
 

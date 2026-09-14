@@ -9,6 +9,57 @@ once it is verified.
 
 ---
 
+## The AI agent (a1/a2) never worked — broker, containment, and `phi agent code`
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi / dev, phi-shell / dev
+- **Commits:** phi: `98eed4f` agent: surface real errors instead of dropping them (merged `ee06d26`) — phi-shell: `bea0273` agent: surface real errors and states instead of hiding them (merged `3b517f5`)
+- **Original TODO:** "1. The agent broker a1 never starts, it always fails. Also running `phi agent code .` runs opencode with connection errors. Fix the whole AI agent system, as it never worked and it's the most important feature on the system. Run and test it whole, make fixes and don't stop until the system works fully." — plus the pre-existing `docs/TODO.md` entry this claimed and removed: "the ai agent a1 always fails starting: the broker binds correctly, but the chat panel reports the containment failed to start, and `phi agent code .` fails with a socat error connecting to the proxy socket."
+- **Requires phi rebuild:** yes — no tag covers this yet. `98eed4f` is only on `phi`'s `dev` (past the currently-published `v0.16.1`, which `main` still points to, and `dev` also carries a number of unrelated unreleased features already ahead of it); merging `dev` into `main` is a user decision (`AGENTS.md` rule 1), so no new tag was created. Once merged, tag `vX.Y.Z` on `main` for this and any other pending `phi` changes to release together.
+
+### What was asked
+Debug and fix the whole AI agent subsystem (`phi agent` broker, the bubblewrap containment, `phi agent code`) end to end on real hardware, and don't stop until it actually works — this had never worked since it was built.
+
+### What was done
+This session ran on `zotac` (a real machine, not a sandbox), so every step below was actually executed and observed, not inferred from reading code.
+
+**Found the pipeline was never actually configured or started on this machine.** `~/.config/phi-agent/{a1,a2}/broker.json`, `provider-key` and `opencode.json` didn't exist (only the `.example` templates, symlinked from the dotfiles repo), and none of `phi-agent-broker@a1.service`, `phi-agent-a1.service`, `phi-agent-broker@a2.service`, `phi-agent-proxy.service`, `phi-agent-net-bridge.service` had ever been started — all five are declared but deliberately never auto-enabled by the installer. Created the config files (upstream `https://opencode.ai/zen`, the same recipe already proven working on `razer` per `docs/ai-agent.output`) using the key already present in the user's own working `~/.local/share/opencode/auth.json` — same account, so no new credential was introduced — and started the five units with `systemctl --user`.
+
+**With that done, the mechanics genuinely work.** Confirmed live: `bwrap` mounts and namespaces are correct (`phi-agent-contain --dry-run` and a real run both checked), A1's `/global/health` responds over host loopback, the broker correctly forwards to the provider with the credential attached, and `phi agent code .` opens a real contained `opencode` TUI with a working `socat`↔`tinyproxy` egress bridge — no socket error, the exact symptom in the original report. `git`, workdir mount, and process cleanup on exit were all confirmed too.
+
+**The one genuine remaining failure is external, not phiOS's:** every actual completion request — through the broker, and independently through the plain unconfined `opencode run` CLI with the same account key — returns a real provider error from opencode.ai's Zen billing: *"No payment method."* Confirmed this is not a phiOS bug by reproducing it outside any containment or broker involvement at all.
+
+**The actual bug this session found and fixed: every one of these failure states was invisible in the product.** This is what the user's own follow-up ("it only looks unresponsive... make an extremely detailed UI/UX study... logging... visual feedback") redirected the work toward, after the billing finding was reported:
+
+- `phi agent ask` printed a raw, truncated JSON dump on a failed turn instead of the provider's own error message. Fixed in `phi/internal/agent/ask.go` (`extractAssistantError`): now prints `agent reply failed: <the actual provider message>`.
+- `phi agent code` exec'd straight into the A2 containment with no check that the broker/proxy/net-bridge support services were even running — this IS the mechanism behind the reported socat error: the containment starts, the bridge socket was never created because its host-side service was never started, and the failure happens deep inside `bwrap` with a bare `socat: No such file or directory`. Fixed in `phi/internal/agent/code.go` (`checkA2Services`): now fails immediately with one clear message naming exactly which unit(s) to start.
+- The chat panel silently dropped any assistant message with an empty `parts` array — which is exactly what opencode returns for a rejected turn (`info.error` populated, `parts: []`, confirmed live). The user saw their own message, the "Agent is working" dots, then nothing — indistinguishable from a hang. Fixed in `phi-shell/Services/Agent.qml`: an errored turn now becomes its own message with `role: "error"`, rendered as a distinctly-styled bubble in `Panels/tabs/ChatBubble.qml` (same `Config.Appearance.error`/`errorText` tokens `Widgets.StyledText`'s own `invalid` state already uses).
+- The "Agent offline" panel state was one static sentence regardless of which of five different real causes applied. `Panels/tabs/agent/Chat.qml` now builds a short diagnostic list from `Services/AgentInfra.qml` (already polling unit states + key presence, just never surfaced here) — no key configured / broker not running / engine not running / engine up but not answering yet, whichever is actually true — plus a "Recheck" button.
+- `phi agent code` / the coding-sessions panel's "Open in a panel" button spawned a terminal blind. `Panels/tabs/agent/CodingSessions.qml` now shows an inline warning naming which A2 support units are down, with a "Start required services" button, before a session is opened.
+- `Settings/sections/AiAgent.qml` gets a "Last request" row per instance (status + a status-code-only hint — "auth / billing", "rate limited", "upstream error" — from the broker's own `broker-meter.jsonl`, which was already written and never read by anything) and a "Start A2 services" button.
+- `Services/AgentInfra.qml` gained `startUnits(names)` (bulk `systemctl --user start`, shared by the two buttons above) and the meter-tail parsing behind the new Settings rows.
+
+### Honest assessment
+<span style="color:red">**NOT DONE: a real end-to-end chat reply.**</span> Every mechanical piece works, but the configured provider account has no payment method, so no real completion has actually been produced this session — only the (now correctly surfaced) billing rejection. This needs the user's action on their opencode.ai account, not more code.
+
+Everything else was verified directly on `zotac`, live: the systemd units, the broker→provider round trip (down to the exact HTTP status and body), the bubblewrap mount list, a real contained `opencode` TUI session (killed cleanly, session recorded and reconciled), and the Go-side fixes rebuilt and re-run against the exact failure scenarios above (stopped `phi-agent-proxy.service`, re-ran `phi agent code .`, confirmed the new named-unit error instead of the old socat failure two levels deep). `go test ./internal/agent/...` passes.
+
+The `phi-shell` (QML) changes could **not** be run here — no compositor in this environment, per `phi-shell/CLAUDE.md` — and are reviewed by reading only, following this codebase's existing patterns closely (reused `Config.Appearance.error`/`errorText` and `Widgets.StyledText`'s `invalid`/`tone` props rather than inventing new styling; reused `Services/AgentInfra.qml`'s existing unit-polling shape for the new `startUnits`/last-request fields). They need the user's own screenshot/hands-on check, same as every other `phi-shell` change.
+
+Not re-verified on `razer` — this session only had access to `zotac`. `docs/ai-agent.output` is `razer`-only and now predates this fix; a fresh pass there (config setup + the fixes above) is worth doing once the user can.
+
+Explicitly out of scope, by design, not an oversight: a broader agent-panel UI redesign (a separate, much larger Style-section backlog item), an A1-side preflight equivalent to A2's (unneeded — `phi-agent-a1.service` already `Requires=phi-agent-broker@a1.service`, so systemd itself resolves that ordering), and reading the broker's upstream response body for richer error detail (the broker deliberately never buffers a streamed response — V-09 — so only the HTTP status code is available at that layer; the actual provider message the user sees now comes from opencode's own `info.error`, not the broker).
+
+### How to test it
+**Rebuild `phi` first** (see "Requires phi rebuild" above) — the CLI fixes need a rebuilt binary; the `phi-shell` fixes work with a `git pull` alone (hot-reloads on save).
+
+1. **Chat panel error bubble:** open the agent panel (Φ bar segment or Super+P) › Chat, with `phi-agent-a1.service` running but the configured provider account rejecting requests (e.g. the current opencode.ai Zen billing state) or any other bad key/config. Send a message. Before this fix: the message vanished with no reply and no error, indistinguishable from a hang. After: a red-bordered "error" bubble appears with the actual provider message (e.g. "No payment method. Add a payment method here: ...").
+2. **Offline diagnosis:** stop `phi-agent-a1.service` (`systemctl --user stop phi-agent-a1.service`), open the Chat section. Before: one static sentence. After: a bulleted list naming the actually-true cause (e.g. "AI engine not running: phi-agent-a1.service is inactive."), plus "Start service" and "Recheck" buttons.
+3. **Coding-session preflight:** stop `phi-agent-proxy.service`, open the agent panel's Coding sessions section. A warning panel should appear naming the down unit(s) with a "Start required services" button, above the session list — before opening a terminal, not after it silently fails inside one.
+4. **CLI:** `phi agent ask "hello"` with the provider account still blocked on billing should print `phi: agent ask: agent reply failed: No payment method. ...` instead of a raw JSON dump. `phi agent code .` with `phi-agent-proxy.service` stopped should print `phi: agent code: A2 support service(s) not running: ... — start them first: systemctl --user start ...` immediately, instead of opening a broken TUI.
+5. **Settings:** Settings › AI Agent › "Broker & engine" should show a "Last request (a1)" / "(a2)" row with a status code and hint (e.g. "401 auth / billing"); "Services" should show a "Start A2 services" button.
+6. Once the opencode.ai account has a payment method: repeat step 1 — the reply should now be a normal, successful assistant message instead of an error bubble.
+
 ## Magnifier glass shows the screen but never actually zooms in
 
 - **Date:** 2026-09-14
