@@ -9,6 +9,96 @@ once it is verified.
 
 ---
 
+## SUPER+L locks immediately, with no way to suspend/hibernate/shut down/reboot from the keyboard
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev, phios-dotfiles / dev
+- **Commits:** phi-shell: 392085f power: SUPER+L opens a power menu, double-tap still locks instantly, bddfe6e merge: SUPER+L opens a power menu, double-tap still locks instantly — phios-dotfiles: 9d47b9a hypr: SUPER+L dispatches to the new power-menu IPC target, aacdf9e merge: SUPER+L dispatches to the new power-menu IPC target
+- **Original TODO:** when pressing SUPER+L instead of locking immediatly, evoke an overlay menu with options (lock, suspend, hibernate, shutdown, reboot). Use a smart UI/UX grammar and hierarchy, add icons with hover animations. SUPER+L+L (double click) will instantly lock (same behavior as now).
+
+### What was asked
+SUPER+L should open a power menu (lock/suspend/hibernate/shutdown/reboot)
+instead of locking straight away, styled with icons and hover animation.
+A quick double-press of SUPER+L should still lock instantly, matching
+today's behaviour, without the menu getting in the way.
+
+### What was done
+- `phios-dotfiles/hyprland.lua.tmpl`: SUPER+L's bind now dispatches
+  `qsIpc("powerMenu", "trigger")` on every press, unconditionally — the
+  same shape as the direct-lock call it replaces. No timing/double-tap
+  logic lives in Hyprland at all.
+- `phi-shell/Services/PowerMenu.qml` (new): owns the double-tap timing.
+  Every press calls `_onTrigger()`; if a second press lands within 350ms
+  of the first, it's treated as a double-tap — cancels the pending
+  menu-open and locks instantly via `Services.PowerActions.lock()`
+  (the same call `Panels/BarPopout.qml`'s existing power card already
+  uses). Otherwise, after 350ms with no second press, the menu opens.
+  Deliberately a new file with a new IPC target (`"powerMenu"`), not an
+  addition to `Lock/Lock.qml`'s own IPC handler — that file is the one
+  place the lock state ever flips true, and keeping it untouched means
+  nobody has to re-verify that security-critical path around new timing
+  logic.
+- `phi-shell/Dialogs/PowerMenu.qml` (new): a full-screen modal (same
+  `WlrLayer.Overlay` + scrim + layer-focus shape as the existing
+  `ConfirmDialog`/`BatteryAlert`), five rows (lock/suspend/hibernate/
+  shutdown/reboot) using the existing `Widgets.ListRow` — which already
+  animates its own background on hover, so "hover animations" needed no
+  new mechanism. Shutdown/reboot still go through the existing
+  `Services.ConfirmDialog` "this cannot be undone" step, matching how the
+  bar's own power card already handles those two.
+
+### Honest assessment
+<span style="color:red">**NOT DONE: icons on four of the five
+rows.**</span> Only "Shut down" has one (reusing the bar's own existing
+power glyph). The TODO explicitly asked for icons throughout, and I could
+not responsibly add the other four: this session tried to confirm real
+Nerd Font codepoints against `nerd-fonts`' own `glyphnames.json` (the
+established, hardware-tested method `Bar/glyphs.js`'s own comments cite
+for its prior fixes) and got genuinely contradictory results across
+several attempts — a lookup that said "not found" on one try and "found"
+on a retry, and a claim that this project's own already-shipped `nf-md-*`
+codepoint family isn't in the source file at all, which can't be right
+since a dozen of them are already live in the bar. `Bar/glyphs.js`'s own
+history is two separate user-reported bugs (the Steam icon, the
+scratchpad console icon) from a past session guessing a codepoint instead
+of confirming it — repeating that risk here, blind, seemed like the worse
+choice. Every row still shows its full text label regardless, so a
+missing icon never means a missing or unlabeled option — same
+graceful-degradation stance `Bar/glyphs.js`'s own header already commits
+to. Re-added a narrower TODO entry for just this piece.
+
+The double-tap window (350ms) is a judgment call, not a spec'd number —
+easy to change in `Services/PowerMenu.qml` if it reads as too fast or
+too slow on real hardware. A single SUPER+L press while the menu is
+already open currently does nothing (it doesn't close it) — not asked
+for either way, left as the simplest behaviour rather than guessed at.
+
+Cannot verify any of the visual result, the timing feel, or the actual
+keybind on real hardware — the Lua side got the strongest verification
+available in this repo (a fresh `phi` build, `phi theme render --variant
+dark`, and `luac -p` — `SYNTAX OK` on the whole rendered file), but that
+only proves the config is syntactically valid and substitutes correctly,
+not that the double-tap timing feels right in the hand.
+
+### How to test it
+1. Pull both `phi-shell` and `phios-dotfiles` `dev`, re-render/reload the
+   Hyprland config (however you normally do after a `phios-install` run),
+   and reload Quickshell.
+2. Press SUPER+L once and let go. After a brief pause, a centered "Power"
+   menu should appear over a dimmed screen, listing Lock, Suspend,
+   Hibernate, Shut down, Reboot.
+3. Click "Lock" — should lock immediately, same as SUPER+L always did.
+4. Reopen the menu (SUPER+L, wait) and click "Shut down" or "Reboot" —
+   should show the existing "this cannot be undone" confirmation instead
+   of acting immediately.
+5. Press Escape, or click outside the menu card — it should close with no
+   action taken.
+6. Press SUPER+L TWICE quickly (a real double-tap, not two slow separate
+   presses) — the screen should lock immediately, and the power menu
+   should not visibly appear first.
+
+---
+
 ## No way to see or connect to available Wi-Fi networks from the shell
 
 - **Date:** 2026-09-14

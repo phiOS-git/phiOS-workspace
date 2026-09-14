@@ -107,9 +107,9 @@ loop*.
 - add gestures to open the chat and notifications panel: 2 finger swipe from edge (touchpad) or swipe from screen edge (touchpad). Make the inverted gesture to close the panel as well. It should move progressively with the scroll, not only a toggable state.
 
 
-- [taken] when pressing SUPER+L instead of locking immediatly, evoke an overlay menu with options (lock, suspend, hibernate, shutdown, reboot). Use a smart UI/UX grammar and hierarchy, add icons with hover animations. SUPER+L+L (double click) will instantly lock (same behavior as now).
-
 - have a battery saving mode, it automatically kicks in when not in charge and lower then 20% battery (automation can be toggled in the settings, there will be an alert, see next task ), configurable in the settings panel. automatically disabled when plugged in and over the threshold (if the user activates while it's charging, it should not disable automatically, this flag is cleared once the charge is plugget off again). It must have visual feedback on the battery in the status bar and settings. The battery overlay (from the status bar) must have the switch.
+
+- the new SUPER+L power menu (lock/suspend/hibernate/reboot) needs real icons on every row — only "Shut down" has one today, reusing the bar's existing power glyph. Live lookups against nerd-fonts' own `glyphnames.json` this session returned contradictory results (a "not found" that flipped to "found" on retry, and a claim that this project's own already-shipped `nf-md-*` codepoint family doesn't exist in the source file at all), and `Bar/glyphs.js`'s own history already has two separate shipped-wrong-codepoint bugs (Steam, the scratchpad console icon) from guessing instead of confirming — not something to repeat blind. Needs either a hardware screenshot showing what a candidate codepoint actually renders as, or the four exact `nf-md-*` (Material Design Icons block, matching every other entry in `Bar/glyphs.js`) names/codepoints confirmed some other way.
 
 - there should always be at least 1 workspace (other then the special ones), also there should always be at lest an empty workspace (so if i ope)
 
