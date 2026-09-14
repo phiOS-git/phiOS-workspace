@@ -9,6 +9,102 @@ once it is verified.
 
 ---
 
+## Hyprland scratchpad doesn't slide in, has no extra spacing, focus not visible
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phios-dotfiles / dev
+- **Commits:** 27d54e9 hypr: fix scratchpad focus-visibility, add slide-from-bottom + wider gaps
+- **Original TODO:** the hyprland scratchpad should slde in from below, have slighlty more out spacing than other workspace and have a accent-colored border all around the screen. I think an old change made windows in the scratchpad had thiink borders, that has to be removed (i can't even see which one is focused) and restored to default, the border should be at the edge of the screen, like the whole workspace is bordered.
+
+### What was asked
+Three things about the `special:scratch` workspace: (1) it should slide in
+from below the screen instead of however it currently appears/disappears,
+(2) it should have slightly more outer spacing (gaps) than a normal
+workspace, (3) the accent-colored border around the scratchpad window
+should only apply to the focused window — right now it seems to stay
+accent-colored regardless of focus, making it impossible to tell which
+window (if more than one is open in the scratchpad) actually has focus.
+
+### What was done
+In `profiles/desktop/templates/.config/hypr/hyprland.lua.tmpl`, in the
+existing `special:scratch` section (added by an earlier, already-verified
+TODO entry that built the accent border and the recognisability behaviour):
+
+- Added a new `hl.workspace_rule({ workspace = "special:scratch", animation
+  = "slidevert", gaps_out = 30 })`. `slidevert` is Hyprland's built-in
+  vertical slide animation; for a special workspace with no direction
+  argument it defaults to sliding in from the bottom (confirmed via
+  upstream discussion, not assumed). `gaps_out = 30` is a per-workspace
+  override of the outer gap — nothing else in this repo sets a
+  `general:gaps_out`, so this is a fixed 30px value, not a token; see the
+  honest caveat below about whether this actually reads as "wider."
+- Changed the existing `scratchpad-border` `hl.window_rule`'s
+  `border_color` from the two-token form `"${PHI_ACCENT} ${PHI_ACCENT}"`
+  (active and inactive both accent) to the single-token form
+  `"${PHI_ACCENT}"` (active only — inactive falls through to Hyprland's own
+  default border colour). This is a **deliberate reversal of part of the
+  earlier, already-signed-off TODO entry** that built this border: that
+  entry's own comment explains it chose the two-token form specifically so
+  "the border would vanish the instant the scratchpad window lost focus,
+  defeating 'recognisable'." This new entry's complaint — "i can't even
+  see which one is focused" — is the opposite problem, and fixing it means
+  giving back some of that earlier recognisability: when focus moves to a
+  window on the underlying workspace while the scratchpad is still shown,
+  the scratchpad's border now reverts to Hyprland's default inactive
+  colour instead of staying accent-colored. There is no stock Hyprland
+  mechanism for a workspace-level frame that stays lit while any window in
+  that workspace is visible but none of its windows has focus — only
+  per-window active/inactive border colour exists — so this was a genuine
+  either/or, not a bug in the original implementation.
+
+### Honest assessment
+<span style="color:red">**NOT DONE (trade-off, not oversight):**</span>
+the scratchpad border no longer stays accent-colored when focus leaves it
+for a window on the underlying workspace — it now only lights up while a
+scratchpad window is actually focused. If you want both "always
+recognisable while visible" AND "shows which window has focus," that needs
+a different mechanism (there isn't one in stock Hyprland for a
+workspace-level frame) — say which one matters more if this isn't the
+right trade.
+
+`gaps_out = 30` is a guess at "slightly more" relative to Hyprland's
+*compiled-in* default, which this repo has never overridden globally —
+it is not necessarily 20px today. If the scratchpad's edge spacing doesn't
+visibly read as wider than an ordinary workspace's, the fix is a one-number
+bump in this same rule, not a redesign.
+
+Verification for this change is stronger than usual for a Hyprland/Lua
+config edit but still not a real render: built `phi` fresh, ran
+`phi theme render --variant dark` on this exact template with real design
+tokens, confirmed `border_color` substitutes to a single hex token and the
+new `workspace_rule` block renders with the right field names/values, and
+ran `luac -p` on the full rendered output — `SYNTAX OK`. None of that
+proves the animation direction, the gap size, or the border behaviour
+actually look right on screen; that still needs Hyprland running on real
+hardware.
+
+### How to test it
+1. Pull the latest `phios-dotfiles` `dev` and re-render/re-apply the
+   Hyprland config so `hyprland.lua.tmpl` picks up the change (however you
+   normally reload Hyprland config after a `phios-install` run — e.g.
+   `hyprctl reload` after `phios-install` regenerates `~/.config/hypr/`).
+2. Open the scratchpad (whatever your bind is, e.g. `SUPER+S` if that's
+   still the default). It should slide in from the bottom edge of the
+   screen, not pop in or slide from another direction.
+3. While it's open, compare its edge-to-screen spacing against an ordinary
+   workspace's tiled windows. It should look visibly more spacious around
+   the edges. If it looks the same or tighter, tell me and I'll raise
+   `gaps_out` further.
+4. With the scratchpad window focused, confirm its border is
+   accent-colored (same as before).
+5. Click a window on the underlying regular workspace (without closing the
+   scratchpad) so focus leaves the scratchpad. Confirm the scratchpad
+   window's border now shows Hyprland's normal inactive-border colour, not
+   accent — and that with more than one window in the scratchpad, you can
+   now tell which one is focused by which has the accent border.
+
+---
+
 ## Backlog asked to "add a color picker"
 
 - **Date:** 2026-09-13
