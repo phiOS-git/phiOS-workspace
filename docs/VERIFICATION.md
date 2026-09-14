@@ -9,6 +9,32 @@ once it is verified.
 
 ---
 
+## SUPER+L power menu has no icons on any row but Shut down
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 50513df bar: add real icons to the power menu's Lock, Suspend and Reboot rows
+- **Original TODO:** "the new SUPER+L power menu (lock/suspend/hibernate/reboot) needs real icons on every row — only "Shut down" has one today, reusing the bar's existing power glyph. Live lookups against nerd-fonts' own `glyphnames.json` this session returned contradictory results ... Needs either a hardware screenshot showing what a candidate codepoint actually renders as, or the four exact `nf-md-*` ... names/codepoints confirmed some other way."
+
+### What was asked
+Give the power menu's Lock, Suspend, Hibernate and Reboot rows a real icon each (Shut down already has one), using the same `nf-md-*` (Material Design Icons) codepoint family every other icon in this codebase uses — without guessing, since this exact file has shipped two wrong-codepoint bugs before (Steam, the scratchpad console icon) from doing exactly that.
+
+### What was done
+`curl`'d a fresh copy of nerd-fonts' own `glyphnames.json` directly to a local file and parsed it with Python's `json` module — no AI-summarised web fetch involved anywhere, which is very likely what produced the prior session's "contradictory results" (a small model transcribing a huge minified JSON file by eye is exactly the kind of thing that flips "not found" to "found" on a retry). Matched three rows to a real, exact-named icon: `nf-md-lock` (Lock), `nf-md-power_sleep` (Suspend), `nf-md-restart` (Reboot) — added to `Bar/glyphs.js` alongside the other confirmed codepoints, wired into `Dialogs/PowerMenu.qml`'s rows via the `glyph` property `Widgets.ListRow` already supports.
+
+<span style="color:red">**NOT DONE: Hibernate has no icon.**</span> Searched the same `glyphnames.json` systematically for "hibernate" and every close synonym that could plausibly stand in for it (sleep, power_standby, moon, bed, restart_alert, and a dozen others) — none of the ~64,000 entries in the file is named "hibernate", and none of the synonyms reads as hibernate specifically rather than something else (sleep already went to Suspend). This isn't a lookup failure to retry; the icon does not exist in this font. Re-added as its own clean, bare TODO entry asking for a deliberate substitute pick, since forcing an unrelated icon in here would repeat the exact mistake this whole task was about avoiding.
+
+### Honest assessment
+The three added codepoints are confirmed correct BY NAME against the authoritative source (nerd-fonts' own data file, fetched fresh this session) and confirmed PRESENT in the actual installed font on this machine (`fc-query`'s charset dump for `/usr/share/fonts/TTF/SymbolsNerdFontMono-Regular.ttf` covers the whole `f0001-f1af0` PUA range these codepoints fall in). What is NOT confirmed is what they render as on screen — no compositor was used to visually check this (see the companion entry, "Several window-management keybinds silently do nothing," for why this session had live Hyprland access at all: read-only/reversible use only, agreed with the user beforehand, and rendering a font glyph visually wasn't part of that agreement). `qmllint` reports no errors on the changed file (only the expected `qs.*` import-resolution warnings every file in this repo gets outside a real Quickshell build).
+
+### How to test it
+1. Pull `phi-shell` `dev`.
+2. Press Super+L twice quickly (the double-tap that opens the power menu instead of locking immediately) — or however the panel is otherwise reached.
+3. Look at each row: Lock should show a padlock icon, Suspend a power-button-with-crescent icon, Shut down its existing power icon (unchanged), Reboot a circular-arrow "restart" icon. Hibernate should still show no icon, text label only, same as all four looked before this change.
+4. If any of the three new icons renders as a blank box instead of the described shape, the codepoint is right (confirmed against the font's own data) but something else is wrong (e.g. a stale/different font actually being used at render time) — worth a screenshot either way to close this out.
+
+---
+
 ## Several window-management keybinds silently do nothing
 
 - **Date:** 2026-09-14
