@@ -64,7 +64,7 @@ loop*.
 
 - wifi speed graph does not show real values, it's stable at 1kb/s with 5kb/s peaks (it should be ~20Mb), both upload and download — same bug as "the network speed graph ... does not show real numbers" above (`Services/NetStats.qml` is the one singleton behind both surfaces); see that entry's investigation note rather than duplicating it here.
 
-- the scratchpad icon does not call the scratchpad nor it reacts to its activation, it's broken
+- [taken] the scratchpad icon does not call the scratchpad nor it reacts to its activation, it's broken
 
 - the power overlay buttons show no text and don't do anything on click — investigated 2026-09-13: read `Panels/BarPopout.qml`'s power section, `Widgets/SmallButton.qml` and `Services/PowerActions.qml` end to end; the label binding, the `TapHandler` → `clicked()` → `_requestPowerAction` chain, and `PowerActions.title()`/`perform()` all look correctly wired with no defect found by reading alone. Could not reproduce or observe the actual failure — needs a screenshot of what's actually on screen next time this happens, since the source doesn't show an obvious cause. (2026-09-13, later same day: the confirm step this chain used to lead into — `_confirmPowerAction`, named in an earlier version of this note — was replaced by `Services/ConfirmDialog.qml`, a separate centered modal; unrelated to this report, which is about the plain action buttons themselves, but if this is re-investigated, the confirm step is no longer inline in this card at all.)
 
