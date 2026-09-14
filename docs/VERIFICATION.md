@@ -66,6 +66,29 @@ This is a documentation-integrity fix, not a functional one — no phi-shell or 
 
 ---
 
+## A dead bar module (NightMode) left behind after its toggle moved elsewhere, plus two stale "placeholder" comments
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 9320d0a bar: remove dead NightMode module, fix stale volume/brightness popout comments
+- **Original TODO:** none — found during the continued review.
+
+### What was asked
+Nothing specific — found while reading through the remaining bar modules not yet covered this session (Bluetooth, Volume, Brightness, GPU, NightMode).
+
+### What was done
+`Bar/modules/NightMode.qml` was removed from `Bar/modules.json` back in an earlier restyle (OOP-05, when its toggle moved into a popout card) but the component itself and its two registrations in `Bar/Bar.qml` (`componentFor()`'s switch case, and the `Component { id: nightModeComponent; ... }` declaration) were never removed — confirmed fully unreachable (zero references anywhere once modules.json no longer names it). Deleted all three. Its own explanatory comment also claimed the toggle moved "into the notification panel's display-toggles row" — actually wrong even before this cleanup: Night mode and True Tone toggles live in the Brightness bar module's own popout card (`Panels/BarPopout.qml`), not the notification panel.
+
+Separately, `Bar/modules/Volume.qml` and `Brightness.qml` both still described their own shared-popout cards as "a placeholder... the real control lands there in a later pass" — both popouts have long since been built out in full (a real draggable `Widgets.Meter`, plus the Night mode/True Tone toggles for brightness). Corrected both comments to describe what is actually there today.
+
+### Honest assessment
+Pure cleanup and documentation-accuracy fixes — no behavioural change (the deleted component was never reachable, so removing it changes nothing a user could observe). Confirmed via `grep` that no other file referenced `NightMode.qml`/`Modules.NightMode` before deleting. UNVERIFIED in the sense that this repo's standing constraint applies to everything, but the actual risk here is close to zero.
+
+### How to test it
+Nothing to visually test — this removed unreachable code and fixed comments only. Confirm the bar still renders normally (no new console warnings about an unrecognized module type) and that the Brightness popout's Night mode/True Tone toggles still work as before.
+
+---
+
 ## Battery saver had no presence in Settings → General's read-only machine report
 
 - **Date:** 2026-09-15
