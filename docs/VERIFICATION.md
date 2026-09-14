@@ -9,6 +9,34 @@ once it is verified.
 
 ---
 
+## `phi-packages` build script kept building the old version after a new phi tag
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-packages / dev
+- **Commits:** 131c18d phi: bump to 0.17.0 (agent error visibility + runner-bar/query work) (merged `022d02f`)
+- **Original TODO:** none — reported directly: "Another agent release tag 0.17 for the phi submodule, however i cannot manage to build it, running the build script from phi-package does not find the v0.17. If your changes require an update of phi, you must add the tag as well. Make everything up to date and make the phi-packages/scripts/build work correctly."
+- **Requires phi rebuild:** yes — `v0.17.0` (already tagged, now correctly on `main` too per the entry above this one)
+
+### What was asked
+Figure out why `scripts/build phi` wasn't picking up the new `v0.17.0` tag, and fix it — plus tag a new `phi` release if the AI-agent visibility session's changes needed one.
+
+### What was done
+No new tag was needed: `v0.17.0` (tagged by the session right before this one) already covers the agent-visibility fixes — confirmed its commit is `ee06d26`, the exact tip of `fix-agent-visibility` merged into `dev` in that session, now also `main`'s tip per the entry above.
+
+The actual bug was much simpler than a tagging problem: `phi-packages/phi/PKGBUILD`'s `pkgver` was never bumped past `0.16.1`. `source=("git+https://github.com/phiOS-git/phi.git#tag=v${pkgver}")` builds the URL from `pkgver`, so `makechrootpkg`/`makepkg` was never even asking for `v0.17.0` — it kept fetching and building the old `v0.16.1` tag successfully (hence the leftover `phi-0.16.1-1-x86_64.pkg.tar.zst` artifacts from today, still sitting in `phi-packages/phi/` from the user's own attempt), which is exactly what "does not find the v0.17" looks like from the outside: no error, just silently the wrong version. Bumped `pkgver=0.17.0`, added the changelog comment block in the same style as every prior bump, `pkgrel` stays `1` (new upstream tag, not a packaging-only rebuild). Verified `bash -n` on the PKGBUILD and confirmed `v0.17.0` is genuinely fetchable from `origin` (`git ls-remote --tags origin`).
+
+Per `phi-packages/CLAUDE.md`'s release boundary, did not run `scripts/build`, `makepkg`, `makechrootpkg`, or anything that produces an artifact — that stays the user's action on `zotac`.
+
+### Honest assessment
+Everything here is a one-line version-string change plus a changelog comment; there's no logic to get wrong. The only thing not verified is a real `makechrootpkg` run, which this session is not allowed to do (see above) — the user's next `scripts/build phi` is the real test.
+
+### How to test it
+1. `cd phi-packages && git pull` (or re-sync the workspace) so `phi/PKGBUILD` shows `pkgver=0.17.0`.
+2. `scripts/build phi` — it should now clone/build from tag `v0.17.0`, not `v0.16.1`.
+3. Once built and installed, `phi --version` should report `0.17.0`.
+
+---
+
 ## phi hadn't been tagged in a while — main was 24 commits behind dev
 
 - **Date:** 2026-09-14
