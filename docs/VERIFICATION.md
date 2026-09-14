@@ -9,6 +9,33 @@ once it is verified.
 
 ---
 
+## Two more one-click destructive actions had no confirmation, missed by the earlier fix
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 13a38e4 notifications/theme: confirm two more bulk-destructive actions that skipped the earlier fix
+- **Original TODO:** none — outside the backlog. Found doing the open-ended "analyse more aspects of the whole system and improving it" pass, by grepping every `label:` in the codebase for delete/remove/clear/reset/forget/wipe-shaped button text and checking each one against `Services/ConfirmDialog`.
+
+### What was asked
+Nothing specific — continuing the open-ended critical pass by systematically re-running the same class of check an earlier round used to find the panel's own unconfirmed "Clear all" button, this time across the whole repository rather than one file, to see if the same gap existed anywhere else.
+
+### What was done
+Two more bulk, irreversible actions were calling straight into a destructive function with no confirmation step at all — the exact gap the panel's top-level "Clear all" (notifications) and "Clear all keys" (Chroma) already got fixed for, just missed because each lives on its own separate button:
+
+- **`Panels/tabs/Notifications.qml`'s per-app-group "clear" button** — called `Services.Notifications.clearApp(appName)` directly, permanently deleting all history for that one app. Wrapped in `Services.ConfirmDialog.open(...)`, naming the specific app in the confirmation message.
+- **`Settings/sections/Theme.qml`'s "Reset all theme overrides" button** — called `Config.ThemeOverrides.clearAll()` directly, which overwrites the persisted overrides file with `{}` synchronously, discarding every colour/font/size/radius/motion customisation the user has made. Wrapped the same way.
+
+Checked every other delete/remove/clear/reset/forget/wipe-labelled button in the repo (`Settings/sections/Devices.qml`'s "Clear this key"/"Clear all keys", `Settings/sections/Connectivity.qml`'s "Forget", `Panels/tabs/agent/PersonalityEditor.qml`'s "Delete", `Settings/sections/Notifications.qml`'s "Clear all notifications") — all already confirm-protected. `Devices.qml`'s single-key "Clear this key" is deliberately NOT confirmed, by the same reasoning `clearEntry()` (a single notification) already carries: a single small, easily-redone item doesn't need the same friction as a bulk wipe, and that file's own comment already says so explicitly.
+
+### Honest assessment
+Clean by inspection. **UNVERIFIED — no compositor in this session.** The confirmation dialog's copy for both new call sites was written to match the existing "Clear all" wording style but not screenshotted next to it for a pixel-level consistency check.
+
+### How to test it
+1. Open the Sidebar's Notifications tab, generate a couple of notifications from two different apps (or wait for real ones), and click "clear" on one app's group header. A confirmation dialog naming that app should appear before anything is deleted; cancelling should leave the history untouched.
+2. Go to Settings → Theme, make any override (e.g. change a colour), then click "Reset all theme overrides" at the bottom. A confirmation dialog should appear before the override is actually cleared; cancelling should leave your change in place.
+
+---
+
 ## Alt+Tab was still listed as broken for two symptoms that were actually already fixed
 
 - **Date:** 2026-09-14
