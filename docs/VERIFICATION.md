@@ -9,6 +9,117 @@ once it is verified.
 
 ---
 
+## Magnifier glass shows the screen but never actually zooms in
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 00e541e magnifier: fix the lens never actually zooming
+- **Original TODO:** "the magnifier glass currently does not zoom in since the border where removed. It has to do with inconsistencies with the screen capture method. Needs to be solved. Reference this: https://github.com/Horizon0427/Glasscope" — plus the whole 2026-09-11 investigation note (two candidates, neither confirmed) that followed it.
+
+### What was asked
+Fix the magnifier lens (SUPER+Z) so it actually magnifies the screen under the cursor, instead of showing it at some other, apparently unmagnified, size.
+
+### What was done
+With the user's agreement (given specifically for this session, after the unrelated Hyprland-dispatch investigation already established live access), ran `phi-shell`'s own dev checkout as a second, standalone Quickshell instance (`qs -p <this checkout>`, a distinct config identity from the live `~/.config/quickshell/phi` one — confirmed the two never conflict) to actually see the UI render, for the first time in this project's history for this particular bug.
+
+That surfaced two problems, not one:
+
+1. **The checkout didn't even load at first.** `Panels/BarPopout.qml` and `Services/PowerMenu.qml` both declare a real `IpcHandler {}` element without importing `Quickshell.Io` — Quickshell's config loader aborts the ENTIRE shell (every file cascades to "Type X unavailable") on a bad type anywhere in the tree. Fixed both (one missing import line each). The live checkout in daily use predates `Services/PowerMenu.qml` entirely, which is the only reason this hasn't already broken the user's real desktop shell — it will, the next time that checkout updates past this point, without this fix.
+2. **The actual magnifier bug.** With the load fixed, triggered the lens via its own IPC (`qs ipc call magnifier toggle`) and screenshotted it at 1.5×, 2.5× and 6.0× — at every zoom level, the content inside the lens was real and sharp, but the EXACT SAME apparent size as the unmagnified screen around it. That is precisely the docs/TODO.md note's own predicted signature for "Candidate 2" (`ScreencopyView` ignoring the explicit oversized `width`/`height`) and rules out "Candidate 1" (the mask/layer change) outright, since content was clearly visible, just never scaled.
+
+  Checked `ScreencopyView`'s real type definition directly (`Quickshell.Wayland._Screencopy`'s own qmltypes, not recalled) rather than guessing further: it is a plain `QQuickItem` with NO scaling meaning attached to the inherited `width`/`height` at all. The property that actually controls the rendered content's size is `constraintSize` (`QSizeF`, read-write) — declared on the real type, never once set in `Magnifier.qml`. Set `constraintSize: Qt.size(screen.width * zoom, screen.height * zoom)` alongside the existing (now cosmetic-only) `width`/`height`, saved, and Quickshell's hot-reload picked it up live: re-screenshotted at 2.0× and 6.0× and both now show real, proportional magnification — clearly larger at 6.0× than at 2.0×, unlike before where every zoom level looked identical.
+
+### Honest assessment
+Zoom is now confirmed, visually, at multiple settings — the core bug is fixed. Not verified: whether the lens PANS correctly as the cursor moves (this session has no way to synthesize real pointer movement — `ydotool`/`wtype`/`dotool` are not installed, and installing one wasn't in scope for a live test) — the pan math itself was untouched by this fix, and the file's own header already separately flags "blink-free" capture timing and click-through (`mask: Region {}`) as unverified; neither was touched or checked here either. The glass-edge rim/falloff Canvas effect was visible in every screenshot and looked reasonable but was not specifically scrutinized.
+
+Both `IpcHandler` import fixes were confirmed the direct way — the config failed to load without them and succeeded with them, on the real Quickshell version installed on this machine (0.3.1) — not inferred from reading alone.
+
+### How to test it
+1. Pull `phi-shell` `dev` (this fix touches the checkout everyone runs, not just a dev one).
+2. Press Super+Z to open the magnifier loupe.
+3. Move the cursor over some text or a detailed part of the screen. The content inside the circular lens should look visibly larger than the same content around it — not the same size.
+4. Press Super+Equals a few times (zoom in) — the content inside the lens should get noticeably larger. Press Super+Minus repeatedly (zoom out) — it should shrink back down. Before this fix, the zoom readout below the lens (e.g. "×2.5") changed but the actual magnified content never did.
+5. Super+Z again to close it.
+
+## SUPER+L power menu has no icons on any row but Shut down
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 50513df bar: add real icons to the power menu's Lock, Suspend and Reboot rows
+- **Original TODO:** "the new SUPER+L power menu (lock/suspend/hibernate/reboot) needs real icons on every row — only "Shut down" has one today, reusing the bar's existing power glyph. Live lookups against nerd-fonts' own `glyphnames.json` this session returned contradictory results ... Needs either a hardware screenshot showing what a candidate codepoint actually renders as, or the four exact `nf-md-*` ... names/codepoints confirmed some other way."
+
+### What was asked
+Give the power menu's Lock, Suspend, Hibernate and Reboot rows a real icon each (Shut down already has one), using the same `nf-md-*` (Material Design Icons) codepoint family every other icon in this codebase uses — without guessing, since this exact file has shipped two wrong-codepoint bugs before (Steam, the scratchpad console icon) from doing exactly that.
+
+### What was done
+`curl`'d a fresh copy of nerd-fonts' own `glyphnames.json` directly to a local file and parsed it with Python's `json` module — no AI-summarised web fetch involved anywhere, which is very likely what produced the prior session's "contradictory results" (a small model transcribing a huge minified JSON file by eye is exactly the kind of thing that flips "not found" to "found" on a retry). Matched three rows to a real, exact-named icon: `nf-md-lock` (Lock), `nf-md-power_sleep` (Suspend), `nf-md-restart` (Reboot) — added to `Bar/glyphs.js` alongside the other confirmed codepoints, wired into `Dialogs/PowerMenu.qml`'s rows via the `glyph` property `Widgets.ListRow` already supports.
+
+<span style="color:red">**NOT DONE: Hibernate has no icon.**</span> Searched the same `glyphnames.json` systematically for "hibernate" and every close synonym that could plausibly stand in for it (sleep, power_standby, moon, bed, restart_alert, and a dozen others) — none of the ~64,000 entries in the file is named "hibernate", and none of the synonyms reads as hibernate specifically rather than something else (sleep already went to Suspend). This isn't a lookup failure to retry; the icon does not exist in this font. Re-added as its own clean, bare TODO entry asking for a deliberate substitute pick, since forcing an unrelated icon in here would repeat the exact mistake this whole task was about avoiding.
+
+### Honest assessment
+The three added codepoints are confirmed correct BY NAME against the authoritative source (nerd-fonts' own data file, fetched fresh this session) and confirmed PRESENT in the actual installed font on this machine (`fc-query`'s charset dump for `/usr/share/fonts/TTF/SymbolsNerdFontMono-Regular.ttf` covers the whole `f0001-f1af0` PUA range these codepoints fall in). `qmllint` reports no errors on the changed file (only the expected `qs.*` import-resolution warnings every file in this repo gets outside a real Quickshell build).
+
+**Update, later the same day:** now also confirmed visually, not just by codepoint lookup. A later session (see "Magnifier glass shows the screen but never actually zooms in") got the user's agreement to run this checkout as a real, standalone Quickshell instance and screenshot it — the power menu was opened via its own IPC (`qs ipc call powerMenu trigger`) as part of that, and the screenshot shows exactly the four expected shapes: a padlock for Lock, a crescent "power-sleep" glyph for Suspend, the existing power glyph for Shut down, and a circular-arrow restart glyph for Reboot — Hibernate correctly shows no icon, matching this entry's own documented gap. Nothing renders as a blank box. This was incidental to that session's own task, not a re-verification of this entry specifically, but it directly answers the "what do they render as" gap left open above.
+
+### How to test it
+1. Pull `phi-shell` `dev`.
+2. Press Super+L twice quickly (the double-tap that opens the power menu instead of locking immediately) — or however the panel is otherwise reached.
+3. Look at each row: Lock should show a padlock icon, Suspend a power-button-with-crescent icon, Shut down its existing power icon (unchanged), Reboot a circular-arrow "restart" icon. Hibernate should still show no icon, text label only, same as all four looked before this change.
+4. If any of the three new icons renders as a blank box instead of the described shape, the codepoint is right (confirmed against the font's own data) but something else is wrong (e.g. a stale/different font actually being used at render time) — worth a screenshot either way to close this out.
+
+---
+
+## Several window-management keybinds silently do nothing
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev, phios-dotfiles / dev
+- **Commits:** phi-shell: dcf1db1 hyprland: fix every broken raw hyprctl-dispatch call, 0bbc1e3 Merge branch 'fix-hyprland-dispatch' into dev — phios-dotfiles: f024453 hyprland: fix broken raw-dispatcher-string keybinds
+- **Original TODO:** "windows management keybinding (move, resize) do not work *to be checked first", "super+shift+left/right and super+ctrl+left/right do not do anything (not workspace change, not window focus/move) — only bare super+left/right (focus change) works...", "*Check for updates*: hyprland resize does not seem to work", "h/j/k/l alternatives for the broken super+shift/ctrl+arrow binds stil don't work...", "when a window is set to floating (using the keybind) it cannot be resized" — five entries, all one root cause, all removed. Also touches (not removed, only partially addressed — see their own entries) "the scratchpad icon does not call the scratchpad" (superseded a parallel fix, see below) and "alt+tab still does not work" (two of its four symptoms).
+
+### What was asked
+Several independent reports that a keybind or bar/panel action calling into Hyprland does nothing at all: window move/resize (arrows and h/j/k/l), workspace previous/next (Ctrl+arrows and Ctrl+h/l), the scratchpad bar icon, and (found along the way, not separately reported before this) Alt+Tab's window-focus and workspace-change, the runner's "switch to this open window" action, the AI agent panel's "focus this coding session's window", and "log out immediately" if `hyprshutdown` isn't installed.
+
+### What was done
+This session runs directly on `zotac` with a live Hyprland session reachable (`WAYLAND_DISPLAY`/`HYPRLAND_INSTANCE_SIGNATURE` set) — something no prior session on this project had, confirmed with the user before using it, and used read-only/reversible only (disposable test windows and workspaces, cleaned up after each check, nothing left on the real system).
+
+Root cause, confirmed by sending raw requests directly over Hyprland's own IPC socket (`.socket.sock`), bypassing both `hyprctl` and Quickshell entirely so the result is about Hyprland itself, not either client: **this Hyprland build's Lua config repurposes the `dispatch` socket command to EVALUATE its argument as Lua**, instead of accepting the traditional `"<dispatcher> <args>"` string every one of the affected call sites sent. Even a single bare word with no arguments fails with `hl.dispatch: expected a dispatcher`. The fix is the Lua-call form (e.g. `hl.dsp.window.move({ direction = "l" })`), confirmed live for every case shipped here with a disposable test window/workspace before being written down (position/size read back via `hyprctl clients -j`/`activewindow -j`).
+
+**phios-dotfiles (`hyprland.lua.tmpl`):** replaced every `hl.dsp.exec_cmd("hyprctl dispatch ...")` bind whose native form was confirmed live with that native form directly (no subprocess needed any more): `window.move({direction=...})` for movewindow (arrows and h/j/k/l), `window.center()`, `window.pin()`, `window.fullscreen()`, `focus({workspace="m-1"/"m+1"})` for the previous/next-workspace binds (arrows and Ctrl+h/l), and — since `window.resize({x=,y=})` turned out to be an ABSOLUTE size, not the old relative nudge, so no static Dispatcher table can express it — a Lua function bind reading `hl.get_active_window()` for the resize submap. Also corrected the SHIFT+M logout fallback's embedded string and the two 3-finger-swipe workspace gesture actions (same bug, `hl.exec_cmd` instead of `exec_cmd`).
+
+**Deliberately left broken:** the comma/period multi-monitor binds (focusmonitor/movewindow-to-monitor). An initial fix attempt (`focus({monitor=-1})`) returned "ok" and looked confirmed, but `{monitor=1}` on this same one-monitor machine errored "monitor not found" while `{monitor=0}` (the real monitor) succeeded — so `monitor` is an absolute selector, not the relative cycle the old dispatcher gave, and `-1` succeeding was most likely negative-index addressing landing on "the only monitor" by coincidence, not a working relative-previous. Reverted rather than ship a second guessed-and-wrong fix in the same file (the first one is the SHIFT+M correction, see Honest assessment).
+
+**phi-shell:**
+- `Bar/modules/Workspaces.qml` — the scratchpad toggle, `AltTab/AltTab.qml` — `_focusWindow`/`_focusWorkspace`, `Launcher/Launcher.qml` — the "activateWindow" runner action, `Services/Agent.qml` — `focusCodingWindow`, `Services/HyprlandBridge.qml` — the `leaveReservedWorkspace()` fallback and the `dispatch()` function's own header comment (which asserted the broken string form as the whole contract): all switched to `Services.HyprlandBridge.dispatch()` given the correct Lua-call string.
+- `Services/Agent.qml` — `openCodingSessionInTerminal` switched to a plain `Quickshell.execDetached()` kitty launch instead of routing through Hyprland's dispatch socket at all — spawning a program never needed that, every other launch in this codebase already does it directly.
+- `Services/PowerActions.qml` — `logout()`'s `hyprshutdown` fallback corrected the same way as hyprland.lua.tmpl's SHIFT+M bind; confirmed `hyprshutdown` is not installed on this machine, so this fallback always ran and always silently failed.
+
+**Superseded a parallel fix:** while this was in progress, a different session claimed and landed "the scratchpad icon does not call the scratchpad" (commits d9faba4/f130368) by swapping `Services.HyprlandBridge.dispatch()` for a `Quickshell.execDetached(["hyprctl","dispatch","togglespecialworkspace","scratch"])` subprocess — reasonable by the same convention every other affected file used (AltTab.qml, Launcher.qml, Services/Agent.qml, Services/PowerActions.qml), but that convention was itself the bug: the subprocess form sends the exact same rejected traditional string, just from a different client. The merge conflict this caused was resolved in favour of the verified Lua-call form; `Bar/modules/Workspaces.qml`'s own comment now documents why.
+
+### Honest assessment
+The multi-monitor binds (comma/period) are still broken, on purpose — see above, needs a real second monitor to find the actual mechanism. Not tested: `hyprshutdown`-present machines (none of the three, as far as this session could check, have it installed, so the corrected fallback path is what actually runs everywhere) and the SHIFT+M/logout Lua-call form itself was never dispatched live for real (ending a real session to test it would defeat the point) — it's corroborated by Hyprland's own bundled example config (`/usr/share/hypr/hyprland.lua`) using the identical line, and by every structurally-identical case elsewhere in this change that WAS tested live, but it is the one line in this whole change taken on documentation rather than direct observation.
+
+Alt+Tab's "does not close on Alt release" and "does not start with the right window selected" are a different mechanism entirely (alt-release detection and initial-selection logic inside AltTab.qml, unrelated to dispatch) and were not investigated this pass — that entry stays open in docs/TODO.md with a note pointing back here so the next session doesn't re-diagnose the two symptoms this already fixed.
+
+The AI agent's core reported failure (broker/containment/socat proxy socket) is untouched — `Services/Agent.qml`'s fix here only reaches two small, separately-broken pieces (focusing a coding session's window, and the terminal launch for a new one) that happened to share this exact bug; the entry describing the real containment failure is not addressed and not touched.
+
+Everything in phios-dotfiles was checked for Lua syntax validity with `luac5.4 -p` after substituting the `${PHI_*}` design tokens with dummy values (the real install pipeline's own `envsubst` step was not run, since that needs a full profile context this session didn't set up) — passes clean. `qmllint` was run against every changed phi-shell file; it reports only the expected `qs.*` import-resolution warnings this tool always gives outside a real Quickshell build (identical warnings appear on untouched files), no errors.
+
+Nothing here could be verified against `razer` or `mini` — only `zotac`'s currently-connected single monitor and currently-running Hyprland 0.56.2 were available. If either other host runs a different Hyprland version, or one without the Lua config plugin active, this fix might not apply the same way there — worth a quick `hyprctl version` comparison across hosts before assuming this generalizes.
+
+### How to test it
+1. Pull `phi-shell`/`phios-dotfiles` `dev`, re-render (`phi theme set <variant>` if needed) and reload Hyprland's config (`hyprctl reload`) and phi-shell (saves hot-reload; a fresh `qs` start is not required).
+2. **Window move:** focus a tiled window, press Super+Shift+Left (and Right/Up/Down, and the h/j/k/l equivalents) — the window should swap position with its neighbour in that direction. Before this fix, nothing happened at all.
+3. **Resize:** press Super+R to enter resize mode, then Left/Right/Up/Down (or h/j/k/l) — the active window should visibly shrink/grow by a fixed step each press, for both a tiled and a floating window. Escape/Return leaves the mode.
+4. **Workspace previous/next:** press Super+Ctrl+Left/Right (and Ctrl+h/l) — the view should switch to the adjacent workspace on the current monitor and wrap around; before this fix, nothing happened.
+5. **Fullscreen/centre/pin:** Super+F toggles real fullscreen; Super+Shift+F then Super+Shift+C centres the now-floating window; Super+Shift+P pins it across every workspace (a small "pinned" indicator or its presence on every workspace switch confirms it) — none of these worked before.
+6. **Scratchpad:** click the scratchpad icon at the right end of the bar's workspace strip (a small console glyph) — it should show/hide the scratchpad workspace. Super+A does the same from the keyboard; Super+Shift+A sends the focused window into it.
+7. **Alt+Tab:** hold Alt+Tab (or the 3-finger swipe up) to open the overlay, select a different window (arrow keys or click) and confirm — the compositor should switch to that window's workspace and focus it. (The overlay not closing on Alt release, and not pre-selecting the "next" window on open, are still open — not part of this fix.)
+8. **Runner "switch to window":** open the runner (Super), search for an already-open window by title, select it — it should focus that window, including switching workspace if it's on a different one.
+9. **Log out:** Super+Shift+M (or the power menu's "Log out" with no confirmation path) should actually end the session — the most destructive one to test, so confirm the others above work first as circumstantial evidence this one's identical fix is sound, rather than testing it blind.
+10. Multi-monitor comma/period focus/move binds are NOT fixed — with two monitors connected, confirm they still do nothing (expected), and if picking this up, `hl.get_monitors()` plus a Lua function bind (the same technique the resize submap now uses) is the likely next step.
+
+---
+
 ## Status bar shows no network state at all on a host without Wi-Fi
 
 - **Date:** 2026-09-14
