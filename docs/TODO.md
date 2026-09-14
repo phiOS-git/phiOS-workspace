@@ -96,9 +96,6 @@ both places.
 
 3. ambient effects look great, they should have many settings: some shared (eg. speed) some specific for the selected one
 
-8. i suggest adding a new element: context menu (right click). It will be useful in many places in the system (so it need to be implemented on all elements that can benefit from it).
-
-9. there is no way to remove elements from the clipboard history (the context menu might be a good candidate to avoid crowding the ui). Also there is not way to set rules for what should not be saved in the clipboard history
 
 ### Older 
 
@@ -263,6 +260,15 @@ both places.
   the references). See Open Questions #7.
 
 ## Style
+
+- roll Widgets/ContextMenu.qml (right-click menu) out to more elements
+  that would benefit from one — so far only clipboard entries
+  (Panels/tabs/Clipboard.qml: Restore/Pin/Delete) use it. Candidates not
+  yet wired: notification cards (per-entry delete/mute-this-app), the
+  sidebar's other lists, settings rows with a reset action already
+  buried behind a small button. Each site needs its own judgment call on
+  which actions belong in the menu vs. staying as their own visible
+  control, not a mechanical copy-paste of the clipboard menu's three rows.
 
 - the settings-panel switch's color transition still looks like it
   finishes before the knob finishes sliding across. Investigated: no
