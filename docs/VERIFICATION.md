@@ -9,6 +9,42 @@ once it is verified.
 
 ---
 
+## No automatic battery saving mode
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** cf09afa shell: add an automatic battery saving mode, 66b5e7e merge: add an automatic battery saving mode
+- **Original TODO:** have a battery saving mode, it automatically kicks in when not in charge and lower then 20% battery (automation can be toggled in the settings, there will be an alert, see next task ), configurable in the settings panel. automatically disabled when plugged in and over the threshold (if the user activates while it's charging, it should not disable automatically, this flag is cleared once the charge is plugget off again). It must have visual feedback on the battery in the status bar and settings. The battery overlay (from the status bar) must have the switch.
+- **Requires phi rebuild:** none — this doesn't touch the `phi` repo
+
+### What was asked
+A battery saving mode that turns on by itself when unplugged and under 20%, turns back off once charged past that or plugged in (unless the user turned it on by hand while already charging, which should stick until the next real discharge cycle), with automation toggleable in settings, visual feedback on the bar and in settings, and a switch on the battery bar overlay specifically.
+
+### What was done
+- `Services/PowerBridge.qml` gains `batterySaverAuto` (the automation on/off switch, persisted) and `batterySaverActive` (the actual current state). The auto-on/auto-off state machine matches the entry's own wording exactly, including the charging-override exemption: activating manually while charging sets a flag that blocks auto-disable, cleared the next time a real discharge cycle starts (not merely by unplugging into a still-below-threshold state). Reuses `lowPercentThreshold` (0.20, this file's own pre-existing "<20% remaining" anomaly threshold) rather than adding a second percentage field — the entry names this feature's own threshold as a plain "20%", not as something to make separately configurable.
+- **`batterySaverActive` is deliberately never persisted** — only the automation switch is. It's recomputed fresh from live battery state the moment this singleton starts, so a shell restart can't leave a stale "was active" hanging around with no real battery state to justify it.
+- Two real, unprivileged actions while active — this session's own scope choice, since the entry never specifies what "saving" actually does: **screen brightness is capped at 40%** (`Services/Brightness.qml`), restored to its prior value on deactivation only if nothing else changed it in the meantime (the brightness keys, the OSD or the settings slider all win over saver's own restore if the user touched brightness while it was active); and **the lock screen's ambient effect is suppressed** — as a read-side check in `Lock/Lock.qml`'s own effect loader (`&& !Services.PowerBridge.batterySaverActive`), not by writing through `Config.LockPrefs`, so the user's actual chosen effect is never touched or at risk of being silently overwritten.
+- Visual feedback: `Bar/modules/Battery.qml` shows an `"info"` tone on the battery bar segment while saver is active (the existing warn/error anomaly tones still win when both apply). `Panels/BarPopout.qml`'s battery overlay gets a "Battery saver" switch — the entry's own explicit requirement for that specific surface. `Settings/sections/Devices.qml`'s existing "Battery" group gets the automation on/off toggle, with its description stating the live threshold and what activating does.
+- The entry's own parenthetical "(automation can be toggled in the settings, **there will be an alert, see next task**)" is already satisfied: "next task" was the low-battery full-screen alert, landed earlier this session as `Dialogs/BatteryAlert.qml`. Its default warn threshold (15%) fires *after* battery saver's own 20% trigger on the way down — checked deliberately, that ordering (saver first, then the more urgent alert) is the sensible one.
+
+### Honest assessment
+- **The two saving actions (dim to 40%, suppress the lock effect) are this session's own scope choice**, not named in the entry at all. A more "real" power-saving mode — CPU governor, other `/sys`-level changes — would need a privileged action this project has no sudoers drop-in for yet (rule 4, and unlike `phi vpn`/`firewall`, no such drop-in exists for anything battery-related); reaching for one wasn't in scope for this entry. Flagged for veto if stronger, privileged power-saving was actually expected.
+- **`batterySaverAuto` defaults to `true`** — the plain reading of "it automatically kicks in," but it means the very first time this lands on a machine that happens to be unplugged and under 20%, brightness drops and the lock effect vanishes with no prior action from the user. The Settings toggle is the way to turn it off if that's unwanted.
+- **The brightness cap does nothing visible below 40%** — if the screen is already dimmer than that, capping is a no-op (correct: never *raise* brightness for a "saving" mode) and the only visible feedback is the bar tone and the lock-screen change. Worth knowing before assuming it's broken on a machine already run dim.
+- **The charging-override exemption does not survive a shell restart** — `batterySaverActive`/the override flag are both session-local by design (see "What was done"), so restarting the shell while the exemption is active loses it; a fresh discharge/charge cycle re-derives correctly on its own, but a shell restart mid-exemption is a real, narrow, documented gap.
+- Cannot verify on real hardware (this repo's standing constraint) — in particular, whether the `"info"` bar tone reads clearly next to the existing warn/error tones, and whether the brightness restore-only-if-unchanged check behaves as intended against `brightnessctl`'s real timing, are both unverified from here.
+
+### How to test it
+1. Pull `phi-shell`'s `dev` (or wait for hot-reload if already running against a tracking checkout).
+2. Open Settings → Devices → Battery. A new "Battery saver" row should appear at the bottom of that group, with a toggle (on by default) and a description naming the live threshold (20%).
+3. Click the battery icon in the status bar to open its overlay — a new "Battery saver" row with its own switch should appear below "Time left".
+4. With the automation toggle on, unplug the charger and let (or force, if testable) the battery drop under 20% — the battery bar icon's text/icon should take on a distinct, calmer colour (not the warn/error red/amber used for a critically low or fast-discharging battery), the screen should dim to 40% if it was brighter, and the lock screen (Super+L, or however it's triggered) should show no ambient effect even if one is selected in Settings → Theme.
+5. Plug the charger back in while still under 20% — saver should stay on (brightness stays dimmed, no ambient effect) until the charge actually climbs past 20%, at which point brightness should return to whatever it was before saver turned on (unless you changed brightness yourself in the meantime, in which case it should stay wherever you left it) and the lock screen's ambient effect should return.
+6. To test the manual-override clause specifically: with the charger plugged in and above 20%, use either switch (bar overlay or the automation toggle does NOT do this — only the bar overlay's own switch, or `Services.PowerBridge.setBatterySaverActive(true)` via IPC/dev tools, forces it on) to turn saver on by hand. It should stay on even though charging and above threshold, and should only turn off if you switch it off yourself, or once you unplug and then plug back in below threshold and back above it.
+7. Turn the Settings automation toggle off — saver should no longer turn itself on automatically, though the manual switch on the bar overlay should still work on demand.
+
+---
+
 ## No way to set a timer or alarm
 
 - **Date:** 2026-09-14
