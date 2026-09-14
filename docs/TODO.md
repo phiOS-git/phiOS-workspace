@@ -253,7 +253,10 @@ both places.
   - the VPN switch looks on and transparent when no available confgs are there, that makes no sense, if it's not available it should not show (those are basic UX rules, be smart as a UX designer to pick the right design choices)
   - in the theme settings colors have no hover effect
   - in the whole system, buttons and other interactive elements do not have the pointer cursor
-  - 
+  - history time setting has a text filed for a number + time measure which is an awful UX standard, also the content does not fit the space and overflows
+  - options inputs in settings like "ringtone" are text field rather then real selection elements
+  - AI agents settings shows many informations but misses the most important and obvious settings (change model, change token per service, etc)
+  - searchbars don't have a clear button (with an icon, it should not take too much space)
 
   There are more issues than this list captures. Be critically honest
   about every feature and detail, and polish the system UI/UX to a
