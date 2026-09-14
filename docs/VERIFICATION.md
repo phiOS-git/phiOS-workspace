@@ -9,6 +9,42 @@ once it is verified.
 
 ---
 
+## Status bar shows no network state at all on a host without Wi-Fi
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 821c659 bar: add an ethernet status icon alongside wifi, 28bf197 Merge branch 'add-ethernet-bar-icon' into dev
+- **Original TODO:** network informations should not be exclusive to wifi, but for ethernet as well. In the status bar, the network element (unified, see next task) should also have a specific icon (with states and animations as usual) for ethernet connection.
+
+### What was asked
+The bar's existing network indicator (`Bar/modules/Wifi.qml`) only ever appears where the `wifi` capability is true — a host with no wireless card (`zotac`, `mini`) has no bar icon at all for its wired connection. Add an ethernet icon with its own connected/disconnected states and animation, the same grammar the Wi-Fi icon already has.
+
+### What was done
+Scoped to exactly this — not the separate, much larger "tailscale/vpn and network overlay ... merged in a single element" TODO entry the "(unified, see next task)" parenthetical points at, which is real, undecided design work of its own (a two-state compressed/expanded overlay, killswitches, firewall toggle, a speed/ping visual) not attempted here.
+
+Added:
+- `Services/EthernetBridge.qml` — mirrors `Services/WifiBridge.qml`'s device lookup over `Quickshell.Networking`, filtered to `DeviceType.Wired` instead of `DeviceType.Wifi` (that enum value is confirmed real from `WifiBridge.qml`'s own header, which already cites Quickshell's `device/enums.hpp` for it). No scan/connect surface — a wired link has no network to pick, unlike Wi-Fi.
+- `Widgets/EthernetIcon.qml` — a hand-drawn Canvas icon (a plug body, a retention clip, four contact pins — an RJ45-plug silhouette), not a font-symbol lookup. `Widgets/WifiIcon.qml` already establishes this precedent (its own header: a simple, widely-recognisable shape is safer hand-drawn than guessed from a font this project cannot render to check) — this project has shipped wrong guessed Nerd Font codepoints twice before, and `Bar/glyphs.js`'s own header admits every codepoint in it is "UNVERIFIED against the font on real hardware," so a new guessed codepoint was not an option here.
+- `Bar/modules/Ethernet.qml` — mirrors `Wifi.qml`'s shape: the interface name (e.g. `enp5s0`) when connected, `"off"` when not (matching Wi-Fi's own identity-when-up grammar, not a bare "on"). No `tone: "warn"` when disconnected, unlike Wi-Fi/Network — an unplugged ethernet port on a host that routes over Wi-Fi is not a warning state, and `Segment.qml`'s own header is explicit the bar stays "muto per default." The button hides entirely (`visible: EthernetBridge.present`) on a host with no wired NIC at all, rather than showing a permanent "off": a physical port either exists or it doesn't, unlike Wi-Fi/VPN which are always meaningful to toggle regardless of hardware. This self-hiding is a live `Networking.devices` check, not a new `phios-dotfiles` capability probe — kept the change inside `phi-shell` alone.
+- Registered as a new module type in `Bar/Bar.qml`'s `componentFor()` switch and `Bar/modules.json` (position 45, right after `wifi`, capability `""` since visibility is handled live as above).
+- A minimal status row in `Panels/BarPopout.qml`'s bar popout (interface name or "not connected"). Deliberately no settings deep-link — no `connectivity.ethernet` section exists yet in `Settings/sections/Connectivity.qml`, and adding one is outside what this entry asked for.
+
+Five files changed for one new module type is `phi-shell/CLAUDE.md`'s own documented shape for adding a TYPE (ADR 078: the type is code written once; only the per-host *instance* — the `modules.json` row — is meant to be a one-file change), not scope creep.
+
+### Honest assessment
+Nothing here was run or compiled (`phi-shell/CLAUDE.md`: "You cannot run this"). Two things need the user's own screenshot to actually confirm:
+- The hand-drawn RJ45 icon is small at bar-icon size — four pins at 0.05× the icon box width, with gaps between them, may render as a blur rather than distinct pins. If it does not read clearly as "an ethernet plug," it should be simplified (e.g. two pins instead of four) rather than kept as drawn.
+- The module's visibility is gated on `Networking.devices`, a live model that populates asynchronously after the shell starts — on a host with a wired NIC, the icon may pop in a moment after login rather than being present at first paint, the same way `Config/Capabilities.qml`'s own probe already works. Not a defect, just not instant.
+
+### How to test it
+1. On `zotac` or `mini` (hosts with a wired NIC), start `phi-shell` and look at the right side of the status bar, after the Wi-Fi icon's normal position (or where Wi-Fi would be if this host has no wireless card). An ethernet icon (a small plug shape) should appear within a second or two of the bar loading, showing the interface name (e.g. `enp5s0`) next to it.
+2. Unplug the ethernet cable. The icon should dim to its "off" resting opacity and the label next to it should change to `off`. Run `nmcli device status` at the same time — it should agree the wired device shows as disconnected.
+3. Plug the cable back in. The icon should fade back to full opacity and the label should show the interface name again.
+4. Click the icon — a small popout should drop below it showing "Ethernet: <interface name or 'not connected'>".
+5. On `razer` (or any host confirmed to have no wired port), confirm no ethernet icon appears in the bar at all, and cross-check with `nmcli device status` that no wired device is listed — that distinguishes "correctly hidden, no hardware" from "silently failed to load."
+
+---
+
 ## Status bar icons don't activate on a touch near their top border
 
 - **Date:** 2026-09-14
