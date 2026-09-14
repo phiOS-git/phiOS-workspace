@@ -9,6 +9,92 @@ once it is verified.
 
 ---
 
+## No way to see or connect to available Wi-Fi networks from the shell
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** c97476c wifi: show available networks on click, connect to known/open ones, 37df5dd merge: show available wifi networks on click, connect to known/open ones
+- **Original TODO:** clicking on the wifi icon should show the list of available wifi to connect. Same in the settings.
+
+### What was asked
+Clicking the wifi bar icon (and the equivalent place in Settings) should
+show the list of nearby Wi-Fi networks, with a way to connect to one.
+
+### What was done
+- `Services/WifiBridge.qml`: Quickshell's own Network API exposes neither
+  signal strength nor security type for a network (confirmed against real
+  Quickshell source, `network.hpp`/`device.hpp` — a `Network` has only
+  `name`/`device`/`connected`/`known`/`state`), so the scan itself shells
+  out to `nmcli`, the same tool the pre-existing "Manage networks…" button
+  already depends on (`nmtui`). `rescan()` triggers a real scan and
+  `refreshNetworks()` parses `nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY
+  device wifi list` (terse mode, backslash-escaped, parsed accordingly —
+  a naive `.split(":")` would break on an SSID containing a colon),
+  de-duplicated by SSID and sorted connected-first then by signal.
+- `connectToKnownNetwork(ssid)` joins an already-known (previously saved)
+  or open network — no secret needed either way, so no security concern.
+- `Widgets/WifiNetworkList.qml`: a new shared component — scan status, an
+  error line, one row per network showing signal % and status (Connected/
+  Saved/Secured/Open) — used by both `Panels/BarPopout.qml`'s wifi card
+  and `Settings/sections/Connectivity.qml`'s Wi-Fi group, so the two
+  places stay in sync instead of carrying separate copies.
+
+### Honest assessment
+<span style="color:red">**NOT DONE: connecting to a new, secured network
+you have never joined before.**</span> That path needs a password, and
+`nmcli device wifi connect <ssid> password <pw>` — the obvious way to
+supply one — puts the password on the process's own command line, which
+is world-readable to any local user via `/proc/<pid>/cmdline` for as long
+as the command runs. That is a real credential leak, not a theoretical
+one, and I will not ship it. I checked nmcli's own documentation for an
+argv-free alternative: `--ask` is explicitly documented as interactive-
+only ("do not use this option for non-interactive purposes like scripts")
+and reads the controlling terminal directly, not a redirected stdin, so
+it cannot be driven programmatically here. The one real argv-free
+mechanism nmcli offers, `passwd-file`, only works with `nmcli connection
+up` — which first needs a `connection add` carrying the correct
+`wifi-sec.*` property names for whichever security type the network
+actually uses (WPA-PSK, WPA3-SAE and WEP each need different fields), and
+I have no way to verify that's right without real Wi-Fi hardware to test
+against (`phi-shell/CLAUDE.md`: "you cannot run this"). Getting it wrong
+would mean a silent connect failure on exactly the networks a user is
+trying to join.
+
+Tapping a secured network you've never connected to before is a no-op in
+the new list — it shows its status ("Secured") but does nothing on click.
+The existing "Manage networks…" button (→ `nmtui`, right below the list
+in both surfaces) already has a real, working password prompt and is the
+way to join a new secured network today. Re-added a narrower TODO entry
+for this specific remaining piece, in case a safe path becomes clear
+later (or someone can verify the `connection add`/`wifi-sec.*` fields on
+real hardware).
+
+Everything else (the scan, the list, connecting to a known or open
+network) cannot be visually or functionally confirmed without real Wi-Fi
+hardware either — the usual limit for this repo.
+
+### How to test it
+1. Pull `phi-shell` `dev` and reload Quickshell.
+2. Click the wifi icon in the bar. The popout should show "Scanning…"
+   briefly, then a count ("N networks found") and one row per nearby
+   network, each showing a status and signal percentage (e.g. "Saved ·
+   62%", "Open · 40%", "Secured · 21%", or "Connected · 80%" for the
+   current network).
+3. Tap a row marked "Saved" or "Open" (not the currently-connected one).
+   It should attempt to connect with no password prompt — check `nmcli
+   device wifi list` or the "Network" row above the list afterward to
+   confirm it actually joined.
+4. Tap a row marked "Secured" that you've never connected to before.
+   Nothing should happen (by design — see above). Use "Manage networks…"
+   below the list to join it via `nmtui` instead, the same as before this
+   change.
+5. Click "Refresh" — it should re-trigger a scan and, after a few
+   seconds, refresh the list.
+6. Repeat steps 2–5 in Settings → Connectivity → Wi-Fi → "Available
+   networks" — same list, same behaviour, different surface.
+
+---
+
 ## No overlay for low battery level
 
 - **Date:** 2026-09-14
