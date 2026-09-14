@@ -106,7 +106,7 @@ loop*.
 
 - add gestures to open the chat and notifications panel: 2 finger swipe from edge (touchpad) or swipe from screen edge (touchpad). Make the inverted gesture to close the panel as well. It should move progressively with the scroll, not only a toggable state.
 
-- full screen alert should appear when battery level is low (2 thresholds warn and danger, configurable)
+- [taken] full screen alert should appear when battery level is low (2 thresholds warn and danger, configurable)
 
 
 - when pressing SUPER+L instead of locking immediatly, evoke an overlay menu with options (lock, suspend, hibernate, shutdown, reboot). Use a smart UI/UX grammar and hierarchy, add icons with hover animations. SUPER+L+L (double click) will instantly lock (same behavior as now).
