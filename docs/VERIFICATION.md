@@ -66,6 +66,36 @@ This is a documentation-integrity fix, not a functional one — no phi-shell or 
 
 ---
 
+## Agent panel: Escape always closed the whole panel, skipping past up to three levels of "‹ Back" navigation
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 2537eb3 agent panel: Escape now backs out one level at a time instead of skipping to close
+- **Original TODO:** none — found during the continued open-ended review (the user's own standing instruction to keep checking "every single element" and "all wirings of each element" after the batch of 9 new-and-urgent items was done).
+
+### What was asked
+Nothing specific — found while re-reading `Panels/tabs/agent/CodingSessions.qml` (not previously covered by name in earlier rounds' file lists) as part of continuing the systematic file-by-file pass, and noticing its transcript view's only way back was a mouse-only "‹ Back" button, then tracing the same shape into `Dashboard.qml`, `ProjectView.qml` and `PersonalityEditor.qml`.
+
+### What was done
+The Agent panel has a real navigation stack up to four levels deep — Dashboard → ProjectView (clicking a project) → PersonalityEditor (its own "Personalities" management) → a specific personality's edit form — and every one of those levels had its own "‹" button as the ONLY way back. `Panels/AgentPanel.qml`'s single `Keys.onEscapePressed` handler always called `Services.AgentPanel.hide()` regardless of how deep the user was, so Escape closed the entire panel and discarded all of that navigation state in one press, rather than the conventional "back out one level" behaviour. A separate, pre-existing mechanism already handled a different concern (blurring a focused text field first, so a first Escape doesn't fight with the panel-close handler) — this did not touch that.
+
+Added an opt-in `hasBack`/`goBack()` contract: `Dashboard.qml`, `ProjectView.qml`, `PersonalityEditor.qml` and `CodingSessions.qml` each expose it (`undefined` on `Chat.qml`/`MemoryProposals.qml`, which have no nested state, so they correctly fall through unchanged); `AgentPanel.qml`'s `keyScope` checks the currently-loaded section's own `hasBack` before falling back to closing the panel. Each level's `goBack()` mirrors that level's own existing "‹" button logic exactly, and delegates one level deeper first when something deeper is open (`Dashboard` → `ProjectView` → `PersonalityEditor`), so a single Escape press always steps back exactly one level no matter how deep the user has drilled in.
+
+Also fixed, found in the same file: `CodingSessions.qml`'s "Open chat view" button actually opens a read-only mirrored transcript (per that file's own header comment) — renamed to "View transcript" so the label matches what it does.
+
+### Honest assessment
+UNVERIFIED — no compositor in this session, this repo's standing constraint. Traced all four navigation depths by hand against the actual signal/property wiring (documented in the commit message) rather than guessing, but this is exactly the kind of multi-level keyboard-focus interaction that reads correctly on paper and still needs a real Escape-press-by-press check on hardware to be sure nothing about QML's actual key-event bubbling in this specific nested-Loader shape behaves differently than expected.
+
+### How to test it
+1. Open the Agent panel (Super+P, or its bar icon). From the Dashboard, click into a project (ProjectView opens), then click "Personalities" or similar to reach PersonalityEditor, then click an existing personality to open its edit form. You should now be four levels deep.
+2. Press Escape once: should return to the personality list (still inside PersonalityEditor, same project).
+3. Press Escape again: should close PersonalityEditor, back to the plain ProjectView for that project.
+4. Press Escape again: should return to the Dashboard's project list.
+5. Press Escape a final time: should close the whole Agent panel.
+6. Separately, open a coding session's transcript (Coding sessions tab → any session → "View transcript") and confirm Escape returns to the coding-sessions list rather than closing the panel outright.
+
+---
+
 ## Ambient lock effects had no settings beyond which one to pick, and their live preview ran continuously by default
 
 - **Date:** 2026-09-15
