@@ -100,8 +100,6 @@ loop*.
 
   **Question:** no detail beyond "required" — what needs it? A concrete trigger matters here: (a) a native GTK/Qt portal backend (`xdg-desktop-portal-gtk`/`-kde`/a wlroots-specific one) so ordinary apps get a working "Open"/"Save As" dialog under Hyprland, (b) a picker built into `phi-shell` itself for the shell's own surfaces (the wallpaper section, the quick-note feature below), or both? They're different pieces of work with different packages/architecture.
 
-- [taken] add a timer and alarm feature to phi, also add tools to the runner to quicky setup timers and alarms. They should have a custom overlay that requires to be turned off, on the higher Z index in the system. It should have a ringtone. The two features must be customisable in the settings.
-
 - joining a new secured Wi-Fi network from the shell needs a password path that keeps the secret off the process command line. `nmcli device wifi connect <ssid> password <pw>` puts the password on the process argv, world-readable via `/proc/<pid>/cmdline` to any local user — not acceptable. The real argv-free mechanism nmcli documents (`passwd-file`) only works with `nmcli connection up`, which first needs a `connection add` carrying the correct `wifi-sec.*` field names for whichever security type the network uses (WPA-PSK / WPA3-SAE / WEP each differ) — not verifiable without real hardware to test against. Connecting to an already-known or open network needs no secret and is already built (see VERIFICATION.md); this entry is only the secured-and-not-yet-known case.
 
 - spotlight cursor: super+super (double tap hold) * blocked by issue on hyprland 0.56 *check if fixed*

@@ -9,6 +9,44 @@ once it is verified.
 
 ---
 
+## No way to set a timer or alarm
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev (Services/Timers.qml, Dialogs/TimerAlert.qml, Settings/sections/Notifications.qml, Settings/sections/options.js, Config/Paths.qml, shell.qml), phi / dev (internal/query/timer.go, internal/query/query.go)
+- **Commits:** phi-shell: 4935e1b shell: add timers and alarms with a full-screen alert and ringtone, fd50f1a merge: add timers and alarms with a full-screen alert and ringtone — phi: 195938e query: add a timer/alarm runner provider, a5e792f merge: add a timer/alarm runner provider
+- **Original TODO:** add a timer and alarm feature to phi, also add tools to the runner to quicky setup timers and alarms. They should have a custom overlay that requires to be turned off, on the higher Z index in the system. It should have a ringtone. The two features must be customisable in the settings.
+- **Requires phi rebuild:** yes — no tag covers this yet. `a5e792f` is only on `phi`'s `dev` (past the currently-published `v0.16.1`, which `main` still points to); merging `dev` into `main` is a user decision (`AGENTS.md` rule 1), so no new tag was created. Once merged, tag `vX.Y.Z` on `main` for this and any other pending `phi` changes to release together.
+
+### What was asked
+A timer and alarm feature reachable from the runner bar, with a full-screen overlay that has to be dismissed when one goes off, a ringtone, and settings to customise both.
+
+### What was done
+- **`Services/Timers.qml`** (new, phi-shell): owns the state — a list of timers (relative, "N seconds from now") and alarms (absolute clock time, optionally repeating on specific weekdays), persisted as JSON. A 1-second scheduler checks for anything due; a due item is queued (more than one can be due at once, e.g. after the machine was asleep through several alarm times) and shown one at a time. A repeating alarm's next occurrence is always computed fresh from the real current time on dismiss, not by walking forward from the stale time that just fired, so a long-suspended machine gets exactly the next real occurrence rather than a backlog of missed ones. The ringtone loops via `pw-play` (the same mechanism `Services/Notifications.qml`/`Services/PowerBridge.qml` already use) until dismissed, with a guard that stops looping the instant `pw-play` itself starts failing rather than tight-looping forever on a broken command. An IPC target `timer` (`add`, `addAlarm`, `cancel`, `dismiss`) is how anything outside this file — the runner, a terminal — actually sets one.
+- **`Dialogs/TimerAlert.qml`** (new): the full-screen "requires to be turned off" overlay, copied structurally from `Dialogs/BatteryAlert.qml` (same layer, scrim, fade, focus and Escape/Enter/Dismiss handling already proven for that surface).
+- **`internal/query/timer.go`** (new, `phi`): a runner provider recognising `timer <duration> [label]` ("timer 5m", "timer 25m tea") and `alarm <HH:MM> [label]` ("alarm 7:30", "alarm 19:45 wake up"), 24-hour clock only. Selecting a result runs `qs ipc call timer add/addAlarm ...` against the shell — **no new `phi timer` terminal verb was added**, a deliberate reading of "add ... to phi": a timer/alarm can only actually fire from something that keeps running for the whole session, which `phi` itself never does (a fresh process on every keystroke), the identical reasoning this codebase already applies to reboot/shutdown/volume/brightness/screenshot never becoming `phi` verbs. `internal/query` is compiled into the `phi` binary, so the request is still satisfied literally, just not as a standalone CLI command. Flagged for cheap veto if a bare terminal verb was actually wanted too.
+- **Settings**: a new "Timers & alarms" group in `Settings/sections/Notifications.qml` — ringtone name/volume/test, and a live list of whatever is currently running with a Cancel button per row.
+- A real bug caught and fixed during this session's own verification, not left latent: the first version of the runner provider returned a result from `Query()` but it never appeared in `phi query`'s actual output — `Rank()` (`internal/query/rank.go`) drops any result whose `Score` is left at its zero default and whose `Title` does not textually fuzzy-match the raw typed query, which a generated title like "Set a timer for 5m" never will against "timer 5m tea". Fixed by setting an explicit `Score: 100` (the same thing `CalculatorProvider` already does for the same reason), verified by hand with `phi query "timer 5m tea"` actually returning the result, and covered by a new regression test (`TestTimerProviderSurvivesRanking`) that runs the result through `Rank()`, not just the provider alone — so this class of bug fails a test next time rather than only showing up empty in a manual check.
+
+### Honest assessment
+- **The runner half needs the `phi` rebuild above; the shell half does not.** `Services/Timers.qml`/`Dialogs/TimerAlert.qml`/the settings group all work today, standalone, via `qs -p ~/.config/quickshell/phi ipc call timer add 300 tea` run from any terminal — that is the actual mechanism the runner provider calls into, so it can be exercised and verified in full before rebuilding `phi` at all.
+- **No standalone `phi timer` CLI verb** — see "What was done" above. This is the one place the literal wording of the request and what got built diverge; the reasoning is real (ADR 021's own precedent), but it is this session's judgment call, not something the TODO said explicitly.
+- **Alarm time input is 24-hour `HH:MM` only**, no am/pm. Not asked for either way; chosen to match this codebase's existing 24-hour-by-default convention rather than add a second parsing path.
+- **"Automatic" repeat scheduling exists (`repeatDays`) but nothing in the runner syntax sets it** — `alarm 7:30` always creates a one-shot alarm. A repeating alarm can only be created via the raw IPC call (`addAlarm` takes a `repeatDays` array) today, not from typed runner text. Flagged as a real, narrower gap if repeating alarms from the runner bar specifically were expected.
+- Cannot verify visually or on real hardware (this repo's standing constraint) — in particular, whether `pw-play` looping reads as a real ringtone (rather than, say, an audible gap or click between loop iterations) is unverified, and the settings list's live countdown display was checked by reading only, not seen on screen.
+
+### How to test it
+1. Rebuild and reinstall `phi` from `phi`'s `dev` branch (commit `a5e792f` or later) to get the runner integration; the shell half (steps 3-7) works today without this.
+2. Pull `phi-shell`'s `dev` (or wait for hot-reload if already running against a tracking checkout).
+3. From a terminal: `qs -p ~/.config/quickshell/phi ipc call timer add 10 "tea"` — a full-screen overlay should appear after 10 seconds, titled "Timer done", showing "tea", with a "Dismiss" button. Click Dismiss (or press Enter/Escape) — it should close.
+4. `qs -p ~/.config/quickshell/phi ipc call timer addAlarm <next minute's hour> <next minute's minute> "wake up"` (e.g. if it's 14:32 now, use `14 33`) — the overlay should appear at that clock minute, titled "Alarm done", showing "wake up".
+5. While either overlay is showing, you should hear a looping sound (the default ringtone, freedesktop's "message" sound) until you dismiss it.
+6. Open Settings → Notifications → "Timers & alarms". Start a longer timer (`qs ... timer add 120 "test"`) and it should appear in the list here with a Cancel button and its due time; clicking Cancel should remove it and it should never fire.
+7. In that same settings group, change the ringtone field to `bell` and click "Test ringtone" — a short loop of that sound should play for about 2 seconds and stop on its own.
+8. Once `phi` is rebuilt: type `timer 5m tea` in the runner bar (Super+Space) — a result titled "Set a timer for 5m" should appear at or near the top of the list; selecting it should behave exactly like step 3's manual IPC call, just for 5 minutes instead of 10 seconds. Try `alarm 7:30 wake up` the same way.
+9. Type `timer` alone (no duration) in the runner bar — it should offer no timer-related result at all, not a broken or zero-length one.
+
+---
+
 ## Night shift has to be turned on and off by hand every evening/morning
 
 - **Date:** 2026-09-14
