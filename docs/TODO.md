@@ -9,7 +9,7 @@ loop*.
 
 - on razer the trackpad does not work after hibernation * to be tested, migh be solved
 
-- network informations should not be exclusive to wifi, but for ethernet as well. In the status bar, the network element (unified, see next task) should also have a specific icon (with states and animations as usual) for ethernet connection.
+- [taken] network informations should not be exclusive to wifi, but for ethernet as well. In the status bar, the network element (unified, see next task) should also have a specific icon (with states and animations as usual) for ethernet connection.
 
 - tailscale/vpn and network overlay and status bar icon should be merged in a single element, showing network informations. It should display in the bar: the type of connection (LAN/WIFI), its status (enabled, disabled, wifi intensity, and an X on the LAN/WIFI icon if connected but without internet), and a VPN icon if active, tailscale icon if connected. The overlay pannel should have 2 states: compressed and expanded. It should show most of the relevant network informations and switches: type of connection, firewall, VPN, the network speed and ping visual, a list of active servers (grouped by source) with killswitches, and so on. All the advanced settings should be available in the settings panel, while most commont interactions should be available in this panel as well.
 
