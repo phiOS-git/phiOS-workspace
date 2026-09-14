@@ -9,6 +9,54 @@ once it is verified.
 
 ---
 
+## A fresh critical UX tour — dead capabilities, missing Escape handling, unconfirmed destructive actions, zero-feedback surfaces
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 8566810 panels/settings: fix dim-over-bar without touching Wayland layers, add a skeleton loading widget, extend the Advanced sweep — 2001b69 fresh tour: toast interaction, missing Escape handling, unconfirmed destructive actions, two more dead capabilities wired up — 491e72e settings: replace the font-family free-text field with a real picker too — 1d6676f panels: fix Escape doing nothing on the Notifications tab of the sidebar — cf7f6d2 launcher: hover feedback and cursor on result rows
+- **Original TODO:** "proceed on any other remaining task, when you are done with the tasks, make a new complete tour of all features and panels, and study critically the style and ux, find new issues on the model of my reference points and direct new changes" — plus the three still-open Style entries from the previous round (dim-coverage split, a skeleton loading widget, the rest of the Settings Advanced sweep).
+
+### What was asked
+Finish what the previous round left explicitly open, then do a genuinely fresh pass — not a re-check of what earlier rounds already covered — looking for the same class of issue the user's own original list demonstrated (missing hover/cursor, no confirmation on destructive actions, free-text where a real picker exists, dead-looking or actually-dead controls), and fix what it finds.
+
+### What was done
+
+**The three previously-blocked/open items, finished:**
+- **Dim-coverage split** (docs/TODO.md: the notification/chat/clipboard dim shouldn't cover the bar; screenshot/overview/alert dims should). Last round left this explicitly undone — the only lever found was a per-surface `WlrLayer` change too risky to guess at without a compositor. Found a genuinely safer fix instead: the scrim is a plain child `Rectangle` of the SAME window as the panel it dims, so insetting it from the top by the bar's own real published height (`Services.BarMetrics`, the same value the dock's own `topMargin` already uses) keeps it out of the bar's screen strip entirely — zero cross-layer risk, no Wayland layer touched at all. Applied to `Panels/Sidebar.qml` and `Panels/AgentPanel.qml`.
+- **New `Widgets/Skeleton.qml`** — a breathing placeholder row (motion category A, the same bucket the Φ agent's own processing indicator uses, not a shimmer sweep), applied to Wi-Fi's first scan and Settings' Updates "System state" group. Bluetooth has no scanning/loading state to attach one to at all (confirmed by reading `Services/BluetoothBridge.qml` — it's a live reactive list, not something with a loading phase), so nothing was added there.
+- **Settings "Advanced" sweep extended** to Notifications (Timers & alarms' ringtone/volume/test rows) and Updates (the whole Packages group — detailed per-manager listings, already pointed at `phi pkg check` in a terminal by its own caption). General, Keybindings and Security were read and deliberately left untagged — none of the three has a real basic/advanced split to draw (General and Keybindings are uniformly plain reference info; Security is entirely placeholder rows).
+
+**The fresh tour — found by reading every file not yet read (`Notifications/Toast.qml`) and by scripting a cross-reference of every `Services/*.qml` function against where it's actually called, the method that caught `setChatPinned`/`setChatTitle` last round:**
+
+- `Notifications/Toast.qml` had **zero interaction of any kind** — no click, no hover, nothing — despite being the very first thing a new notification shows. Clicking it now opens the sidebar to the Notifications tab: a shortcut TO the panel where the closed "detail lives in the sidebar" design decision already puts the real controls, not new content on the toast itself, so it doesn't cross that line.
+- **Missing Escape handling**, the same gap `Screenshot.qml` had last round, found in three more places: `Panels/BarPopout.qml`, `Panels/Calendar.qml` (both had none at all), and `Panels/Sidebar.qml` (had `Services.LayerFocus` but no actual key handler wired to it — the Clipboard tab's own search field happens to catch Escape by accident, but the Notifications tab, which has no text field, did nothing). All three fixed the same way; the Sidebar fix also needed the explicit `forceActiveFocus()`-on-open reclaim `Panels/AgentPanel.qml`'s own header already documents needing, not just a declarative `focus:` binding (QML's focus system permanently breaks that binding the first time something else takes real focus). `AltTab` and `Lock` correctly have neither (compositor-submap-driven and security-critical respectively) and were not touched.
+- **Two destructive actions bypassed confirmation where an identical or sibling action elsewhere already requires it**: `PersonalityEditor`'s "Delete" deleted a personality (system prompt included) on one click, the only such action in this shell without it; the notification panel's own "Clear all" called `Services.Notifications.clearAll()` directly while Settings' identical button already wraps the same call in `ConfirmDialog` — two entry points to one action should not disagree about how safe it is to hit by accident. Both now go through `ConfirmDialog`.
+- **Two more fully-built, never-wired `Services.Agent` capabilities**, the exact class of bug `setChatPinned`/`setChatTitle` were last round: `closeSession(id)` ("summarise, archive, then delete" a chat — its own comment in `Services/Agent.qml` flags it as the least-tested path in that file) had no caller anywhere; added a confirmed "Close" action to both chat-row components (`Dashboard.qml`, `ProjectView.qml`). `personalityRename(oldName, newName)` also had no caller — the name field was `readOnly` for every existing personality, which is *why* it was unreachable. Made it editable, with a settle delay before saving content under the new name since rename and write are two independent async Processes with no ordering guarantee between them.
+- **A second free-text-field-that-should-be-a-picker**, the same "ringtone" pattern from last round: Theme.qml's font-family fields (mono/reading/UI — one shared component, all three at once) asked for an exact installed font name typed from memory. Kept the text field for a user who already knows the name, added a "Browse…" that lists everything `Qt.fontFamilies()` actually reports installed — a plain Qt API, no subprocess needed at all — filterable, tap to select.
+- **Launcher result rows had no hover feedback or cursor at all**, on the single most-used surface in this shell — a `TapHandler` and nothing else. Hovering now also moves the keyboard highlight (the conventional behaviour this class of launcher already uses elsewhere — rofi/wofi/Spotlight/Raycast), deliberately different from how AltTab's own hover fix last round kept hover and keyboard selection separate (a grid you tab through independently of the mouse, not a single flowing list).
+
+**Also checked, found already correct (worth recording so it isn't re-litigated):** every overlay with a click-outside-to-close handler also has the matching swallow-clicks-on-card `MouseArea` (checked all ten systematically — no case of a click inside a card accidentally closing its own panel); no hardcoded colour literals outside two legitimate default-seed values (`Background.color`/`Chroma.color`, both user-overridable preferences, not shell chrome).
+
+### Honest assessment
+**Still no compositor in this session — nothing here is hardware-verified.** Every claim above is a reasoned prediction from reading the code and, for several of these, from scripted cross-referencing — not a screenshot.
+
+Two things flagged as dead code but deliberately NOT touched, since this pass's mandate is UX, not a code-cleanliness sweep, and they have zero effect on anything a user sees either way: `Services/Agent.qml`'s `newProject`/`requestProposalText`/`acceptProposal`/`rejectProposal` are strict subsets of `createProject`/`requestLevelProposalText`/`acceptLevelProposal`/`rejectLevelProposal` (which is what's actually used); `Services/Background.qml`'s `setPath` is an unused one-line alias for `setImage`.
+
+The `closeSession`/`personalityRename` wiring and the Sidebar Escape fix are real behavioural changes, not pure styling — worth a closer look on real hardware specifically: does closing a chat actually leave a readable summary in `archivio/`; does a rename followed immediately by a prompt edit land correctly (the 400ms settle timer is a reasoned default, not measured); does Escape now correctly close the sidebar from the Notifications tab without also swallowing a keystroke the Clipboard search field still needs.
+
+### How to test it
+Needs the shell running (`pkill -x qs; qs -p ~/.config/quickshell/phi`) and, since a design token changed further, `phi theme set <variant>` re-run if it hasn't been since last round.
+1. **Dim coverage:** open the notification panel or the agent chat panel — the bar should stay visibly undimmed above the dock, unlike Alt-Tab or a battery alert, which should still dim it.
+2. **Skeleton:** open Settings → Connectivity → Wi-Fi on a fresh load, or Settings → Updates — a breathing placeholder row or three should show briefly before real rows replace them.
+3. **Toast click:** let a notification toast appear (or `qs ipc call ... test`, however this project's own test path works) and click it — the sidebar should open to Notifications.
+4. **Escape:** open the bar popout (click any right-isle icon), the small calendar (click the clock), and the notification panel while parked on its Notifications tab — Escape should close all three now.
+5. **Confirm dialogs:** open the agent panel → Dashboard → Personalities → an existing one → Delete; and the notification panel's own "Clear all" — both should now show a centered confirmation instead of acting immediately.
+6. **Chat close/rename:** in the agent panel, each chat row (Dashboard and inside a project) should have a "Close" button that confirms then archives+deletes; a Personality editor's name field should now be editable and typing a new name + Save should rename it.
+7. **Font picker:** Settings → Theme → scroll to the font rows — "Browse…" next to each should reveal a filterable list of installed fonts.
+8. **Launcher hover:** open the launcher and move the mouse (not the keyboard) over different results — the highlight should follow the pointer with a visible pointer cursor.
+
+---
+
 ## Continued UI/UX pass — a dead bar module, two never-wired agent features, more free-text fields that should be pickers, missing hover/cursor on drag surfaces
 
 - **Date:** 2026-09-14
