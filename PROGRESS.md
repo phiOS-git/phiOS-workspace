@@ -45,7 +45,7 @@ point (`phi`), one visual identity.
 | `phi-shell` — panels, launcher, lock, overview, screenshot, notifications, settings, magnifier, OSD | **Built and in use**, refined over four restyle rounds + a settings overhaul, but the same verification round found Alt-Tab "completely broken" (no focus, no close-on-release, no workspace change), the magnifier still doesn't zoom, and screenshot/OCR/QR area-selection offset is still wrong — tracked in `docs/TODO.md` |
 | Identity & advanced styling — final palette, typography, motion, Plymouth, cursor theme | **Built**, pending a clean end-to-end verification pass |
 | AI agent (`phi agent` + shell agent panel + containment) | **Built**, hardware verification run on `razer` 2026-09-11 and **failed end-to-end** — the broker binds and the systemd units report active, but the shell's agent panel reports the containment failed to start, and `phi agent code .` (A2) fails on a missing `run/phi-agent/net/proxy.sock`; raw session log at `docs/ai-agent.output`, tracked in `docs/TODO.md` |
-| Server services (`mini`) — cloud sync, photos, Jellyfin, \*arr, ClamAV, LanguageTool | **Not started** |
+| Server services (`mini`) — cloud sync, photos, Jellyfin, \*arr, LanguageTool | **Not started** |
 | Custom apps (`phi-notes`, `phi-music`, `phi-media`) | **Not started** |
 
 Legend below uses: **done** (in daily use, confirmed on hardware),
@@ -143,6 +143,49 @@ questions (`Q-F04`, `Q-F06`) remain for whenever Chroma is finished.
 `design/brand/` (Φ SVGs, ASCII mark, PNG render script). `phi theme`
 consumes these. `bin/phios-render` is kept as the comparison target for
 `phi theme render`.
+
+### ClamAV real-time protection — built, applied on `zotac`
+
+`clamav` in `profiles/base/packages.txt` (all three hosts — on-access
+scanning is kernel-level fanotify, works headless too). `clamd.conf`
+itself is not mirrored as a system/ file (pacman manages it as a backup
+file, and it's ~30KB of mostly stock commentary); `profiles/base/
+manual.txt` instead carries a verified, idempotent `sed` that uncomments
+the same ~25 lines by hand-tuning on `zotac` reached (heuristics, PUA
+detection, per-format scanners, on-access watching all of `/`), plus the
+`VirusEvent` line wiring detections to a desktop notification.
+`profiles/base/system/etc/clamav/virus-event.bash` (the notification
+script) and `system/etc/sudoers.d/clamav` (the NOPASSWD rule it needs to
+reach a user's session) are real, mirrored system/ files — the sudoers
+one replaces a hand-edit that had clamd.conf's `VirusEvent` *directive*
+pasted into a sudoers file by mistake, which broke `sudo` outright on
+`zotac` (every invocation, not just clamav's) until fixed by hand via
+`su -` (both `sudo` and `pkexec` were unusable while sudoers itself
+couldn't parse). `clamav-daemon.service`, `clamav-freshclam.service` and
+`clamav-clamonacc.service` (stock units, no overrides) are declared in
+`services-system.txt`, enabled by hand per the usual convention.
+Quarantine is the stock `clamav-clamonacc.service`'s own `--move=
+/root/quarantine`, not something this repo configures.
+
+Fully verified end to end on `zotac`, down to the sudoers rule's exact
+required shape: the first version (`NOPASSWD: /usr/bin/notify-send`, no
+`SETENV:`) let `sudo` run but silently refused the `DBUS_SESSION_BUS_
+ADDRESS`/`PATH` assignments `virus-event.bash`'s own invocation sets
+inline — clamd logged the detection but the notification never fired, no
+error visible anywhere except `journalctl -u clamav-daemon.service`.
+Fixed and re-verified with a live EICAR scan (`clamdscan`, the standard
+industry test string, not real malware). **Still open:** whether the
+notification actually renders on screen — a bare `notify-send` with no
+clamav involved at all showed no visible toast either, in the same
+session, so this reads as a separate, pre-existing `phi-shell`
+notification-rendering gap, not a clamav or dotfiles issue, and was not
+chased further here.
+
+This is real-time (on-access) protection only — a periodic full-disk
+`clamscan` sweep (to catch anything that existed before real-time
+protection was ever turned on) is not built and not requested yet.
+
+Applied and enabled on `zotac`; not yet reproduced on `razer`/`mini`.
 
 ### Known open item
 
@@ -321,7 +364,6 @@ engine↔client contract (opencode over loopback HTTP only, ADR 098/099).
 - **\*arr stack** — indexers + download client
 - **Media / music pipelines**
 - **Jellyfin** and the video libraries
-- **ClamAV** (scheduled scans, quarantine)
 - **LanguageTool** self-hosted
 - **Office / study tools / secrets** — LibreOffice, Anki + sync server,
   Zotero + WebDAV, KeePassXC or Vaultwarden (`Q-F02`: RAM budget on `mini`,
