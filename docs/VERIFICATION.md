@@ -66,6 +66,27 @@ This is a documentation-integrity fix, not a functional one — no phi-shell or 
 
 ---
 
+## The Ethernet popout card showed a lowercase "ethernet" as its title
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** ed96ae7 bar: fix the Ethernet popout card showing a lowercase "ethernet" title
+- **Original TODO:** none — found during the continued review.
+
+### What was asked
+Nothing specific — found while reading `Bar/modules/Ethernet.qml` and cross-checking every `Services.BarPopout.toggle("<key>", …)` call site in `Bar/modules/*.qml` against `Services/BarPopout.qml`'s own `title()` switch, to check for gaps the same way the earlier Alt+Tab documentation-drift finding was traced.
+
+### What was done
+Every bar popout key had a matching `case` in `title()` (Volume, Brightness, Tailscale, Wi-Fi, Bluetooth, Battery, GPU, Power, Timers & Alarms, Stopwatch) except `"ethernet"`, added when `Bar/modules/Ethernet.qml` shipped — its card fell through to the bare-key fallback (`return key`), showing the literal lowercase `"ethernet"` as its header instead of a capitalized title like every sibling card. Added `case "ethernet": return "Ethernet"`.
+
+### Honest assessment
+Trivial, one-line fix, no other change needed — the card's own content (`Panels/BarPopout.qml`'s ethernet section) was already complete and correctly scoped. UNVERIFIED — no compositor in this session.
+
+### How to test it
+Click the Ethernet icon in the status bar (visible only on a host with a wired NIC) and confirm the popout card's header reads "Ethernet", not "ethernet".
+
+---
+
 ## A dead bar module (NightMode) left behind after its toggle moved elsewhere, plus two stale "placeholder" comments
 
 - **Date:** 2026-09-15
