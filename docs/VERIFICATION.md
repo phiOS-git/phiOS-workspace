@@ -9,6 +9,47 @@ once it is verified.
 
 ---
 
+## No overlay for low battery level
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev (no new code — see below)
+- **Commits:** none — the overlay itself landed as part of the entry directly below this one (`c6e101b`/`0f54930`)
+- **Original TODO:** add an overlay for low battery level, with option to set on battery saving mode if not up yet (see previous task)
+
+### What was asked
+Two things: a low-battery overlay, and — inside that overlay — an option
+to turn on "battery saving mode" if it isn't already active (referencing
+the sibling "battery saving mode" backlog entry, still open, directly
+above this one in `docs/TODO.md`).
+
+### What was done
+The overlay half is already covered: `Dialogs/BatteryAlert.qml`, built
+and landed for the separate "full screen alert should appear when battery
+level is low" entry immediately before this one in this same session, IS
+a low-battery overlay — same feature, described twice in the backlog from
+two angles. No separate overlay was built for this entry; it would have
+duplicated that one.
+
+### Honest assessment
+<span style="color:red">**NOT DONE:** the "option to set on battery
+saving mode" clause.</span> "Battery saving mode" itself (the sibling
+entry this one explicitly references, "have a battery saving mode, it
+automatically kicks in when not in charge and lower then 20%...") does
+not exist yet — there is nothing for a toggle in this overlay to turn on.
+Building that toggle now would mean either wiring it to a no-op, or
+building battery-saving-mode itself as an incidental side effect of this
+entry rather than as its own considered piece of work. Left for whenever
+the "battery saving mode" entry itself is picked up — at that point,
+adding a toggle to `Dialogs/BatteryAlert.qml` (or its "danger"-severity
+card specifically, which is the more natural place for it) is a small
+addition on top of what already exists, not a new surface.
+
+### How to test it
+Nothing new to test here — see the "No warning when the battery is about
+to run out" entry below for how to test the overlay itself.
+
+---
+
 ## No warning when the battery is about to run out
 
 - **Date:** 2026-09-14
