@@ -9,6 +9,41 @@ once it is verified.
 
 ---
 
+## Theme has no automatic day/night schedule
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 1813727 shell: add automatic theme schedule (dark evening, light morning), fdbe023 land: add automatic theme schedule (dark evening, light morning)
+- **Original TODO:** "theme auto" which changes automatically on evening time (automatic/manual time). Consider "phi theme set" restarts the qs and that cannot happen automatically, the change should be smooth and non destructive.
+- **Requires phi rebuild:** none — this doesn't touch the `phi` repo
+
+### What was asked
+An automatic dark/light theme switch driven by time of day (a fixed schedule, or custom hours), with the entry itself flagging a specific worry: that `phi theme set` restarts phi-shell, and that can't be made to happen unattended, so any automatic switch needs to be smooth and non-destructive.
+
+### What was done
+Before writing anything, I checked whether the entry's own stated blocker is actually true of the current code — it is not, in either of the two ways it could be:
+- `phios-dotfiles/design/adapters.txt` lists phi-shell's `Config/Tokens.qml.tmpl` as **class A** with reload command `-`: Quickshell watches every QML file it has loaded and hot-reloads it on save by itself. `phi/internal/theme/set.go`'s `Set()` — read end to end — never restarts anything; it writes files, runs an adapter's own reload command only when that adapter's rendered content actually changed, records the active variant, and sets the portal colour-scheme preference. There is no restart path anywhere in it, for phi-shell or otherwise.
+- The only row in the whole adapter table with a *real* (non-`-`, non-`[unknown]`) reload command is Hyprland's own `hyprctl reload`. It doesn't even fire on a light/dark switch: `hyprland.lua.tmpl`'s one substitution is `XCURSOR_THEME`/`XCURSOR_SIZE`, and `design/tokens.common.sh` states outright that those are "not variant-dependent" — so that template renders byte-identical either way and `Set()` skips the reload as a no-op change.
+
+In practice, a variant switch — manual or automatic — is just: file writes for the themed targets whose colours actually changed, phi-shell's own already-existing hot reload, and an instant `gsettings` write for the GTK/Qt portal preference. Nothing compositor-visible happens and nothing restarts. That made "smooth and non destructive" already true by construction, so the feature is the scheduling layer on top of the existing `phi theme set`, not a new safety mechanism.
+
+- **`Services/ThemeSchedule.qml`** (new singleton): `scheduleMode` (`off`/`auto`/`custom`), a fixed default window (dark 20:00–7:00, same evening-to-morning default `Services/NightShift.qml` already uses, and the same reasoning — no location/sunset source exists anywhere in this project, so "auto" is a sensible fixed window, not a computed one) or custom hours. Re-evaluates every 60s and on every setting change; calls `phi theme set <variant>` **only on an actual transition**, tracked via its own `_appliedVariant` (seeded from `Config.Appearance.variant` once at load, advanced only after `phi theme set` exits 0) rather than read back live from `Config.Appearance.variant` — hot-reloading a singleton's source file on disk is not a verified property-change notification on an already-bound consumer, and trusting it risked either silently re-running a full theme render every single tick, or resetting this singleton's own in-memory state mid-switch. A failed `phi theme set` keeps retrying on the next tick instead of getting stuck.
+- Prefs (`scheduleMode`, custom start/end hour) live in a new plain JSON file, `Config.Paths.themeSchedulePrefsFile` — not `phi state`: the variant itself is still recorded there by `phi theme set` exactly as before, but *when* to switch has no meaning to any other `phi` consumer, so this needed no phi rebuild.
+- `Settings/sections/Theme.qml`'s existing "Appearance" group gets a "Schedule" row (Off / Automatic / Custom hours, the same button-picker shape as Night shift's own schedule row) plus the matching custom-hours fields. The manual Dark/Light buttons are disabled while a schedule is active (so there's no conflicting control, matching Night shift's own precedent), and now stay in sync with the live variant via a `Connections` block on `Config.Appearance.variant` — needed because the button highlight previously only updated on its own click, and a schedule can now change the variant on its own.
+
+### Honest assessment
+Clean. The scope call worth flagging: the evening/morning window is a fixed default (20:00/7:00), not a real sunset/sunrise calculation — this project has no geolocation source anywhere, the same limitation Night shift's own "auto" mode already accepted and documented. "Custom hours" is the escape hatch if the fixed default doesn't fit. Not independently testable by me — this is a phi-shell UI/behavioural change and, per this repo's own rule, every visual result needs the user's own screenshot/verification; the `hyprctl reload` / variant-independence claim was verified by reading `design/tokens.common.sh` directly (it says so in its own comment), not by running anything.
+
+### How to test it
+1. Open Settings → Theme → Appearance. Confirm the existing "Variant" row (Dark/Light buttons) and a new "Schedule" row (Off / Automatic / Custom hours) are both there.
+2. Click "Automatic". The Dark/Light buttons above should grey out (disabled), and the row's own description should read "Controlled by the schedule below." A new "Automatic window" line should appear stating the fixed default hours (20:00–7:00).
+3. Click "Custom hours" instead. Two number fields appear, "Dark starts at" and "Light starts at", defaulting to 20:00 and 7:00 — change them (e.g. set "Dark starts at" to the current hour) and confirm the theme switches to dark within a few seconds to a minute.
+4. With a schedule active, change your system clock (or just wait) past the boundary hour and confirm the variant switches automatically, with no visible flash, glitch, or shell restart — the bar, panels and settings should keep working throughout.
+5. Click "Off" again and confirm the Dark/Light buttons re-enable and manual switching works as before.
+6. Restart phi-shell (`pkill -x qs; qs -p ~/.config/quickshell/phi`) with a schedule active and confirm it comes back with the same schedule mode and hours (persisted in `$XDG_STATE_HOME/phi/theme-schedule.json`).
+
+---
+
 ## No automatic battery saving mode
 
 - **Date:** 2026-09-14
