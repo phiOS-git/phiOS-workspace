@@ -251,6 +251,8 @@ both places.
   - the settings, chat and notification panels all use poor spacing/layout
   - the clipboard looks clunky and awful, it is not minimal, thin and modern as expected
   - the VPN switch looks on and transparent when no available confgs are there, that makes no sense, if it's not available it should not show (those are basic UX rules, be smart as a UX designer to pick the right design choices)
+  - in the theme settings colors have no hover effect
+  - in the whole system, buttons and other interactive elements do not have the pointer cursor
   - 
 
   There are more issues than this list captures. Be critically honest
