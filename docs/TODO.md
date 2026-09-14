@@ -48,6 +48,22 @@ both places.
 
 ## Bug Fixing / Improvements
 
+### New and Urgent
+
+1. [taken] In the notification panel, all the clear buttons (single, group, all) don't work until i run `phi theme set` at least once
+
+2. [taken] the ethernet icon in the status bar does not look vertically centered
+
+3. [taken] the flip clock has the ":" not vertically aligned, also remove the borders
+
+4. [taken] phi did not get any new tag, currently building 0.16.1 still
+
+5. [taken] the mouse cursor disappear after few seconds idle on the terminal
+
+6. [taken] the "settings" button in the power options overlay should siply open the settings panel, not bound to a specific section. Also the "quick action" section should not exist.
+
+### Older 
+
 - on razer the trackpad does not work after hibernation — to be tested,
   might already be solved.
 
@@ -250,6 +266,9 @@ both places.
   - the settings panel needs its options better organised, grouped and
     ordered
   - the settings, chat and notification panels all use poor spacing/layout
+  - the clipboard looks clunky and awful, it is not minimal, thin and modern as expected
+  - the VPN switch looks on and transparent when no available confgs are there, that makes no sense, if it's not available it should not show (those are basic UX rules, be smart as a UX designer to pick the right design choices)
+  - 
 
   There are more issues than this list captures. Be critically honest
   about every feature and detail, and polish the system UI/UX to a
