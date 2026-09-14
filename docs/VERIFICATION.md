@@ -9,6 +9,38 @@ once it is verified.
 
 ---
 
+## Magnifier glass shows the screen but never actually zooms in
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 00e541e magnifier: fix the lens never actually zooming
+- **Original TODO:** "the magnifier glass currently does not zoom in since the border where removed. It has to do with inconsistencies with the screen capture method. Needs to be solved. Reference this: https://github.com/Horizon0427/Glasscope" — plus the whole 2026-09-11 investigation note (two candidates, neither confirmed) that followed it.
+
+### What was asked
+Fix the magnifier lens (SUPER+Z) so it actually magnifies the screen under the cursor, instead of showing it at some other, apparently unmagnified, size.
+
+### What was done
+With the user's agreement (given specifically for this session, after the unrelated Hyprland-dispatch investigation already established live access), ran `phi-shell`'s own dev checkout as a second, standalone Quickshell instance (`qs -p <this checkout>`, a distinct config identity from the live `~/.config/quickshell/phi` one — confirmed the two never conflict) to actually see the UI render, for the first time in this project's history for this particular bug.
+
+That surfaced two problems, not one:
+
+1. **The checkout didn't even load at first.** `Panels/BarPopout.qml` and `Services/PowerMenu.qml` both declare a real `IpcHandler {}` element without importing `Quickshell.Io` — Quickshell's config loader aborts the ENTIRE shell (every file cascades to "Type X unavailable") on a bad type anywhere in the tree. Fixed both (one missing import line each). The live checkout in daily use predates `Services/PowerMenu.qml` entirely, which is the only reason this hasn't already broken the user's real desktop shell — it will, the next time that checkout updates past this point, without this fix.
+2. **The actual magnifier bug.** With the load fixed, triggered the lens via its own IPC (`qs ipc call magnifier toggle`) and screenshotted it at 1.5×, 2.5× and 6.0× — at every zoom level, the content inside the lens was real and sharp, but the EXACT SAME apparent size as the unmagnified screen around it. That is precisely the docs/TODO.md note's own predicted signature for "Candidate 2" (`ScreencopyView` ignoring the explicit oversized `width`/`height`) and rules out "Candidate 1" (the mask/layer change) outright, since content was clearly visible, just never scaled.
+
+  Checked `ScreencopyView`'s real type definition directly (`Quickshell.Wayland._Screencopy`'s own qmltypes, not recalled) rather than guessing further: it is a plain `QQuickItem` with NO scaling meaning attached to the inherited `width`/`height` at all. The property that actually controls the rendered content's size is `constraintSize` (`QSizeF`, read-write) — declared on the real type, never once set in `Magnifier.qml`. Set `constraintSize: Qt.size(screen.width * zoom, screen.height * zoom)` alongside the existing (now cosmetic-only) `width`/`height`, saved, and Quickshell's hot-reload picked it up live: re-screenshotted at 2.0× and 6.0× and both now show real, proportional magnification — clearly larger at 6.0× than at 2.0×, unlike before where every zoom level looked identical.
+
+### Honest assessment
+Zoom is now confirmed, visually, at multiple settings — the core bug is fixed. Not verified: whether the lens PANS correctly as the cursor moves (this session has no way to synthesize real pointer movement — `ydotool`/`wtype`/`dotool` are not installed, and installing one wasn't in scope for a live test) — the pan math itself was untouched by this fix, and the file's own header already separately flags "blink-free" capture timing and click-through (`mask: Region {}`) as unverified; neither was touched or checked here either. The glass-edge rim/falloff Canvas effect was visible in every screenshot and looked reasonable but was not specifically scrutinized.
+
+Both `IpcHandler` import fixes were confirmed the direct way — the config failed to load without them and succeeded with them, on the real Quickshell version installed on this machine (0.3.1) — not inferred from reading alone.
+
+### How to test it
+1. Pull `phi-shell` `dev` (this fix touches the checkout everyone runs, not just a dev one).
+2. Press Super+Z to open the magnifier loupe.
+3. Move the cursor over some text or a detailed part of the screen. The content inside the circular lens should look visibly larger than the same content around it — not the same size.
+4. Press Super+Equals a few times (zoom in) — the content inside the lens should get noticeably larger. Press Super+Minus repeatedly (zoom out) — it should shrink back down. Before this fix, the zoom readout below the lens (e.g. "×2.5") changed but the actual magnified content never did.
+5. Super+Z again to close it.
+
 ## SUPER+L power menu has no icons on any row but Shut down
 
 - **Date:** 2026-09-14
@@ -25,7 +57,9 @@ Give the power menu's Lock, Suspend, Hibernate and Reboot rows a real icon each 
 <span style="color:red">**NOT DONE: Hibernate has no icon.**</span> Searched the same `glyphnames.json` systematically for "hibernate" and every close synonym that could plausibly stand in for it (sleep, power_standby, moon, bed, restart_alert, and a dozen others) — none of the ~64,000 entries in the file is named "hibernate", and none of the synonyms reads as hibernate specifically rather than something else (sleep already went to Suspend). This isn't a lookup failure to retry; the icon does not exist in this font. Re-added as its own clean, bare TODO entry asking for a deliberate substitute pick, since forcing an unrelated icon in here would repeat the exact mistake this whole task was about avoiding.
 
 ### Honest assessment
-The three added codepoints are confirmed correct BY NAME against the authoritative source (nerd-fonts' own data file, fetched fresh this session) and confirmed PRESENT in the actual installed font on this machine (`fc-query`'s charset dump for `/usr/share/fonts/TTF/SymbolsNerdFontMono-Regular.ttf` covers the whole `f0001-f1af0` PUA range these codepoints fall in). What is NOT confirmed is what they render as on screen — no compositor was used to visually check this (see the companion entry, "Several window-management keybinds silently do nothing," for why this session had live Hyprland access at all: read-only/reversible use only, agreed with the user beforehand, and rendering a font glyph visually wasn't part of that agreement). `qmllint` reports no errors on the changed file (only the expected `qs.*` import-resolution warnings every file in this repo gets outside a real Quickshell build).
+The three added codepoints are confirmed correct BY NAME against the authoritative source (nerd-fonts' own data file, fetched fresh this session) and confirmed PRESENT in the actual installed font on this machine (`fc-query`'s charset dump for `/usr/share/fonts/TTF/SymbolsNerdFontMono-Regular.ttf` covers the whole `f0001-f1af0` PUA range these codepoints fall in). `qmllint` reports no errors on the changed file (only the expected `qs.*` import-resolution warnings every file in this repo gets outside a real Quickshell build).
+
+**Update, later the same day:** now also confirmed visually, not just by codepoint lookup. A later session (see "Magnifier glass shows the screen but never actually zooms in") got the user's agreement to run this checkout as a real, standalone Quickshell instance and screenshot it — the power menu was opened via its own IPC (`qs ipc call powerMenu trigger`) as part of that, and the screenshot shows exactly the four expected shapes: a padlock for Lock, a crescent "power-sleep" glyph for Suspend, the existing power glyph for Shut down, and a circular-arrow restart glyph for Reboot — Hibernate correctly shows no icon, matching this entry's own documented gap. Nothing renders as a blank box. This was incidental to that session's own task, not a re-verification of this entry specifically, but it directly answers the "what do they render as" gap left open above.
 
 ### How to test it
 1. Pull `phi-shell` `dev`.
