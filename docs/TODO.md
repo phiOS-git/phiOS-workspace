@@ -5,152 +5,315 @@ The user's backlog. An agent that starts on an entry prefixes it with
 written up in `VERIFICATION.md`. See `AGENTS.md` — *The TODO / VERIFICATION
 loop*.
 
+Full hardware-verified research and dead-end investigation notes behind the
+entries below live in `docs/investigations.md`, so this file stays quick to
+scan — an investigated entry ends with a pointer there instead of the full
+writeup.
+
+## Open Questions
+
+Quick index of every entry below still waiting on a decision. Answer
+directly here or on the matching entry (add an **Answer:** line the way
+the sensor/permission entry already has) — either way, keep this index and
+the entries in sync: when a question is answered, update or remove it in
+both places.
+
+1. **Search-any-file provider:** indexed (`plocate`) vs. a live `fd` over
+   an explicit extra-roots list — and which roots per host?
+2. **Scratchpad bar icon:** reopen ADR 134 to give the scratchpad its own
+   independent active-state, polled via `hyprctl monitors -j`?
+3. **Trash feature:** which package/integration, and does it need a `phi`
+   verb / runner integration?
+4. **System file picker:** a native portal backend, a picker built into
+   phi-shell itself, or both?
+5. **Chat/notification gesture:** trigger on 4 fingers, or 3 fingers + a
+   held modifier, since 2-finger and edge-start aren't available?
+6. **Always-empty workspace:** what was the cut-off part of the request,
+   and is reopening the dynamic-workspaces decision (§2.3) acceptable?
+7. **Default wallpaper + palette:** want a few candidate palettes proposed
+   (WCAG-checked) before one is committed?
+8. **VPN panel restructure:** single master row + picker — exclusive
+   (switching configs brings the old one down) or independently toggleable?
+9. **Scrim/dim split:** what does "the scratchpad" dim refer to (nothing
+   implements a scratchpad dim today), and is it acceptable for Clipboard
+   to share whatever change is made to the Notifications panel's dim?
+10. **Dotfiles "Better separation":** which part of the installer/profile
+    split reads as poorly separated today?
+11. **"Remove AI shenanigans":** which files/directories/artifacts,
+    specifically?
+12. **`~/.local/share/phios` relayout:** worth doing even though it can
+    only be verified with a real reinstall — and should the installer
+    auto-migrate an existing old-layout install?
+13. **Installer:** what specifically is lacking about the current one?
+
 ## Bug Fixing / Improvements
 
-- on razer the trackpad does not work after hibernation * to be tested, migh be solved
+- on razer the trackpad does not work after hibernation — to be tested,
+  might already be solved.
 
-- tailscale/vpn and network overlay and status bar icon should be merged in a single element, showing network informations. It should display in the bar: the type of connection (LAN/WIFI), its status (enabled, disabled, wifi intensity, and an X on the LAN/WIFI icon if connected but without internet), and a VPN icon if active, tailscale icon if connected. The overlay pannel should have 2 states: compressed and expanded. It should show most of the relevant network informations and switches: type of connection, firewall, VPN, the network speed and ping visual, a list of active servers (grouped by source) with killswitches, and so on. All the advanced settings should be available in the settings panel, while most commont interactions should be available in this panel as well.
+- tailscale/vpn and network overlay and status bar icon should be merged
+  into a single element, showing network information. It should display
+  in the bar: the type of connection (LAN/WIFI), its status (enabled,
+  disabled, wifi intensity, and an X on the LAN/WIFI icon if connected but
+  without internet), and a VPN icon if active, tailscale icon if
+  connected. The overlay panel should have 2 states: compressed and
+  expanded. It should show most of the relevant network information and
+  switches: type of connection, firewall, VPN, the network speed and ping
+  visual, a list of active servers (grouped by source) with killswitches,
+  and so on. All the advanced settings should be available in the settings
+  panel, while most common interactions should be available in this panel
+  as well.
 
-- after hibernation, the screen automatically suspend after 1 minute which is not the normal behavior (it should take longer) — investigated 2026-09-11: searched all of `phios-dotfiles` for anything that could set an idle-timeout/auto-lock/DPMS policy (`grep -rl "idle\|suspend\|hibernate\|sleep"`). Found only `profiles/laptop/system/etc/systemd/logind.conf.d/10-lid.conf` (`HandleLidSwitch`/`HandleSuspendKey` — LID CLOSE and the physical suspend key, unrelated to an idle *timeout*) and `hypridle` listed in `profiles/desktop/packages.txt` with an explicit comment that its config is "deferred" — **no `hypridle.conf` (or any other idle-timeout config) exists anywhere in this repository, committed or templated.** So this project sets no idle-timeout policy at all; the observed "suspends after 1 minute post-hibernation" cannot be something `phios-dotfiles` configures, since there's nothing here to misconfigure. Did not attempt a guess-based fix. Next time this happens, on the real machine (not from this repo): `systemctl --user status hypridle` (is it even running, and does `~/.config/hypr/hypridle.conf` exist there outside the repo — if hypridle IS running with some config, where did it come from), `loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}')` (an `IdleActionUSec` or similar systemd-logind-level timeout, separate from hypridle entirely), and specifically whether the 1-minute timer only starts counting fresh right after a hibernation *resume* (a session/idle-timer reset on wake, which would point at a resume-hook or systemd-logind interaction rather than a normal idle timeout misconfiguration) versus being the ordinary idle timeout just being reached faster than expected around the same time as a hibernation resume.
+- after hibernation, the screen automatically suspends after 1 minute,
+  which is not the normal behavior (it should take longer). No idle-timeout
+  config exists anywhere in this repo — nothing here to misconfigure.
+  *(full notes: `docs/investigations.md#idle-timeout-after-hibernation`)*
 
-- the ai agent a1 always fails starting. Running `phi agent broker —instance a1` shows it binds it correctly on “127.0.0.1:8789” (after the second time it shows the address occupied). — investigated 2026-09-11: read `phi/internal/agent/broker.go` (bind/shutdown logic looks correct, no stale-socket handling gap for TCP), `phi/internal/cli/agent.go` (SIGINT/SIGTERM → graceful `srv.Shutdown`, looks correct), `phi-shell/Services/Agent.qml` (only ever issues one `systemctl start phi-agent-a1.service`, guarded against re-entrancy), and `phi-agent-broker@.service`/`phi-agent-a1.service` (no code bug found, but `Type=simple` with no readiness sync between the broker binding its socket and `phi-agent-a1.service` starting is a plausible source of a *different* failure mode — connection-refused, not the reported address-in-use). Could not find a concrete code defect, and did not want to guess at a fix to the credential-broker's systemd unit without being able to observe the actual failure — this needs the real machine. Running `ss -ltnp | grep 8789` and `systemctl --user status phi-agent-broker@a1.service` shows the service active and the server open: check ai-agent.output for the log. However the chat panel does not work "phi-agent-a1.service is not running, or the containment failed to start. Nothing runs outside the containment". Running `phi agent code .` opens the opencode session but it keeps showing an error "socat[64] E connect(, AF=1 \"run/phi-agent/net/proxy.sock\", 31): No such file or directory" and opencode does not work. opencode normally works. The entire AI feature must be debugged and corrected (and the UI must be changed, see in the styling section)
+- the ai agent a1 always fails starting: the broker binds correctly, but
+  the chat panel reports the containment failed to start, and `phi agent
+  code .` fails with a socat error connecting to the proxy socket. No code
+  defect found by reading; the whole AI feature needs a real debugging
+  pass on hardware (the UI also needs rework, see Style).
+  *(full notes: `docs/investigations.md#ai-agent-a1-fails-to-start`)*
 
-- area selection in screenshot, OCR and QR reading is never right. The offset changes as the size and position of the area change. — investigated 2026-09-11: all three modes (save/OCR/QR) already share ONE selection code path in `phi-shell/Screenshot/Screenshot.qml` (`onReleased` → `_captureGeometry` → `_doCaptureGeometry`, differing only in what runs on the resulting PNG afterwards — `tesseract`/`zbarimg`/clipboard-copy), so there's no separate bug surface between them; a fix to the shared geometry math fixes all three identically. That shared math already carries a prior hardware-verified fix (commit `df4298d`) for offset growing with the SELECTED AREA'S POSITION on a multi-monitor layout — confirmed against grim's own source (`github.com/emersion/grim`, `render.c`) that grim wants the `-g` box in logical (not physical/scaled) coordinates, which `root.screen.x/y + selectionRect.x/y` already is. Read the current formula carefully for a SEPARATE bug where offset grows with the selected area's SIZE (not position) specifically, since that's what this entry says and df4298d's own comment only discusses the position case: found no mechanism for it — x/y and width/height are computed and rounded completely independently in `onReleased`, so width/height cannot mathematically feed back into the reported x/y in the current code. Could not reproduce or measure on real hardware to find whatever mechanism does exist. Next time this happens: get exact numbers — the logical selection rect drawn on screen (x, y, width, height, and which monitor / its `scale`) vs. the actual crop `file --brief` or `identify` reports for the resulting PNG, ideally for one small and one large selection on the same monitor — so a real size-correlated formula (if one exists) can be isolated instead of guessed at.
+- area selection in screenshot, OCR and QR reading is never right — the
+  offset changes as the size and position of the area change. Hardware-
+  measured: not a coordinate bug — at integer monitor scale, capture is
+  pixel-perfect at every size. At fractional scale (e.g. razer likely
+  runs), larger selections show real pixel noise that also reproduces in
+  a bare full-screen `grim` capture with zero phi-shell code involved —
+  points to compositor/GPU dithering under fractional scaling, not an
+  offset bug. No fix identified yet.
+  *(full notes: `docs/investigations.md#screenshot-area-selection-offset`)*
 
-  **Measured live 2026-09-14, on zotac (with the user's agreement to a brief, fully-reverted monitor-scale change for this test only — restored immediately after, confirmed back to normal).** Not a code bug at all, in `Screenshot.qml` or in `grim`'s own geometry math: **at the monitor's normal integer scale (1x), `grim -g` is byte-for-byte, pixel-perfect position-correct at every size tested** (50×50 up to 1800×950, round and irregular origins, on a fully static wallpaper-only background to rule out on-screen animation as a confound) — confirmed by cropping the identical region out of a plain full-screen capture with ImageMagick and diffing pixel-for-pixel: zero difference, every time. This directly confirms the 2026-09-11 note's own reading of the code (x/y and width/height really don't interact) and extends it from "no mechanism found by reading" to "no mechanism found by measuring, at scale 1."
+- improve the neovim chroma integration, with as many mappings as
+  possible: only valid next-keys should be backlit, colour-coded by the
+  nature of the command (e.g. pressing "g" lights the numbers in one
+  colour, the g in another). Currently the colours change smoothly; they
+  should change instantly instead. Needs a full key-name → (row, col)
+  mapping table that can only be built by hand on the real keyboard, and
+  the underlying `org.razer` DBus service has never been confirmed
+  reachable from any environment this project has run in.
+  *(full notes: `docs/investigations.md#neovim-chroma-per-key-integration`)*
 
-  Temporarily forced the same monitor to a fractional scale (1.25×, matching what a laptop like `razer` commonly runs and zotac's own desktop monitor does not) and reran the identical test: **a small selection (50×50 logical) was still pixel-perfect, but every larger selection showed a real, nonzero, size-correlated pixel mismatch** (large 800×600: 2.3% of pixels differ; a 1500×900 near-full-screen selection: 8.1%) — this is genuinely new, measured evidence, not a guess, and it reproduces the reported pattern (worse as the area grows) for the first time in this project's history on this bug.
+- when in full screen, the status bar does not appear by moving the
+  cursor on the top edge. The bar's auto-hide/edge-reveal code looks
+  correct by reading, but how a Top-layer bar interacts with a fullscreen
+  window is genuinely unsettled upstream in Hyprland right now (a relevant
+  PR is still in draft) — depends on the exact Hyprland version installed
+  on razer, which isn't recorded anywhere in this repo.
+  *(full notes: `docs/investigations.md#status-bar-not-appearing-in-fullscreen`)*
 
-  It is NOT a coordinate/offset bug even so: shifted the comparison's crop origin by every combination of ±1/±2 pixels in x and y and reran the diff at each — no shift ever reduces the mismatch below the unshifted value, and every shift makes it WORSE. A true "off by N pixels" bug would show a large IMPROVEMENT at the correct shift; this shows none, which rules that mechanism out cleanly. Went one step further to isolate WHERE the noise comes from: took two independent PLAIN FULL-SCREEN `grim` captures (no `-g`, no crop, no phi-shell code involved at all) back to back, of the same static wallpaper, still at 1.25× scale — **they were not byte-identical either** (2% of the full 1920×1080 frame differs between two consecutive whole-screen captures of unchanging content). That rules out `Screenshot.qml`'s geometry AND grim's `-g` handling specifically as the source: the noise is present in a bare `grim` full-screen capture with no sub-region logic involved anywhere. This reads as the compositor or GPU driver applying some form of dithering/resampling noise to the output buffer specifically when the monitor scale is fractional (a common technique to avoid visible colour-banding under non-integer scaling) — regenerated differently on every captured frame, which would corrupt OCR/QR decoding (needs crisp, consistent pixel values) far more than it would visibly bother a human looking at a "save" screenshot, plausibly explaining why this reads as "OCR/QR reading is never right" specifically rather than "screenshots look wrong."
+- the network speed graph (settings + bar overlay) does not show real
+  numbers: it's always around 1Kb/s both upload and download. Also make it
+  visually match the reference more: https://github.com/programmersd21/flow
+  Hardware-verified on zotac: the rate math itself is correct (matched a
+  real download's curl-reported speed almost exactly). Leading candidate:
+  `NetStats.qml` measures whatever interface owns the default route — if a
+  VPN/Tailscale exit node is up, it measures the tunnel's small, constant
+  traffic instead of the real link. Needs checking, mid-bug, on whichever
+  host reproduces this: does `ip route show default` name the real NIC or
+  a tunnel?
+  *(full notes: `docs/investigations.md#network-speed-graph-wrong-numbers`)*
 
-  No fix identified — this can't be fixed in `Screenshot.qml`, since the noise reproduces in a bare `grim` call with zero phi-shell code involved. If it's real on `razer` (this was only tested on zotac's desktop monitor, forced to a fractional scale it doesn't normally run — a real confirmation needs `razer`'s own actual, currently-configured scale factor, `hyprctl monitors -j`'s `scale` field), the fix would have to be compositor/driver-side (a Hyprland setting disabling this dithering for screencopy clients specifically, if one exists — not searched for this session) or a phi-shell-side mitigation (e.g. averaging several captures to cancel random per-frame noise, expensive for a live screenshot tool, and unverified to even work if the dither isn't independent between frames). Next time this happens: confirm `razer`'s actual monitor scale first (if it's already an integer, this whole theory is wrong and the mismatch must be something else entirely); if fractional, this note's own measurement method (two full-screen captures diffed, no phi-shell involved) is the fastest way to confirm the same effect exists there before looking for a fix.
+- zsh in dark theme has the directory in black on black. Traced
+  end-to-end and **does not reproduce on zotac** — real renderer, real
+  tokens, and a real zsh session all render the correct colour; on-disk
+  config matches. May be razer-specific. Diagnostic for next time: is the
+  OTHER prompt segment (`user@host`) also black, or only the directory? If
+  both, something is stripping the whole prompt at runtime; if only the
+  directory, the on-disk file isn't what this repo's renderer produces.
+  *(full notes: `docs/investigations.md#zsh-black-on-black-directory`)*
 
-- improve the neovim chroma integration, with as many mapping as possible. When I press a key only valid options in the keyboard should be backlit, with color codes to understand the nature of the command (eg. If I press “g” I should have the numbers in a color, the g in another color, and so on). Currently the colors change smoothly, in this integration it should be instant instead.
+- wifi speed graph does not show real values, it's stable at 1kb/s with
+  5kb/s peaks (it should be ~20Mb), both upload and download — same bug as
+  "the network speed graph ... does not show real numbers" above
+  (`Services/NetStats.qml` is the one singleton behind both surfaces); see
+  that entry rather than duplicating it here.
 
-  **Investigated 2026-09-14:** the main ask ("only valid options... backlit, with colour codes... numbers in a colour, the pressed key in another") needs several keys lit in different colours at once — inherently per-key, not the single whole-keyboard tint the current integration does (`profiles/base/home/.config/nvim/lua/phi_chroma.lua` sends only one mode letter; `phi-shell/Services/Chroma.qml`'s `setNvimMode`/`_nvimColor` push one `setStatic` colour for the whole keyboard). `Chroma.qml` does have a real per-key path already (`advanced`/`keyOverrides`, `setKeyRow`/`setCustom`, the `Widgets/KeyboardMap` grid) — so the primitive exists — but every key it addresses is keyed by matrix `(row, col)`, and the file's own header is explicit that those coordinates have no known mapping to physical keys anywhere in this repo: "the user reads their real values off the KeyboardMap grid" — i.e. discovering which `(row, col)` is the "g" key, which are the number-row keys, and so on for every key this feature would need, is a one-at-a-time manual real-hardware task with no shortcut. Building "as many mappings as possible" needs that whole table first, and it can only be built on the real keyboard.
+- the scratchpad bar icon has no visual "shown" state — it always looks
+  the same whether the scratchpad is currently visible or not. This was a
+  deliberate choice (ADR 134 in `Workspaces.qml`): a numbered workspace and
+  the scratchpad could both read "active" at once, so a shared toggle
+  state would lie half the time. It may not be a hard blocker anymore —
+  `hyprctl monitors -j` now exposes `specialWorkspace.name`, a source this
+  project already polls elsewhere for state Quickshell can't read
+  directly. See Open Questions #2.
+  *(full notes: `docs/investigations.md#scratchpad-bar-icon-no-visual-state`)*
 
-  Deeper problem underneath that: **the `org.razer` DBus service this entire file talks to has never been reachable from any environment this project has run in** (`Chroma.qml`'s own header, unchanged since S-46: "no org.razer service is reachable from this machine to call, so this file has never run"). Every existing Chroma feature — including the neovim integration already shipped — was written against openrazer's documented DBus API and the user's own confirmation it works on this Razer Blade, never actually exercised here. A change this large, on a surface with zero verified working history, isn't something to extend blind.
+- the power overlay buttons show no text and don't do anything on click.
+  Investigated 2026-09-13: the label binding and the full click → dispatch
+  chain (`BarPopout.qml` → `SmallButton.qml` → `PowerActions.qml`) reads
+  correctly wired; no defect found by reading. The confirm step this used
+  to lead into is now `Services/ConfirmDialog.qml`, a separate modal.
+  Needs a screenshot of the actual on-screen failure to progress further.
 
-  The "instant not smooth" clause specifically: read the whole file for any colour transition — there is none. Every mode change calls `_render()`, which composes one `setStatic`/`setKeyRow`+`setCustom` frame and pushes it via one synchronous `busctl` call; no `Behavior`, `ColorAnimation`, or software-side fade exists anywhere in `Chroma.qml`. If the colour genuinely fades on a real keyboard, that's the Chroma firmware's own transition effect, not this code — fixable only via whatever DBus method (if any) openrazer exposes for transition style, which needs the same real, currently-unreachable service to find and test.
+- alt+tab still does not work: it does not close when releasing alt, it
+  does not start with the right window selected, it does not focus the
+  selected window (neither with click, touch, enter, space or whatever),
+  it does not change workspace. It's completely broken, the only part that
+  works is calling it with the gesture. **Partially fixed 2026-09-14** as
+  a side effect of a different investigation (see `VERIFICATION.md`,
+  "Several window-management keybinds silently do nothing"): focusing the
+  window and changing workspace are fixed (the dispatch calls were
+  rejected by this Hyprland build's Lua config; switched to the Lua-call
+  form). Still open: doesn't close on Alt release, doesn't start with the
+  right window selected — a different mechanism, not yet investigated.
 
-  Next time this happens: on the real machine, confirm `org.razer` is actually reachable (`busctl --user introspect org.razer /org/razer/device/<serial>` — this alone has never been confirmed possible from this project), then use `Widgets/KeyboardMap`'s existing per-key picker to build a real key-name → `(row, col)` table for at least the keys this feature needs (letters, digits, common modifiers) before any mapping logic can be written.
-
-
-
-- when in full screen, the status bar does not appear by moving the cursor on the top edge — investigated 2026-09-14: `Bar/Bar.qml`'s own `autoHidden`/`hoverHandler` mechanism (fullscreen auto-hide + edge-reveal) looks structurally sound by reading alone — the window's own geometry never shrinks, only `exclusiveZone` and `barContent`'s internal `y` change, so a `HoverHandler` at the very top of the screen should in principle still see the pointer. The file's own comment asserts this ("hoverHandler below can still catch a pointer at the very top of the screen even while hidden") but nothing in the file or VERIFICATION.md history marks that claim as hardware-confirmed.
-
-  Checked whether this is the same root-cause class as the bar-popout positioning bug just fixed (an `exclusiveZone`/layer issue) — it is not a simple one-line fix this time. Real, current research against Hyprland's own GitHub (not recalled, fetched 2026-09-14) found this exact area — how a `Top`-layer surface like a status bar interacts with a fullscreen window above it — is genuinely unsettled upstream: [hyprwm/Hyprland#15937](https://github.com/hyprwm/Hyprland/pull/15937), still in **draft**, not merged as of 2026-09-12, is actively changing whether newly-spawned `Top`-layer surfaces render above or below a fullscreen window, and the maintainers' own discussion on that PR is still going back and forth on the default. That means even the CURRENT, released Hyprland's behavior here — whichever version is actually installed on `razer` — cannot be pinned down from source reading alone; it depends on a version that isn't recorded anywhere in this repo.
-
-  The one plausible code fix considered — moving `Bar.qml` onto `WlrLayer.Overlay` (Quickshell's topmost layer, the same one `Settings`/`Sidebar`/`Launcher`/`AltTab`/`Cheatsheet`/`Screenshot`/`AgentPanel`/`ConfirmDialog` all already use specifically so their own dimming scrim can cover the bar) — was deliberately NOT made: every one of those other surfaces relies on being ABOVE the bar in z-order for that scrim-covers-the-bar behavior, and z-order WITHIN one layer (as opposed to between layers) is not something this session can predict or verify without a compositor. Bumping the bar to the same layer those surfaces already occupy risks a new, different regression (the bar rendering on top of a scrim meant to cover it) in exchange for an unconfirmed fix to this one. Not worth the risk blind. Next time this happens: confirm the installed Hyprland version (`hyprctl version`) and check whether #15937 (or whatever it becomes) has landed in it — that determines whether this is stock Hyprland behavior needing a `misc:allow_new_top_layers_over_existing_fullscreen`-style config line in `hyprland.lua.tmpl`, or a phi-shell-side layer issue after all.
-
-
-- The network speed graph (settings + bar overlay) does not show real numbers: it's always around 1Kb/s both upload and download. Also make it visually match the reference more better: https://github.com/programmersd21/flow — investigated 2026-09-13: `Services/NetStats.qml` is the single source both the settings-panel graph and the bar-overlay graph read from (`Settings/sections/Connectivity.qml`, `Panels/BarPopout.qml`), so this and the "wifi speed graph" entry below are one bug, not two. A prior session already found and fixed one real defect here (commit `f5915a7`; VERIFICATION.md's own now-deleted "fixed a real under-reporting bug, but... may not be fully resolved" entry): the rate math trusted the poll `Timer` landing exactly 1000ms after the last sample, replaced with a real `Date.now()`-measured elapsed time. This bug report is dated after that fix, so it's a fresh report that fix did not resolve. Re-checked the two obvious follow-on suspects and ruled both out by reading: (1) `/proc/net/dev` field parsing — `parts[1]` = rx_bytes, `parts[9]` = tx_bytes is correct per the kernel's own field layout (8 receive fields precede transmit); (2) the Quickshell Process-respawn landmine this file's own header calls out (`Services/Tailscale.qml`'s documented `Process.onFinished` unconditional re-arm) — `devProc`/`pingProc`/`routeProc` here all already set `running = false` in `onExited`, the same guard `Tailscale.qml`'s own `probe` uses, so that tight-loop failure mode shouldn't apply here either. `_fmtRate()`'s kb/s-vs-Mb/s threshold and rounding, in both consumer files, is also correct by inspection.
-
-  One real, unverified candidate: `NetStats.qml` resolves which interface to measure via `ip route show default`'s device — the DEFAULT ROUTE's interface, not necessarily the physical Wi-Fi NIC. If the machine has a full-tunnel VPN up (`phi vpn up`) or a Tailscale exit node enabled, the default route points at that tunnel interface instead, whose own idle/control-plane traffic is small and roughly constant — which would look exactly like this report (a small, stable number regardless of real link speed) with the rate math never being wrong at all. Nothing in this repository configures either state (WireGuard tunnels and Tailscale exit-node state are both runtime-only, outside every repo), so this can't be confirmed or ruled out from source. Next time this happens: on the affected machine, run `ip route show default` while reproducing the bug — does it name the real NIC (`wlan0`/`wlp*`) or a tunnel (`wg0`/`tailscale0`)? — and compare against the same command with any VPN down and any Tailscale exit node off.
-
-  **Measured live 2026-09-14 on zotac** (ethernet-only, no Wi-Fi hardware to test the sibling "wifi speed graph" entry specifically, but the same `NetStats.qml` singleton and formula either way): bracketed a real 10 MB HTTP download with `/proc/net/dev`'s own `enp7s0` rx-byte counter, read before and after, and ran the exact `NetStats.qml` formula (`(Δbytes × 8 / 1000) / Δseconds`) against the real measured delta — **5.89 Mbps**, against curl's own reported **5.61 Mbps** for the same transfer. The small gap is in the expected direction and size (the raw interface counter includes IP/TCP header overhead curl's payload-only `speed_download` metric doesn't count) — this is a clean, real-traffic confirmation that the rate math itself is correct, on top of the 2026-09-13 note's code-reading conclusion. `ip route show default` on zotac right now names the real NIC (`enp7s0`), no VPN or Tailscale exit node up, so the one still-unconfirmed candidate (a tunnel silently owning the default route) could not be tested here — zotac has neither configured. Still the most likely explanation left standing; still needs checking on whichever host actually reproduces this, mid-bug, exactly as the note above already asks.
-
-- zsh in dark theme has the directory in black on black — investigated 2026-09-13: traced the whole pipeline end to end and found no defect anywhere in it. Built `phi` and ran the *real* renderer against the *real* dark tokens (`phi theme render --variant dark profiles/base/templates/.config/zsh/theme.zsh.tmpl`), which produces `PROMPT='%F{#d3a0ac}%n@%m%f %F{#d6d1c9}%~%f %# '` — `%~` (the directory) is `#d6d1c9`, `PHI_FG_0` dark, a light cream, never black in any commit of `design/tokens.dark.sh` (checked `ac8b04e`, `b97f3f4`, `08eb32d`). Fed that exact rendered `PROMPT=` line to a real zsh 5.9 and printed it (`print -P "$PROMPT"` piped through `cat -v`): it emits `\e[38;2;214;209;201m` for the directory segment, the correct 24-bit truecolor escape for `#d6d1c9`, not black. The Go substitution (`internal/theme/render.go`'s `variableRef`/`Substitute`, `internal/tokens/tokens.go`'s `tokenLine`) has no name-boundary bug — `PHI_FG_0`'s trailing digit matches fine, same code path as `PHI_ACCENT` which is not reported broken. No `LS_COLORS`/`dircolors`/`eza`/`zstyle list-colors` config exists anywhere in this repo (ruled out the completion-menu and `ls`-output surfaces entirely), no prompt framework (starship/oh-my-zsh/etc.) is installed, and `theme.zsh` is a real, declared `design/adapters.txt` row (class C, correctly sourced unconditionally from `.zshrc`).
-
-  One genuinely new fact worth keeping: zsh's `%F{}` prompt escape is NOT forgiving of an empty argument — `%F{}` (empty color name) renders as literal ANSI black (`\e[30m`), while `%F{garbage}` (an unrecognized name) safely resets to default (`\e[39m`). So **only a wholesale-empty substitution produces black**, and this project's renderer is confirmed, by the real end-to-end test above, not to produce one for this template. This gives one sharp discriminating question for next time it happens: is the accent-coloured `%n@%m` segment ALSO black, or only `%~`? If both are black, something is stripping the whole `PROMPT` value at runtime (not this template); if only the directory is black, the rendered file on disk is not what this repo's renderer produces, and something downstream (stale `~/.config/zsh/theme.zsh` from before a token fix, or a `zsh/nearcolor` module loaded by an `/etc/zsh/zshenv` or `/etc/profile.d/` global rc outside this repo — `zmodload -L | grep nearcolor` on the affected machine turned this exact hex into `\e[39m` default-not-black in one quick test here, so it's a live but unconfirmed candidate) is overriding it. Next time this happens, on the real machine: `cat ~/.config/zsh/theme.zsh` (does the ON-DISK file actually hold `#d6d1c9`, or is it stale/truncated — this one check resolves most of the remaining uncertainty), `zmodload -L | grep nearcolor`, `echo $TERM`, and whether it reproduces outside kitty (e.g. in the Linux VT or over SSH from another machine).
-
-  **Checked live 2026-09-14 on zotac** (the same real-machine checks this note already asked for, now actually run rather than deferred): `~/.config/zsh/theme.zsh` on disk holds exactly `PROMPT='%F{#d3a0ac}%n@%m%f %F{#d6d1c9}%~%f %# '` — not stale, matches the renderer's own output. `zmodload -L | grep nearcolor` returns nothing (module not loaded). `print -P "$PROMPT"` inside a real interactive shell (confirmed by its own process tree: `kitty → zsh` is a direct parent, this genuinely is a kitty pane, not a bare terminal) emits `\e[38;2;211;160;172m` for the accent segment and `\e[38;2;214;209;201m` for the directory — both correct 24-bit truecolor, neither black. **Does not reproduce on zotac.** This doesn't close the entry — the report may be `razer`-specific (a different `/etc/profile.d/`, a different kitty version, or something else host-local that isn't in any repo) — but it does rule out zotac as a second site where this happens, and confirms every one of the 2026-09-13 predictions held on a real machine, not just in theory.
-
-- wifi speed graph does not show real values, it's stable at 1kb/s with 5kb/s peaks (it should be ~20Mb), both upload and download — same bug as "the network speed graph ... does not show real numbers" above (`Services/NetStats.qml` is the one singleton behind both surfaces); see that entry's investigation note rather than duplicating it here.
-
-- the scratchpad bar icon has no visual "shown" state — it always looks the same whether the scratchpad is currently visible or not, regardless of how it was opened (the icon, or MOD+A). `Bar/modules/Workspaces.qml`'s own header comment records this as a deliberate choice (ADR 134): a numbered workspace and the special one can both read as "active" at once, so a lit toggle sharing that same `active` state would lie half the time — not an oversight, a considered decision made when this looked technically impossible to do correctly.
-
-  It may not be impossible anymore: confirmed against current Hyprland source (`hyprwm/Hyprland`, `src/ipc/s1/Commands.cpp`'s `getMonitorData` and `src/workspace/SpecialWorkspace.cpp`'s `create()`) that `hyprctl monitors -j` includes, per monitor, `"specialWorkspace": {"name": "..."}` — exactly `"special:scratch"` when the scratchpad is shown on that monitor, `""` when it is not. This is a source the current Quickshell-IPC-only tracking never used; it comes from a plain `hyprctl` subprocess poll, the same established pattern already used elsewhere in this repo (`AltTab/AltTab.qml`, `Screenshot/Screenshot.qml`, `Services/Keybinds.qml`) for exactly this class of state Quickshell's own Hyprland module cannot read.
-
-  **Question:** building this reopens ADR 134, a considered decision, not a bug fix — is that wanted? And if so: is a background poll of `hyprctl monitors -j` (at what interval — this is a cosmetic indicator, not a critical one) an acceptable ongoing cost for one bar icon's highlight state, and should the scratchpad get its own INDEPENDENT `active` binding (decoupled from the numbered-workspace one, so it never fights the "which number is active" bool ADR 134's own concern was actually about) rather than reusing the shared one?
-
-- the power overlay buttons show no text and don't do anything on click — investigated 2026-09-13: read `Panels/BarPopout.qml`'s power section, `Widgets/SmallButton.qml` and `Services/PowerActions.qml` end to end; the label binding, the `TapHandler` → `clicked()` → `_requestPowerAction` chain, and `PowerActions.title()`/`perform()` all look correctly wired with no defect found by reading alone. Could not reproduce or observe the actual failure — needs a screenshot of what's actually on screen next time this happens, since the source doesn't show an obvious cause. (2026-09-13, later same day: the confirm step this chain used to lead into — `_confirmPowerAction`, named in an earlier version of this note — was replaced by `Services/ConfirmDialog.qml`, a separate centered modal; unrelated to this report, which is about the plain action buttons themselves, but if this is re-investigated, the confirm step is no longer inline in this card at all.)
-
-
-
-- alt+tab still does not work: it does not closes when releasing alt, it does not start with the right window selected, it does not focus the selected windom (neither with click, touch, enter, space or whatever), it does not change workspace. It's completely broken, the only part that works is calling it with the gesture
-
-  **Investigated/partially fixed 2026-09-14, as a side effect of a different investigation (see VERIFICATION.md, "Several window-management keybinds silently do nothing"):** the "does not focus the selected window" and "does not change workspace" halves are very likely explained and fixed — `AltTab/AltTab.qml`'s `_focusWindow`/`_focusWorkspace` ran `hyprctl dispatch focuswindow address:...` / `hyprctl dispatch workspace <id>` as subprocesses, which this Hyprland build's Lua config rejects entirely (confirmed live against a real Hyprland session, not guessed); fixed to dispatch the Lua-call form instead. The other two symptoms — "does not close when releasing alt" and "does not start with the right window selected" — are a different mechanism (alt-release detection and initial-selection logic within AltTab.qml itself, nothing to do with the dispatch bug) and were NOT investigated this pass; still open.
-
-- the runner needs a "search any file" category (beyond the existing home-directory-only file search), ranked below phi commands and above ask-ai-agent. A live `fd` pass over the whole filesystem cannot fit `internal/query`'s ~120ms per-provider budget, so this needs a design decision first: an indexed search (e.g. `plocate`, official `extra` repo) means a persisted, always-on-disk index of file paths, which is exactly what `internal/query/files.go`'s own header flags as needing to respect I-08 (an index must live on the encrypted volume and stay excluded from sync) — versus a live `fd` scoped to a short, explicit list of extra roots (which ones — `/mnt/bulk` on `zotac`, `/srv` on `mini`? neither exists on `razer`) with a tighter timeout or a longer debounce than a keystroke.
-
-  **Question:** a live filesystem-wide `fd` pass cannot fit the launcher's per-provider timeout budget. Indexed search (an official-repo tool like `plocate`) means a persisted, always-on-disk index of file paths across the whole disk, which is a real privacy/policy question (`internal/query/files.go`'s own header already treats a persisted index as something the "index on the encrypted volume, excluded from sync" constraint applies to — the current home-only search avoids this entirely by never persisting anything). Which approach: (a) an indexed tool, and if so should its database be confined to specific directories rather than the whole disk; or (b) a live search scoped to a short, explicit extra-roots list beyond `$HOME` — and if (b), which roots per host, since `/mnt/bulk` only exists on `zotac` and `/srv` only on `mini`?
-
-
+- the runner needs a "search any file" category (beyond the existing
+  home-directory-only file search), ranked below phi commands and above
+  ask-ai-agent. A live filesystem-wide `fd` pass can't fit the launcher's
+  ~120ms per-provider budget — needs a design decision first. See Open
+  Questions #1.
 
 ## Features
 
+- add trash feature (package to be picked). Options (to be checked if
+  they work as expected): CliFM (cli), ... — check the list on
+  archlinux.org file manager. See Open Questions #3.
 
+- system file picker required. See Open Questions #4.
 
+- joining a new secured Wi-Fi network from the shell needs a password
+  path that keeps the secret off the process command line — `nmcli device
+  wifi connect <ssid> password <pw>` puts the password on argv, readable
+  via `/proc/<pid>/cmdline` to any local user, not acceptable. The real
+  argv-free mechanism (`passwd-file`, via `nmcli connection up`) needs a
+  prior `connection add` with the correct `wifi-sec.*` fields per security
+  type (WPA-PSK / WPA3-SAE / WEP differ) — not verifiable without real
+  hardware. Already-known/open networks need no secret and already work
+  (see `VERIFICATION.md`); this entry is only the secured-and-not-yet-known
+  case.
 
+- spotlight cursor: super+super (double tap hold). Still blocked upstream
+  in Hyprland (bare-modifier-only keys never deliver a release event, as
+  of v0.56.2) — not fixable here. Already worked around (bound to SUPER+G
+  instead, shipped). Nothing to recheck until a newer Hyprland release
+  ships.
+  *(full notes: `docs/investigations.md#spotlight-cursor-super-super`)*
 
-- add trash feature (package to be picked). Options (to be checked if they work as expected): CliFM (cli), ... * check the list on archlinux.org file manager
+- consideration: usare alt come super, così avrei 2 super invece che 2
+  alt. Da valutare con software che usano alt [TBD]
 
-  **Question:** the entry itself says "package to be picked" and names one candidate (CliFM) with "options to be checked if they work as expected" — rule 2 restricts this to `core`/`extra`/`multilib`, no AUR. Which package: a dedicated trash CLI (e.g. `trash-cli`, in `extra`), a file manager with built-in trash support already in the stack (does `yazi`, already used per the styling section's own yazi entry, have one worth using instead of a second tool), or something else? And is this meant to be reachable only from a TUI file manager, or does it also need a `phi` verb / runner integration (rule on `phi` verb admission: an alias over one command doesn't qualify on its own)?
+- add gestures to open the chat and notifications panel: 2 finger swipe
+  from edge (touchpad). Make the inverted gesture to close the panel as
+  well. It should move progressively with the scroll, not only a togglable
+  state. Progressive/live gesture tracking is buildable (Hyprland's
+  `hl.gesture()` supports live start/update/finish callbacks). The literal
+  "2 finger swipe from edge" is impossible: libinput itself claims 2-finger
+  movement for scrolling before Hyprland's gesture layer ever sees it, and
+  `hl.gesture()` has no "starts from edge" concept at all. Three fingers is
+  also already fully claimed (Alt+Tab / workspace-switch). See Open
+  Questions #5.
+  *(full notes: `docs/investigations.md#gesture-open-chat-notification-panel`)*
 
-- system file picker required
+- the SUPER+L power menu's Hibernate row still has no icon. Checked
+  nerd-fonts' `glyphnames.json`: no glyph named "hibernate" exists, and no
+  close synonym (sleep, power_standby, moon, bed) reads as hibernate
+  specifically either — needs a deliberate substitute pick, since Lock/
+  Suspend/Reboot all use a real, exact-named icon.
 
-  **Question:** no detail beyond "required" — what needs it? A concrete trigger matters here: (a) a native GTK/Qt portal backend (`xdg-desktop-portal-gtk`/`-kde`/a wlroots-specific one) so ordinary apps get a working "Open"/"Save As" dialog under Hyprland, (b) a picker built into `phi-shell` itself for the shell's own surfaces (the wallpaper section, the quick-note feature below), or both? They're different pieces of work with different packages/architecture.
+- there should always be at least 1 workspace (other than the special
+  ones), also there should always be at least an empty workspace (so if i
+  ope[n...]). See Open Questions #6.
 
-- joining a new secured Wi-Fi network from the shell needs a password path that keeps the secret off the process command line. `nmcli device wifi connect <ssid> password <pw>` puts the password on the process argv, world-readable via `/proc/<pid>/cmdline` to any local user — not acceptable. The real argv-free mechanism nmcli documents (`passwd-file`) only works with `nmcli connection up`, which first needs a `connection add` carrying the correct `wifi-sec.*` field names for whichever security type the network uses (WPA-PSK / WPA3-SAE / WEP each differ) — not verifiable without real hardware to test against. Connecting to an already-known or open network needs no secret and is already built (see VERIFICATION.md); this entry is only the secured-and-not-yet-known case.
-
-- spotlight cursor: super+super (double tap hold) * blocked by issue on hyprland 0.56 *check if fixed*
-
-  **Rechecked 2026-09-14: still broken, not something this project can fix.** The current latest Hyprland release is still v0.56.2 (published 2026-08-05, no newer release exists as of this check), and a 2026-08-17 comment on `hyprwm/Hyprland#6946` — testing a plain keysym bind, the documented "modifier tap" pattern, and a raw keycode bind, all against 0.56.2 — confirms release events never fire for a bare-modifier-only key: press is delivered, release is not, across every variant tried. This is the same finding `phios-dotfiles`' own `hyprland.lua.tmpl` already documents in its "ROUND SIX" comment (commit `48d0a16c`, 2026-09-09), which is why the cursor-spotlight hold gesture is bound to SUPER+G (an ordinary key, reliably delivered both ways) rather than bare Super — that revert is already shipped and is the correct, working shape; nothing about it needs to change.
-
-  **A trap for the next recheck:** `#6946` shows as *closed*, and a separate, unrelated issue (`#6946`'s bot-closed sibling `hyprwm/Hyprland#15952`, about `Control_R` rather than Super) asserts in its own body that "#6946 was closed after a targeted fix" — that claim is the `#15952` reporter's own unverified inference from the closed state, not something they tested, and it is directly contradicted by the newer, rigorously-tested 2026-08-17 comment sitting on `#6946` itself. Checking only whether `#6946` is closed, or only `#15952`'s text, will wrongly conclude this is fixed — read `#6946`'s actual latest comments instead.
-
-  The only known alternative that does receive both press and release for a bare modifier is an app grabbing `/dev/input/eventN` directly via evdev, bypassing Hyprland's own bind dispatch entirely (named in that same 2026-08-17 comment). Not pursued: it would mean a new raw-input-device dependency and a very different architecture from `phi-shell`'s existing IPC-from-Hyprland model, for one gesture — a much bigger trade than this entry asks for. Nothing to recheck again until a Hyprland release newer than v0.56.2 ships.
-
-- consideration: usare alt come super, così avrei 2 super invece che 2 alt. Da valutare con software che usano alt [TBD]
-
-- add gestures to open the chat and notifications panel: 2 finger swipe from edge (touchpad) or swipe from screen edge (touchpad). Make the inverted gesture to close the panel as well. It should move progressively with the scroll, not only a toggable state.
-
-  **Investigated 2026-09-14:** the "moves progressively with the scroll" half is genuinely buildable — real, current research (fetched today, not recalled) against Hyprland's own wiki source confirms `hl.gesture()` supports "live" gestures: pass a table with `start`/`update`/`finish` methods instead of a function, and `update` receives a real per-event `delta.x`/`delta.y` (a working example in the wiki is a live-adjusted volume gesture using exactly this shape). Forwarding every `update` event as its own `qs ipc call` (this project's only IPC mechanism, one process spawned per call) would be tens of calls a second during a swipe — but that's not a hard blocker: accumulating the delta in Lua and forwarding only every ~5-10% of progress (a handful of IPC calls per swipe, phi-shell animating between them with its own `Behavior`, the same interpolation every other surface here already uses) keeps this smooth without flooding anything.
-
-  **The literal "2 finger swipe" cannot be built, and this is a hard technical wall, not a design choice:** libinput's own documentation (wayland.freedesktop.org/libinput, fetched today) states plainly — "Swipe gestures are executed when three or more fingers are moved synchronously in the same direction." Two-finger synchronized movement is claimed by libinput itself for scrolling before Hyprland's gesture layer ever sees it; independent real-user reports researched today (a Hyprland forum thread asking for exactly a 2-finger gesture) confirm the same experience on real hardware. No Lua config in this repository, or anywhere else, can make a 2-finger swipe arrive as a gesture event — this is below the compositor, in libinput itself. Also relevant: this file's existing three-finger vertical swipe is already fully claimed in both directions by the Alt+Tab/overview gesture (`hl.gesture({fingers=3, direction="up"/"down", ...})`, lines ~921-930) and horizontally by workspace-switching — there is no free three-finger direction left to reuse for this feature either. `hl.gesture()` also has no "starts from the screen edge" concept at all (confirmed against the same wiki source) — gestures are finger-count-and-direction only, with no starting-position awareness, so "swipe from screen edge" as a distinct trigger (as opposed to "swipe" full stop) is not implementable via this API either, only via finger count and/or an added `mods` modifier mask.
-
-  **Question:** given both routes named in the entry are technically unavailable (2 fingers is claimed by libinput before Hyprland ever sees it; edge-starting isn't a concept `hl.gesture()` has), which real alternative should trigger this — four fingers (currently completely unclaimed in this file, and the shape the Hyprland wiki's own generic example already uses), or three fingers plus a modifier held (e.g. SUPER + three-finger swipe, `mods` is a real documented field), to keep it at three? And should this land on the notification panel (`Panels/Sidebar.qml`) first, with the chat panel (`Panels/AgentPanel.qml`, a separate surface) following once the live-progress mechanism is confirmed to feel right on real hardware — since this technique has no precedent anywhere in this codebase yet and cannot be verified from here at all, only proven or disproven on the real machine?
-
-
-- the SUPER+L power menu's Hibernate row still has no icon. Checked systematically against a fresh copy of nerd-fonts' own `glyphnames.json`: no glyph named "hibernate" exists anywhere in the whole set, and none of the close synonyms (sleep, power_standby, moon, bed) reads as hibernate specifically either — needs a deliberate substitute pick rather than a guess, since Lock/Suspend/Reboot all now use a real, exact-named icon and Hibernate would be the odd one out either way.
-
-- there should always be at least 1 workspace (other then the special ones), also there should always be at lest an empty workspace (so if i ope)
-
-  **Question:** two things need clarifying before this can be built. First, the sentence itself cuts off mid-word ("so if i ope") — what was the rest of it? It changes what actually needs to trigger: always having a spare empty workspace to switch TO is a different feature from, say, a new window automatically landing on a fresh empty one. Second, and more fundamentally: `hyprland.lua.tmpl`'s own WINDOWS AND WORKSPACES section documents "dynamic workspaces" as a closed master-plan decision (§2.3) — Hyprland creates a workspace on first use and destroys it once empty by default, and the file is explicit that a static/persistent workspace assignment beyond the two already-documented exceptions (Steam on 11, btop on 12) would violate that decision. Guaranteeing an always-present empty spare workspace needs exactly that kind of static/persistent assignment (or a separate background script watching Hyprland's IPC events to dynamically keep one spare around without ever marking a workspace permanently persistent) — either way it's a real architectural change, not a config tweak, so: is this meant to reopen/amend the §2.3 decision, or is a dynamic (script-driven, still-destroyed-when-truly-idle) approach wanted instead?
-
-- i added references/default-phios-wallpaper-placeholder-light.jpg as a file that should be included in the phios repositories (dotfiles i think) for fresh installations. It should not be reapplied on updates, but it should be the selected one when first installing the system (apply a color invertion for the dark theme, not at runtime but generate an invertion of the provided image). Also set the default light and dark colors from the colors used in that image (rebuild the palette starting from those, also pick a better pink, inspired by all the references).
-
-  **Question:** rule 6 makes design tokens the only source of colour system-wide, so this one choice would restyle every themed surface across `phi`, `phi-shell` and every template `phios-dotfiles` renders. That's a real design decision, not an implementation one. Would you like a few candidate palettes (derived from the image, each with a WCAG contrast check via `phi theme check`) proposed for a pick before anything is committed, rather than one palette landed unilaterally?
+- i added `references/default-phios-wallpaper-placeholder-light.jpg` as a
+  file that should be included in the phios repositories (dotfiles i
+  think) for fresh installations. It should not be reapplied on updates,
+  but it should be the selected one when first installing the system
+  (apply a colour inversion for the dark theme, not at runtime but
+  generate an inversion of the provided image). Also set the default
+  light and dark colours from the colours used in that image (rebuild the
+  palette starting from those, also pick a better pink, inspired by all
+  the references). See Open Questions #7.
 
 ## Style
 
-- many elements and options don't have basic UX features. a quick lists: chat panel has no settings button, wallpaer list has no "browse wallpaper folder", most options don't have hover effects, cursor never changes state on clickable elements or fields, tabs are indistinguishable from buttons, some elements are clickable without any feature (eg. the bluetooth elements in the list),  the lock screen has no "locked" state with timer after too many failed attempts, no wrong password visual feedback, no clean button for searchbars, accordions don't differentiate the body, accordions sometimes have the arrow icon sometimes they dont, often time the accordions don't align content with the title (when the arrow is present, they should compensate for it), many elements that have the same behavior don't have the same visual grammar, trigger buttons don't bring loading states or result feedbacks, there are no skeleton loading or loading in general, the settings panel should have options better organised, grouped and ordered in meaningful ways, the settings chat and notification pannels they all use terrible spacings and layout. There are many more issues that can be found, this task requires you to act as an expert UI/UX designer, being critically honest about each feature and every detail, and polish out the system UI/UX to optimal levels, focusing on functionality. No element in the current state has a definitive style, everything can be reworked, but all elements should be coherent and follow the same grammar, possibly using the same styling options. Also as many variable as possible should be mapped in the theme settings. I also added references/settings-layout-reference.PNG as a nice reference layout (see how options are displayed using the space, it's larger, sections are well spaced with separators, advanced options switch to make navigation easier, x button not aligned with the search bar, title, etc.).
+- many elements and options don't have basic UX features. This needs a
+  full expert UI/UX pass. Concrete issues found so far:
+  - chat panel has no settings button
+  - wallpaper list has no "browse wallpaper folder"
+  - most options don't have hover effects
+  - cursor never changes state on clickable elements or fields
+  - tabs are indistinguishable from buttons
+  - some elements are clickable with no visible affordance (e.g. the
+    bluetooth elements in the list)
+  - lock screen has no "locked" state/timer after too many failed
+    attempts, and no wrong-password visual feedback
+  - no clear/clean button for searchbars
+  - accordions don't differentiate the body, sometimes have the arrow icon
+    and sometimes don't, and often don't align content with the title
+    (should compensate for the arrow's width when present)
+  - elements with the same behaviour don't share the same visual grammar
+  - trigger buttons don't show loading states or result feedback; no
+    skeleton loading anywhere
+  - the settings panel needs its options better organised, grouped and
+    ordered
+  - the settings, chat and notification panels all use poor spacing/layout
 
-- the status bar overlays (those that open with the status bar icons) should be reworked, as they don't fit the system style. They also have layout issues (the vpn goes out of bound and is not aligned, it should show VPN and the toggle switch, then the list of configs to pick)
+  There are more issues than this list captures. Be critically honest
+  about every feature and detail, and polish the system UI/UX to a
+  coherent, optimal standard, focused on functionality. No element
+  currently has a definitive style — everything can be reworked, but all
+  elements must end up coherent, sharing the same grammar and styling
+  options where possible. Map as many values as possible into the theme
+  settings. `references/settings-layout-reference.PNG` is a reference
+  layout to match the spirit of (generous spacing, sections clearly
+  separated, an "advanced options" switch to simplify navigation, etc. —
+  down to small details like the close button not aligning with the
+  search bar/title).
 
-  **Investigated 2026-09-14 (the VPN layout clause only — the broader "should be reworked, don't fit the system style" restyle overlaps with the Style section's own "many elements and options don't have basic UX features" entry, left for that pass rather than duplicated here):** the raw overflow this describes looks very likely already fixed. `Panels/BarPopout.qml`'s VPN rows already use `Widgets.ToggleRow` — a widget built specifically because a label-plus-toggle `Row` pushes the toggle off-screen for a long label, hardware-verified on razer for a different row (True Tone) and since reused everywhere a toggle needs a label, VPN included. Both it and `Widgets.ListRow` (the Tailscale row directly above the VPN ones, in the same card) already `elide: Text.ElideRight` and anchor the toggle/value to a fixed edge, inside a card whose width (`root.chWidth * 36`) never changes with content. Worth a quick look on real hardware to confirm before assuming it still reproduces.
+- the status bar overlays (those that open with the status bar icons)
+  should be reworked, as they don't fit the system style — overlaps the
+  general UX entry above, left for that pass. They also have layout
+  issues: the VPN row goes out of bound and is not aligned; it should show
+  VPN and the toggle switch, then the list of configs to pick. The raw
+  overflow looks very likely already fixed (VPN rows now use a widget
+  built for exactly this, hardware-verified elsewhere) — worth a quick
+  look to confirm before assuming it still reproduces. The restructure
+  itself ("VPN + toggle, then a config list") is real, unbuilt work — see
+  Open Questions #8.
 
-  **Question:** the second half is a real, not-yet-built restructuring, not a bug — current code shows one independent `ToggleRow` per WireGuard tunnel (each can be brought up/down on its own; nothing stops more than one being up at once). "Show VPN and the toggle switch, then the list of configs to pick" reads as wanting a single master row (name + one toggle) with a separate picker below for which config is active — which is a real interaction-model decision, not a layout tweak: should selecting a different config in that list bring the previous one down automatically (exclusive, at most one tunnel active), or should each tunnel still be independently toggleable the way it is today, with the "master" row just reflecting `Services.Vpn.anyUp`/`activeName` (both of which already exist and already assume single-tunnel semantics) as a quick glance/shortcut? The two read very differently on screen and change how `Services.Vpn.up()`/`down()` get called from here.
+- the settings-panel switch's color transition still looks like it
+  finishes before the knob finishes sliding across. Investigated: no
+  mismatched duration/easing found in `Toggle.qml` — every transition
+  already shares the same motion tokens. Left undiagnosed rather than
+  guess at a fix; a concrete diagnostic test is on file for next time this
+  is looked at on real hardware.
+  *(full notes: `docs/investigations.md#settings-switch-color-transition`)*
 
-- the settings-panel switch's color transition still looks like it finishes before the knob finishes sliding across — investigated 2026-09-13 already, in `Widgets/Toggle.qml`'s own header comment (not previously copied here): every `Behavior` in the file (track colour, track border colour, knob position, knob colour) already reads the identical `motionBDuration`/`motionBCurve` pair — no mismatched token exists to point at, and the file has exactly one commit in its history, so there's no earlier version with a different value either. **Cause not diagnosed, left as-is** — one theory noted but unverified (sRGB colour interpolation often reads as "arrived" well before a `t=1` geometric move does, at the same eased duration, since the last stretch of a colour lerp is a much smaller perceived difference than the same stretch of physical motion). Re-read 2026-09-14: agreed with the prior call not to guess at a fix here — any change (extending just the colour Behaviors' duration, or giving them a different easing shape) would be exactly as unverified as the original diagnosis, since neither session can see the actual on-screen timing, and rule 6 rules out inventing a new ad-hoc duration/curve outside the motion-category token pairs anyway. The prior note's own discriminating test still stands as the way to actually resolve this: on real hardware, bump `motion-b-duration` in Theme settings (the animation editor already exposes it live) and watch whether the colour still finishes noticeably early at the new duration too — if the gap SCALES with the duration, it's the perceptual theory above (and the fix would be extending only the colour Behaviors, proportionally); if the colour keeps finishing after a roughly FIXED, unscaled head start regardless, something else is going on and needs a fresh look.
+- the dim from the notification, chat panel and scratchpad should not
+  overlay the status bar, while the dim from screenshot, overview
+  (alt+tab) and warning/alert (eg. battery) should cover it. Have the 2
+  types of dim have different intensity as well (the one that overlays
+  should be stronger). Investigated: every dim surface today already
+  covers the bar uniformly — no split exists in either direction yet.
+  Battery alert, screenshot and alt-tab/overview are already correctly in
+  the "covers" category, no change needed there. A second-intensity token
+  would match an existing precedent (`PHI_BORDER`/`PHI_BORDER_STRONG`).
+  See Open Questions #9.
 
-- the dim from the notification, chat panel and scratchpad should not overlay the status bar, while the dim from screenshot, overview (alt+tab) and warning/alert (eg. battery, to be introduced) should cover it. Have the 2 types of dim have different intensity as well (the one that overlays should be stronger)
+- add status bar icons for active sensors (microphone, camera); the
+  overlay should show a list of apps with the sensor they are using and
+  killswitches. Also add settings for killswitches and permission rules.
+  Investigated: the microphone half is buildable now on a proven
+  mechanism (`AudioBridge.qml` already distinguishes active-capture stream
+  nodes from device nodes via Pipewire). The camera half has no precedent
+  anywhere in this codebase (nothing touches `/dev/video*`/v4l2) and would
+  need a new, unverified detection scheme.
 
-  **Investigated 2026-09-14:** every dim surface in `phi-shell` today (`Widgets/Scrim.qml`, one shared component, one fixed intensity token `PHI_OVERLAY_SCRIM`) already uses `exclusiveZone: -1` — i.e. every one of them already covers the bar uniformly. There is currently no split at all, in either direction. `battery` (the alert just landed this session, `Dialogs/BatteryAlert.qml`), `screenshot` (`Screenshot/Screenshot.qml`) and `alt-tab`/overview (`AltTab/AltTab.qml`, the retired `Overview/Overview.qml` folded into it at OOP-24) are already the "covers" category as-is — no change needed there. A design-token precedent for a second, stronger intensity already exists to copy (`PHI_BORDER`/`PHI_BORDER_STRONG`, `PHI_BORDER_WIDTH`/`PHI_BORDER_WIDTH_STRONG`) — a `PHI_OVERLAY_SCRIM_STRONG` token would match it exactly.
+  **Answer:** yes, the permission system must be built. It should be
+  generally restrictive, always asking permission the first time an app
+  requires it (granted once, always, or never).
 
-  **Question:** two things block a clean implementation. First, **"the scratchpad" has no dim anywhere** — not in phi-shell (no `.qml` file implements a scratchpad panel or dim at all; confirmed via `Services/HyprlandBridge.qml`'s own header, Quickshell 0.3.1 genuinely cannot read Hyprland `special:` workspace visibility) and not Hyprland-side either (the scratchpad's `hyprland.lua.tmpl` rules are border/animation/gaps only, no opacity/dim rule). Is this referring to something that should be BUILT (a new dim behind the scratchpad when it's shown, which given the Quickshell limitation above would need a Hyprland-Lua-side `window_rule` opacity/dim setting, not a phi-shell surface), or is "scratchpad" a mix-up with a different, real surface? Second, **the "notification panel" and "chat panel" don't each have their own independently-controllable surface**: the notification list lives as one tab inside `Panels/Sidebar.qml`, which also hosts the Clipboard tab on the exact same `PanelWindow`/`exclusiveZone` — changing the notification tab's coverage would change the clipboard tab's too, since Sidebar has one dim for the whole panel, not one per tab. Is sharing that trade-off acceptable (Clipboard would also stop covering the bar, even though it isn't named in this entry), or does the notification panel need to become its own separate surface first?
-
-- add status bar icons for active sensors (microphone, camera), the overlay should show a list of apps with the sensor they are using and killswitches. Also add settings for killswitches and permission rules
-
-  **Investigated 2026-09-14:** the microphone half is real and buildable on an already-proven mechanism — `Services/AudioBridge.qml`'s own `_devices()` already reads `Pipewire.nodes` and filters out stream nodes (`n.isStream`) to build the sink/source pickers; those same stream nodes ARE an application actively capturing audio, so "is the mic in use by anything" is a live, verifiable boolean from an API this codebase already binds successfully, no new subprocess or detection scheme needed. The camera half has no precedent anywhere in this codebase — no file touches `/dev/video*` or v4l2 in any form — and would need an entirely new, unverified subprocess-based detection scheme (`fuser`/`lsof` polling) with nothing existing to mirror or test it against.
-
-  **Question:** this entry asks for four things at once — a mic icon, a camera icon, a per-app usage list with killswitches, and settings for killswitches/permission rules. The killswitch and permission-rules pieces are not a feature gap on top of existing groundwork; there is no permission model anywhere in this stack today, so building them means designing one from scratch, a real architectural decision. Is a plain mic-active/camera-active bar indicator wanted on its own first (buildable now for the mic; the camera half would still need a fresh, unverified detection mechanism), or is the whole thing meant to land together as one piece once a permission-model shape is decided?
-
-  **Answer**: yes, the permission system must be built. It should be generally restrictive, always asking permission the first time an app requires it (granted once, always or never). 
-
-
-- yazi's folder colouring only distinguishes /mnt and /srv from $HOME (the two non-home locations this project actually uses today) — a general "anything outside $HOME" rule isn't portable in yazi's static theme.toml (no ~/$HOME expansion in its own path matching, and this repo's template renderer deliberately leaves $HOME untouched). If a real per-user $HOME path becomes available to templates some other way, extend profiles/base/templates/.config/yazi/theme.toml.tmpl's prepend_globs to match generally instead of by fixed path.
+- yazi's folder colouring only distinguishes /mnt and /srv from $HOME
+  (the two non-home locations this project actually uses today) — a
+  general "anything outside $HOME" rule isn't portable in yazi's static
+  theme.toml (no ~/$HOME expansion in its own path matching, and this
+  repo's template renderer deliberately leaves $HOME untouched). If a real
+  per-user $HOME path becomes available to templates some other way,
+  extend `profiles/base/templates/.config/yazi/theme.toml.tmpl`'s
+  `prepend_globs` to match generally instead of by fixed path.
 
 ## Ideas (not to be implemented, have to be discussed)
 
@@ -160,16 +323,38 @@ loop*.
 
 - Log viewer
 
-- Customisations should be exportable in a single configuration file, as well as importable from the same file (with syntax check).
+- Customisations should be exportable in a single configuration file, as
+  well as importable from the same file (with syntax check).
 
-- Weather: add an extra special workspace dedicated to weather informations using: https://github.com/ashuttl/linecast . It should probably use a multiplexer to show a single view with all panels, rather than separated. (Or all instances of linecast go to the special workspace, that does not allow other apps)
+- Weather: add an extra special workspace dedicated to weather
+  information using: https://github.com/ashuttl/linecast . It should
+  probably use a multiplexer to show a single view with all panels, rather
+  than separated. (Or all instances of linecast go to the special
+  workspace, that does not allow other apps)
 
-- a list of active ports and servers should be available both in the settings under connectivity as well as in the tailscale panel. Taking inspiration from this https://github.com/ZerubbabelT/portwatch
+- a list of active ports and servers should be available both in the
+  settings under connectivity as well as in the tailscale panel. Taking
+  inspiration from this https://github.com/ZerubbabelT/portwatch
 
-- vocabulary tool: add a definition tool that provides definitions for words and implement it natively I the runner bar. It can accept multiple languages, if the language is not the system language, it should show the translation (using the translate tool described below). Settings for the vocabulary should be added in the settings, where the user can add more languages that don’t require translation for the definition (still show the translation of the word if not of the system language)
+- vocabulary tool: add a definition tool that provides definitions for
+  words and implement it natively in the runner bar. It can accept
+  multiple languages; if the language is not the system language, it
+  should show the translation (using the translate tool described below).
+  Settings for the vocabulary should be added in the settings, where the
+  user can add more languages that don't require translation for the
+  definition (still show the translation of the word if not of the system
+  language).
 
-- translate tool: add a translate command that takes an input string and translates it, implemented in the runner bar. It should accept optional arguments for “from” and “to” language, otherwise the language is automatically detected and the “to” language is by default the system language. The case the “from” language is the system language the default translation should return not be handled now (throws an error that must not block the runner). The runner bar should also have a custom layout for that result, showing the from and to translation and languages. (Translation and vocabulary tools can work together in the runner).
-
+- translate tool: add a translate command that takes an input string and
+  translates it, implemented in the runner bar. It should accept optional
+  arguments for "from" and "to" language, otherwise the language is
+  automatically detected and the "to" language is by default the system
+  language. The case where the "from" language is the system language —
+  the default translation behaviour should not be handled now (throws an
+  error that must not block the runner). The runner bar should also have a
+  custom layout for that result, showing the from and to translation and
+  languages. (Translation and vocabulary tools can work together in the
+  runner).
 
 ## Custom apps and services
 
@@ -183,27 +368,22 @@ loop*.
 
 - Movies/Series indexing + download [server]
 
-- Jellyfin hidden library feature [server]: have the option to add storages for hidden content, which gets indexed (actors, categories, titles, tags) only to users that have access, only when toggled on (client side option)
+- Jellyfin hidden library feature [server]: have the option to add
+  storages for hidden content, which gets indexed (actors, categories,
+  titles, tags) only to users that have access, only when toggled on
+  (client side option)
 
 - Jellyfin client
 
-## Dotfiles improvements:
+## Dotfiles improvements
 
-- Better separation
-
-  **Question:** too open-ended to start without knowing what specifically about the current installer/profile split is considered wrong — which part reads as poorly separated today?
+- Better separation. See Open Questions #10.
 
 - Cleanup + Optimisation
 
-- Remove AI shenanigans
+- Remove AI shenanigans. See Open Questions #11.
 
-  **Question:** too unspecific to act on — which files, directories or generated artifacts under `phios-dotfiles` does this refer to? (`phi-agent`-related material already has its own home per the entry right below this one, `~/.local/share/phios/phi-agent`, which reads as the opposite of "remove" — worth confirming these two entries aren't in tension.)
+- place all phios locals in ~/.local/share/phios/{phi|dotfiles|phi-agent}.
+  See Open Questions #12.
 
-- place all phios locals in ~/.local/share/phios/{phi|dotfiles|phi-agent}
-
-  **Question:** concrete enough to attempt, but it touches `bin/phios-install`'s manifest/backup paths, the `~/.config/phios/dotfiles-root` + `~/.config/environment.d/10-phios.conf` bootstrap files every profile depends on, and potentially every already-installed machine's on-disk state — rule 4 forbids touching the three real machines directly, so this can only be built and dry-run-tested here, never verified end-to-end against an existing install before being handed back. Confirm: is a from-scratch layout change like this wanted even though it can only be verified by re-running the installer on a real machine by hand afterward, and should the installer detect + migrate an existing old-layout install automatically, or is a clean reinstall acceptable?
-
-- Installer
-
-  **Question:** too open-ended on its own to start without knowing what specifically about the current installer is considered lacking — a concrete gap or behaviour to fix/add would make this actionable.
-
+- Installer. See Open Questions #13.
