@@ -9,6 +9,32 @@ once it is verified.
 
 ---
 
+## phi hadn't been tagged in a while — main was 24 commits behind dev
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi / main
+- **Commits:** ee06d26 (main fast-forwarded to dev's tip; no new commit created) — tag v0.17.0
+- **Original TODO:** "phi did not get any new tag, currently building 0.16.1 still"
+- **Requires phi rebuild:** yes — tag v0.17.0 (this entry IS that rebuild's prerequisite; the user still needs to build and publish the package)
+
+### What was asked
+`phi`'s packaging had been stuck rebuilding v0.16.1 for a while even though real work had landed on `dev` — get a new release tagged so the build picks it up.
+
+### What was done
+`phi`'s `dev` was 24 commits ahead of `main` (last tag `v0.16.1`) — a backlog of real features and fixes across several past sessions (runner-bar prefix routing, a timer/alarm runner provider, nightmode scheduling keys, full runner ranking-category tiers, an ask-ai-agent provider, opening images via `imv` instead of unmanaged `xdg-open`, a mathx implicit-plot guard fix, hibernate/reboot/shutdown launcher actions, and the agent-visibility fixes from the session just before this one) — several past VERIFICATION.md entries had explicitly deferred tagging exactly because merging `dev` into `main` is a user decision (AGENTS.md rule 1), not something an agent does on its own initiative.
+
+Asked the user directly whether to proceed, given how much this touches — confirmed yes, and to use a minor version bump (v0.17.0, since everything pending is additive/fixes, nothing breaking). Before touching `main`: fast-forwarded local `dev` to `origin/dev`, ran `go build ./...`, `go vet ./...` and `go test ./...` (a `GOCACHE` override was needed — the sandbox's default Go build cache wasn't writable — otherwise unmodified) — all clean. Confirmed `main` was a clean ancestor of `dev` (`git merge-base --is-ancestor`), fast-forwarded `main` to `dev`'s tip (`ee06d26`, no merge commit — a real fast-forward), pushed `main`, then tagged `v0.17.0` and pushed the tag.
+
+### Honest assessment
+Per `phi/CLAUDE.md`'s Releasing section, an agent's role stops at the tag — building and publishing the signed package (and the signing key itself) stay entirely with the user; nothing here builds or ships a package. This was a plain fast-forward with no code changes of its own, so there's nothing new to "verify" beyond what each of those 24 commits' own VERIFICATION.md entries (now historical, several already cleaned up by the user) already covered individually — this entry exists to close out the "no tag" complaint and make the fast-forward/tag itself visible, not to re-verify old work.
+
+### How to test it
+1. `git -C phi fetch origin && git -C phi log --oneline -1 origin/main` should show `ee06d26`, and `git -C phi tag --sort=-v:refname | head -1` should show `v0.17.0`.
+2. Build and publish the `phi` package from tag `v0.17.0` in `phi-packages`, the usual way.
+3. Once installed, `phi --version` (or `phi doctor`, whichever surfaces the build version) should report `0.17.0`, not `0.16.1`.
+
+---
+
 ## Four small bar/calendar/terminal polish bugs from the New and Urgent list
 
 - **Date:** 2026-09-14
