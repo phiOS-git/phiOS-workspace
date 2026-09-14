@@ -9,6 +9,34 @@ once it is verified.
 
 ---
 
+## Four small bar/calendar/terminal polish bugs from the New and Urgent list
+
+- **Date:** 2026-09-14
+- **Repo / branch:** phi-shell / dev, phios-dotfiles / dev
+- **Commits:** phi-shell: ba6eb14 bar: vertically centre the ethernet icon's silhouette, 4441517 calendar: drop the flip-clock card borders, fixing colon alignment, ffe501c bar: drop the power popout's duplicate quick-action buttons, ed961ef Merge branch 'urgent-fixes-2026-09-14' into dev — phios-dotfiles: f000f3a kitty: disable the mouse-cursor auto-hide-after-idle default, 2d0fdd0 Merge branch 'urgent-fixes-2026-09-14' into dev
+- **Original TODO:** "the ethernet icon in the status bar does not look vertically centered", "the flip clock has the ':' not vertically aligned, also remove the borders", "the mouse cursor disappear after few seconds idle on the terminal", "the 'settings' button in the power options overlay should siply open the settings panel, not bound to a specific section. Also the 'quick action' section should not exist." — four of the six items under docs/TODO.md's "New and Urgent" section, landed together. (The other two — notification clear buttons, and the missing `phi` tag — are not done; see docs/TODO.md.)
+
+### What was asked
+Four unrelated small bugs from the same new backlog batch: the status-bar ethernet icon looking vertically off-centre; the calendar's flip-clock colon not lining up with the digits (and its card borders should go); the terminal's mouse cursor disappearing after a few idle seconds; and the bar's power popout having a settings button that jumped to a specific settings section instead of just opening the panel, plus a "quick action" button section that shouldn't be there.
+
+### What was done
+- **Ethernet icon** (`Widgets/EthernetIcon.qml`): the hand-drawn plug/clip/pins silhouette only spanned the top 64% of its square icon box (0.06b-0.70b), leaving a lopsided 0.06b/0.30b margin above/below. Shifted `bodyY` from 0.16·b to 0.28·b so the same shape is centred (0.18b margin both sides) — every other proportion is untouched.
+- **Flip-clock colon** (`Panels/Calendar.qml`): traced to `Widgets/FlipDigit.qml`'s `showCard` padding — with `showCard: true` (the default the calendar used), each digit cell is taller than the plain colon `Text` next to it (card frame + seam padding on top and bottom), and a plain QtQuick `Row` top-aligns children at y:0, so the taller digit cells sat visibly lower than the colon. Set `showCard: false` on all six FlipDigit cells, which drops the border/seam *and* the padding that caused the misalignment — one change fixes both halves of the report.
+- **Cursor disappearing on idle** (`phios-dotfiles/profiles/desktop/home/.config/kitty/kitty.conf`): confirmed against kitty's own docs (fetched live, not recalled) that `mouse_hide_wait` defaults to 3.0 seconds on Linux and nothing in this repo had ever overridden it. Added `mouse_hide_wait 0` to disable it.
+- **Power popout** (`Panels/BarPopout.qml`): removed the six lock/suspend/hibernate/logout/reboot/shutdown `SmallButton` rows (they duplicated both the SUPER+L power menu, `Dialogs/PowerMenu.qml`, and Settings' own "Quick actions" row in `Settings/sections/Devices.qml`) along with the now-unused `_requestPowerAction()` helper. The remaining single "Settings…" row now calls `Services.SettingsPanel.show()` directly instead of `_showInSettings("devices.power")`, so it opens the panel with no section pre-selected.
+
+### Honest assessment
+None of this could be visually verified — phi-shell/CLAUDE.md is explicit that every visual result needs the user's own screenshot, and this session had no live Hyprland/Quickshell session to run against. All four changes were checked by careful reading (including working through FlipDigit.qml's own padding math by hand for the colon fix) and, for phi-shell, `git diff` brace-balance sanity checks — not by seeing them render. The `phi`-tag and notification-clear-button items from the same "New and Urgent" batch are **not** part of this entry — they're still open in docs/TODO.md (one is paused pending your answer on merging `phi`'s `dev` into `main`, the other is investigated but unresolved, no defect found by reading alone).
+
+### How to test it
+1. Pull `phi-shell` and `phios-dotfiles` `dev`, then re-render kitty's config (`phi theme set <variant>`, or just restart kitty since it re-reads `kitty.conf` on launch) and let Quickshell hot-reload the `.qml` changes (saves already trigger it; a fresh `qs -p ~/.config/quickshell/phi` start works too if anything looks stale).
+2. **Ethernet icon:** on a host with a wired NIC, look at the ethernet icon in the status bar — the plug silhouette should sit centred in its square, not pushed toward the top.
+3. **Flip clock:** click the bar clock to open the calendar overlay. The two ":" separators should now sit level with the digit cells on both sides (previously the colon sat visibly higher than the digits), and the digits should have no card border or seam line around them (previously each digit had a thin rectangular frame).
+4. **Cursor on idle:** open a terminal (kitty), stop moving the mouse for 5+ seconds without touching the keyboard — the mouse pointer should stay visible. Before this fix it vanished after about 3 seconds.
+5. **Power popout:** click the power icon in the bar's left isle. The popout should show exactly one row, "Settings…", with no lock/suspend/hibernate/logout/reboot/shutdown buttons above it. Click it — the full settings panel should open on whatever section it last had open (or the default), not jump straight to the Power section.
+
+---
+
 ## The AI agent (a1/a2) never worked — broker, containment, and `phi agent code`
 
 - **Date:** 2026-09-14

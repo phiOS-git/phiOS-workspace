@@ -50,17 +50,9 @@ both places.
 
 ### New and Urgent
 
-1. [taken] In the notification panel, all the clear buttons (single, group, all) don't work until i run `phi theme set` at least once
+1. In the notification panel, all the clear buttons (single, group, all) don't work until i run `phi theme set` at least once. Investigated 2026-09-14: no code defect found — `clearAll`/`clearApp`/`clearEntry` (Services/Notifications.qml) update `history` in-memory before ever touching disk, so a persistence failure alone can't explain the buttons visually doing nothing; the click-wiring in Panels/tabs/Notifications.qml and Widgets/SmallButton.qml/StyledButton.qml reads correctly by inspection, and no ancestor sets `enabled: false` anywhere in Panels/Sidebar.qml. Traced what `phi theme set` actually does to phi-shell specifically (`phi/internal/theme/set.go` + `phios-dotfiles/design/adapters.txt`): for phi-shell's row the reload command is `-` (none) — its only effect is writing `Config/Tokens.qml`, which Quickshell's own file-watcher then hot-reloads. So the working theory is a stale-binding/startup-race bug that a hot-reload happens to clear, not something `phi theme set`'s content is actually responsible for — but this is unconfirmed, could not reproduce without running the shell. Next time this happens: capture `qs -p ~/.config/quickshell/phi` stdout/stderr at the moment a clear button is clicked and does nothing (any QML warning at that instant is the missing clue), and check whether the DND toggle / group-collapse controls (different widgets, same tab) work at that same moment — narrows whether this is Notifications-tab-wide or specific to SmallButton/StyledButton's `clicked()`.
 
-2. [taken] the ethernet icon in the status bar does not look vertically centered
-
-3. [taken] the flip clock has the ":" not vertically aligned, also remove the borders
-
-4. [taken] phi did not get any new tag, currently building 0.16.1 still
-
-5. [taken] the mouse cursor disappear after few seconds idle on the terminal
-
-6. [taken] the "settings" button in the power options overlay should siply open the settings panel, not bound to a specific section. Also the "quick action" section should not exist.
+2. phi did not get any new tag, currently building 0.16.1 still. `phi`'s `main` is 24 commits behind `dev` (last tag `v0.16.1`); `dev` builds, vets and tests clean (`go build ./...`, `go vet ./...`, `go test ./...` all pass). Fast-forwarding `main` to `dev` and tagging needs your go-ahead first — see the conversation, this is paused, not abandoned.
 
 ### Older 
 
