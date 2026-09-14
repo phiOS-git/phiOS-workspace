@@ -66,6 +66,35 @@ This is a documentation-integrity fix, not a functional one — no phi-shell or 
 
 ---
 
+## Ambient lock effects had no settings beyond which one to pick, and their live preview ran continuously by default
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** d510414 lock: add speed (shared) and intensity (per-effect) settings, stop the live preview running by default
+- **Original TODO:** items 2 and 3 of the "New and Urgent" batch — "the settings panel now can be laggy especially with live previews. Make them toggable and hidden by default (should be toggled on when their relative option like ambient effect change)" / "ambient effects look great, they should have many settings: some shared (eg. speed) some specific for the selected one" — both removed.
+
+### What was asked
+Add real, adjustable settings for the lock screen's ambient effects (a shared "speed" plus something specific to whichever effect is picked), and stop the Settings panel's live effect preview from running continuously — it should start hidden and only turn on when there is a reason to look at it (picking a different effect).
+
+### What was done
+- **Speed (shared) + intensity (per-effect).** Every `Lock/*.qml` effect (LavaLamp, MatrixRain, Starfield, Plasma, Life) already had its own `intensity` property — a real, working peak-opacity/brightness knob, just never exposed in Settings, each with its own deliberately different default (0.18 for MatrixRain's intentionally-faint glyphs vs. 0.9 for Starfield). That became the "specific" half, kept per-effect rather than collapsed into one shared number for exactly that reason. Added a new `speed` property to each effect (0.25×–3.0×, `Config/LockPrefs.qml` persists it) that scales its own per-tick motion delta — Life is the one exception, since its motion is discrete Conway generation steps rather than a continuous delta; speed instead scales its frame-skip ratio inversely (double speed → half as many ticks between generations). Both new controls live in Settings → Theme → Lock screen, wired into both the real `Lock/Lock.qml` and the Settings live preview so adjusting a value shows its effect immediately without needing to actually lock the screen.
+- **Live preview hidden by default.** The "Ambient effect preview" group's `Loader` ran `active: true` unconditionally — Life (a real, continuously-stepping cellular-automaton simulation) and MatrixRain in particular are genuinely expensive Canvas repaints, and this ran for the entire time the Theme settings section was open, whether or not the user was even scrolled to that part of the page. Added `previewLive` (false by default, matching the entry's own wording), a Show/Hide `StyledButton`, and a `Connections` block that sets it back to `true` the instant the effect SELECTION actually changes — also per the entry's own wording, since a changed pick is exactly the moment a live look is wanted.
+
+### Honest assessment
+Caught two of my own mistakes during self-review before committing, both worth recording:
+1. First draft used bare `parent`/`parent.parent`/`parent.parent.parent` chains to reach the preview group's own state from nested rows — fragile and, on inspection, likely wrong at at least one level of nesting. Rewritten with an explicit `id` (`ambientPreviewGroup`) referenced directly instead.
+2. First draft also added a `Connections` block to re-seed the Intensity `NumberField`'s `value` whenever the selected effect changed, assuming the plain binding wouldn't pick that up on its own. It would have: `Widgets/NumberField.qml`'s own `onValueChanged` already re-syncs its displayed text on any external `value` change, and QML's dependency tracking follows property reads through a called function (`intensityFor()`) exactly as it would a direct property access — so the extra `Connections` block was not just redundant but actively harmful, since imperatively assigning to `value` from inside it would have permanently broken the correct declarative binding the very first time the effect changed. Removed before committing.
+
+Otherwise UNVERIFIED — no compositor in this session, this repo's standing constraint; in particular, whether `speed`'s effect actually reads as "faster"/"slower" in a visually sensible way for each effect (especially Life's inverted frame-skip mapping) has not been seen rendered.
+
+### How to test it
+1. Go to Settings → Theme → Lock screen. Pick any ambient effect other than "None" — the "Live preview" box below should immediately start running (auto-shown by the selection change), and a "Speed" and "Intensity" field should appear above it.
+2. Click "Hide preview" — the animation should stop and disappear, leaving just the Show/Hide button. Confirm the rest of the Settings panel feels less laggy while a hidden effect would otherwise have been animating (most noticeable with Life or Matrix).
+3. Adjust Speed and Intensity with either field's −/+ steppers or by typing a value — the live preview (if shown) should visibly speed up/slow down and dim/brighten accordingly. Switch to a different effect and confirm Intensity's displayed value changes to that effect's own stored value, not the previous effect's.
+4. Lock the screen (or wait for it to lock) and confirm the actual lock screen's ambient effect reflects the same Speed/Intensity values just set in Settings.
+
+---
+
 ## Clipboard: no way to delete an entry, no exclusion rules, and a context menu that already existed but was never used
 
 - **Date:** 2026-09-15
