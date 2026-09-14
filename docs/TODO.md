@@ -288,16 +288,27 @@ both places.
   and same-layer stacking order between several Top-layer surfaces at once
   needs checking on real hardware, not just reasoned about.
 
-- continue the UI/UX pass across the parts of `phi-shell` a first round did
-  not reach in depth: `Overview`/`AltTab`'s own row rendering, `Osd`,
-  `Tooltip`, `Spotlight`, `Magnifier`, `Dialogs/PowerMenu`, and the
-  `Settings` sections not yet swept for the "Advanced" toggle (General,
-  Devices, Keybindings, Notifications, Security, Updates — only
-  Connectivity and AI Agent have any rows/groups marked `advanced` so
-  far). Also worth building: a reusable loading-skeleton placeholder for
-  async lists (Wi-Fi/Bluetooth scans, the updates check) — every trigger
-  button's own `loading` state is now correctly wired, but nothing shows a
-  skeleton while a list itself is still loading.
+- [taken] continue the UI/UX pass, component by component, system by
+  system, across all of `phi-shell` — the parts a first round did not
+  reach in depth: `Bar`/`Bar/modules/*`, `Overview`/`AltTab`'s own row
+  rendering, `Osd`, `Tooltip`, `Spotlight`, `Magnifier`, `Dialogs/*`,
+  `Cheatsheet`, `Panels/Calendar`/`QuickNote`, the remaining
+  `Panels/tabs/agent/*` sections (Dashboard, CodingSessions,
+  MemoryProposals, PersonalityEditor, ProjectView), `Launcher`'s
+  RichResult/provider cards, `Background`, and the `Settings` sections not
+  yet swept for the "Advanced" toggle (General, Devices, Keybindings,
+  Notifications, Security, Updates — only Connectivity and AI Agent have
+  any rows/groups marked `advanced` so far). Specific items already
+  flagged and still open: theme settings colour swatches with no hover
+  effect; the notification-history retention field (a number+unit text
+  entry that overflows its space); settings inputs like "ringtone" using a
+  free-text field instead of a real picker; AI Agent settings missing the
+  actually useful controls (change model, per-service token/key) among
+  everything it does show. Also worth building: a reusable loading-
+  skeleton placeholder for async lists (Wi-Fi/Bluetooth scans, the updates
+  check) — every trigger button's own `loading` state is now correctly
+  wired, but nothing shows a skeleton while a list itself is still
+  loading.
 
 - add status bar icons for active sensors (microphone, camera); the
   overlay should show a list of apps with the sensor they are using and
