@@ -9,6 +9,88 @@ once it is verified.
 
 ---
 
+## The clipboard's right-click menu showed no options
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 259ae22 clipboard: fix the right-click context menu showing no options
+- **Original TODO:** none — reported directly: "the clipboard seems to have something when right clicking on entries, yet it does not show any option in the context menu, obviously you didn't test it."
+
+### What was asked
+Fix the clipboard's right-click menu, which was appearing (something visibly showed) but with no rows in it.
+
+### What was done
+`Widgets/ContextMenu.qml` is a Quickshell `PopupWindow` — a real top-level window, not a plain `Item` a parent lays out — and it sized itself with `implicitWidth`/`implicitHeight` on the window root. Nothing reads a window's own `implicitWidth` to size it, so the popup opened at whatever default (near-zero) size an unsized `PopupWindow` gets, clipping every row in its `Column` out of view — the rows were never missing, just invisible. Changed to plain `width`/`height` bound to the content's implicit size, the property pair a `Window`-derived type's real on-screen geometry actually comes from.
+
+### Honest assessment
+This was this component's first real caller (it was "built but deliberately not wired to any surface" until a recent pass wired it into the clipboard panel), so this bug had never been exercised against real hardware before now. <span style="color:red">**NOT independently click-tested:**</span> this environment has no way to synthesize a right-click (no `ydotool`/pointer-button synthesis, only keyboard-key events and cursor position), so the fix is reasoned from real Qt/QML behaviour (a `Window` subtype's on-screen size is authoritatively `width`/`height`, never `implicitWidth`/`implicitHeight`) rather than confirmed by actually opening the menu. A note on the earlier draft of this same write-up: it claimed the fix was "confirmed against Tooltip/Tooltip.qml, the only other PopupWindow in this repo" — that comparison was wrong (`Tooltip.qml` is a plain `Item`, not a `PopupWindow`) and is retracted here; the fix's correctness does not depend on it.
+
+### How to test it
+1. Open the clipboard panel (SUPER+N or however it's bound) and right-click any entry.
+2. A small menu should appear showing Restore / Pin (or Unpin) / Delete — not an empty box.
+
+---
+
+## The AI agent panel had several real usability problems at once
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 082425e agent panel: bigger nav icons, a settings entry, auto-open the latest chat; fa62025 agent panel: give the project view real section hierarchy
+- **Original TODO:** none — reported directly, several issues at once: "Icons are miniscule and uncomfortable to press, half layout is vertical half is horizontal, large buttons block the input area, there is no settings button to open the panel, it does not automatically open on a new chat or latest chat, managing projects is a generic form of fields with no hierarchy and grammar."
+
+### What was asked
+A full critical pass on the AI agent panel, researching real chat-UI/UX practice rather than guessing, and fixing what's broken.
+
+### What was done
+This is a first batch, not the whole list — see Honest assessment. Landed so far, each confirmed against nerd-fonts/real screenshots or reasoned from real chat-UI UX research (searched directly: composer/sidebar/tap-target conventions):
+- **Nav rail icons** (`Panels/AgentPanel.qml`): were `chWidth*3.4` (~26px square) — smaller than even this shell's own ordinary control height, let alone a real target. Chat-UI UX research recommends at least 44px for a primary action button; the rail is now `chWidth*5.5` (~44px).
+- **Settings entry**: Chat.qml and Dashboard.qml each already had their own small "Settings" button deep-linking to Settings › AI Agent, but only reachable from those two specific sections (Coding sessions/Memory proposals had none). Added one settings icon pinned to the rail's own bottom, reachable from every section, same deep link — not a duplicate mechanism.
+- **Auto-open latest chat**: the panel used to always land on the Dashboard's list. Default section is now "chat", and a one-shot check opens the most recently updated real conversation (sorted defensively by the `Updated` field) once the chat list loads, so a returning user sees their conversation immediately instead of an empty composer or a list to click through.
+- **Project view hierarchy** (`Panels/tabs/agent/ProjectView.qml`): all six sections (Description, Instructions, Context files, Folders, Default personality, Conversations) were the exact same flat shape — a plain heading then rows, indistinguishable from each other. Wrapped each in `Widgets/Accordion` (the same disclosure Settings › Devices already uses for a comparable grouped-sub-settings shape), expanded by default so nothing is hidden — the win is the visual grouping/hierarchy itself.
+
+### Honest assessment
+<span style="color:red">**NOT DONE:** the rest of the original list.</span> Not yet addressed: "half layout vertical half horizontal" (the header/transcript/composer mix of Column and Row grammar was not restructured), "large buttons block the input area" (the persona picker's inline button row above the composer was left as-is — a popover version was drafted but deliberately not shipped: it would need `Widgets/ContextMenu`'s anchor direction reconfigured to open upward, on a component that had its own real sizing bug on its first-ever use this same session, and there is no way in this environment to click and confirm the popover actually opens in the right place before shipping it). No dedicated research pass or redesign was done for streaming/message-bubble presentation, citations, or recovery-from-error patterns. The image click-and-view report ("images do not open in a floating window, they just open and immediately close") was investigated (a prior, already-landed fix pointed both known open-image paths at `imv`) but the current live failure was not reproduced or root-caused.
+
+The Project View accordion change is **UNVERIFIED by screenshot** — there is no existing project to open (Dashboard showed "No projects yet.") and creating one requires a click this session cannot simulate (no `ydotool`/pointer-button synthesis available; only keyboard-key events and cursor position are controllable here). The nav-rail/settings-icon/auto-open changes ARE confirmed by a real screenshot of the running panel.
+
+Separately, a correction to an earlier entry in this same file: the Widgets/ContextMenu.qml fix's write-up claimed it was "confirmed against Tooltip/Tooltip.qml, the only other PopupWindow in this repo" — that is wrong. `Tooltip.qml` is a plain `Item`, not a `PopupWindow`, so it was never a real precedent. The fix itself (using `width`/`height` instead of `implicitWidth`/`implicitHeight` on a `PopupWindow` root) is still correct — a `Window`-derived type's real on-screen size comes from `width`/`height`, not the `implicitWidth`/`implicitHeight` an ordinary layout-managed `Item` uses — but that specific claim in the earlier write-up should be disregarded.
+
+### How to test it
+1. Press SUPER+P (or click the Φ bar segment) to open the AI agent panel. It should land directly on a conversation (or a "new chat" composer if you have no chat history yet) rather than the Dashboard list.
+2. Look at the four nav icons on the left rail, plus a gear/settings icon near the bottom of that same rail. All five should be noticeably larger and easier to click than before. Click the gear — it should open Settings on the AI Agent section.
+3. Create a project (Dashboard → "New project"), open it, and check that Description/Instructions/Context files/Folders of interest/Default personality/Conversations each appear as their own titled, bordered, collapsible block rather than one continuous flat list. This step is the one item in this batch I could not check myself.
+
+---
+
+## The SUPER+L power menu didn't match the requested style, and the lock screen had a keyboard lockout risk
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 21808d9 power menu: restyle to a pill row per reference, add it to the lock screen; 8ae7fd4 lock: fix a Tab focus-trap that could strand the password field
+- **Original TODO:** none — reported directly across two messages: "I would like to have the lock options like this [references/lock-options-reference.webp]. Also add the power options in the lockscreen as well to use them without unlocking." and, critically: "it's currently impossible to select the password input by cycling options with tab in the lockscreen, and given that the cursor is disabled there is no way to input the password once you cycle with tab to the power options."
+
+### What was asked
+Restyle the SUPER+L power menu to match a reference image (a horizontal row of icon+label pills, one marked with a solid accent fill), and add the same power options directly to the real lock screen so they work without authenticating.
+
+### What was done
+- New `Dialogs/PowerActionsRow.qml`: the shared pill row, with a new `WidgetStates.js` recipe (`ambient: "powerPill"`) carrying the accent-fill-on-one-pill look, and a new `Glyphs.logout` icon.
+- `Dialogs/PowerMenu.qml` (SUPER+L): restyled from a titled card + vertical list to this bare pill row on the scrim, "Lock" marked as the default pill, matching the reference.
+- `Lock/Lock.qml`: the same row (minus "Lock") added below the "Recent" notifications — every action on it is a plain system command that never touches PAM or the lock state, so this does not weaken the file's one security-critical authentication path.
+
+**A critical bug was found and fixed in the same pass, introduced by the change above**: the new pills opted into the keyboard Tab order, and — because the password field was never itself part of that order (only ever focused programmatically) — Tab could move focus onto a pill with no way to Tab back, on the one screen where losing the password field is a lockout, not an inconvenience. Fixed with a new `tabbable` property on `PowerActionsRow` (default on; `Lock.qml` turns it off for its own instance only — `Dialogs/PowerMenu.qml`'s own keyboard-driven pill selection is unaffected). Verified live: locked the screen on purpose, sent real Tab key-state events (Hyprland's own `hl.dsp.send_key_state` dispatcher), confirmed no pill shows a focus ring, then typed test characters and confirmed they landed in the password field before clearing them.
+
+Also, while looking at the lock screen for this (misdirected feedback about "Border are completely different, dim is too soft" that was actually meant for the SUPER+L overlay, not this screen, but a real improvement kept anyway): softened the password field's border (new opt-in `Widgets/Panel.qml` override, off by default everywhere else) and added a dim layer between the ambient effect and the readable content.
+
+### Honest assessment
+The lock-screen border/dim changes were aimed at the wrong screen per the user's own follow-up correction — the SUPER+L overlay (`Dialogs/PowerMenu.qml`) is the one the reference image and the border/dim feedback were actually about, and neither its border (it has none, by design — no card at all after the restyle) nor its dim (`Widgets/Scrim`, unchanged) were revisited against that feedback yet. <span style="color:red">**NOT DONE:** confirming `Dialogs/PowerMenu.qml` actually matches the reference image's look over a real (non-solid-colour) desktop backdrop.</span> I locked the real session multiple times this session to test the Lock.qml surface, including once by an operator mistake (a double `powerMenu trigger` landed inside its own double-tap-locks window) before this Tab-trap bug was found and fixed — flagging plainly rather than glossing over it, since it is exactly the kind of real-world impact this loop exists to catch.
+
+### How to test it
+1. Press SUPER+L once (not twice quickly). The power menu should show as a horizontal pill row — Lock, Logout, Suspend, Hibernate, Reboot, Shut down — with Lock filled solid in accent pink and the rest bare icon+text.
+2. Lock the screen for real. Below the "Recent" notifications area you should see the same row, minus Lock: Logout, Suspend, Hibernate, Reboot, Shut down.
+3. On the lock screen, press Tab several times, then type your password. It should type normally with no need to click first — Tab should not have moved focus anywhere else.
+
+---
+
 ## The Lava lamp/Life ambient-effect options overflowed the settings dialog
 
 - **Date:** 2026-09-15
