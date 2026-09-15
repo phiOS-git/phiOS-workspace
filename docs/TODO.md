@@ -86,6 +86,17 @@ both places.
     auto-migrate an existing old-layout install?
 13. **Installer:** what specifically is lacking about the current one?
 
+## Interface Rework
+
+- [taken] Full interface rework per `rework.md` (workspace root): two-bar
+  (top+bottom) layout, full status-bar-overlay rework, AI chat panel
+  restructure, lock screen + window overview fixes, feature removals
+  (per-program workspace icons, notification/clipboard panels downgraded
+  to overlays, icon text labels), new features (Thunar file manager,
+  live auto light/dark theme switching, custom-chrome image window,
+  empty-desktop context menu), and a thin/elegant shade-based style pass
+  across every UI element.
+
 ## Bug Fixing / Improvements
 
 ### New and Urgent
