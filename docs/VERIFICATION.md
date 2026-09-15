@@ -62,6 +62,65 @@ Separately, a correction to an earlier entry in this same file: the Widgets/Cont
 
 ---
 
+## The AI agent chat panel needed a critical UX pass (ongoing)
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** a33264e agent chat: markdown rendering, message copy, multi-line composer, real autoscroll; 1ca5253 agent panel: stop showing raw ISO timestamps as chat titles
+- **Original TODO:** none — direct standing instruction: "continue on the chat panel, and do not stop until you completed working on the chat: everytime you would consider it complete, act as a critic UX designer and look for missing features or improvements and implement them. You must not stop until it's perfect."
+
+### What was asked
+An open-ended critical UX pass on the chat panel specifically — find and fix real gaps against real chat-app conventions, not just the items already named in earlier feedback.
+
+### What was done
+None of this was reported directly; all of it came from reviewing the panel against ChatGPT/Claude/Slack/Discord conventions and this session's own earlier research pass (composer/sidebar/tap-target UX practices):
+- **Markdown rendering** (`Panels/tabs/ChatBubble.qml`): agent/error replies used to show literal `**`/`` ` ``/`#` punctuation. Now uses `Text.MarkdownText` (a real, stable QtQuick mode since Qt 5.14, no external dependency). The user's own bubble stays plain text.
+- **Copy button**: there was no way to get a reply's text out of the panel at all (plain `Text` isn't mouse-selectable). Added a hover-revealed copy icon using the same `wl-copy` mechanism this shell already uses elsewhere.
+- **Multi-line composer**: the compose field was a single-line `TextInput` that could not wrap. Replaced with a `TextEdit` (wraps, grows up to 6 lines then scrolls internally) with the Enter-sends/Shift+Enter-newline convention every mainstream chat composer uses.
+- **Real autoscroll**: the transcript force-scrolled to the bottom on every new message, unconditionally — scrolling up to reread history got yanked back down the instant the next message arrived. Now only autoscrolls if the user was already at (or near) the bottom.
+- **Persona picker as a popover**: the old picker was an inline row of full-size buttons that pushed the composer down when opened (this was also named directly: "large buttons block the input area"). Replaced with a same-window popover positioned above the button (`mapToItem`, the same technique `Tooltip.qml` already uses) rather than a Quickshell `PopupWindow` — deliberately avoiding the cross-window anchor-direction risk on a component (`Widgets/ContextMenu.qml`) that had its own real sizing bug on its first-ever use this same session.
+- **Session titles**: every chat list showed opencode's own raw default title verbatim — `New session - 2026-09-14T15:27:36.713Z`, a millisecond ISO timestamp. Now reformatted for display everywhere it appears (`New chat · 14 Sep, 17:27`) without touching the stored title, and the "Rename" flow was checked separately so it can't accidentally save the reformatted string back as a real title.
+
+A real bug was introduced and caught in the same pass: `ChatBubble.qml`'s new imports used a relative path (`../Bar/glyphs.js`) copied from a file one directory shallower, which broke the whole shell's config load — caught immediately via a live restart, before it ever reached the user, and fixed (`../../Bar/glyphs.js`).
+
+### Honest assessment
+This is **explicitly not the end of this pass** — the standing instruction is to keep critiquing and improving until there's nothing left to find, and this is one round of that, not a final state. Confirmed by screenshot: the panel loads cleanly, the nav/composer/session-title changes render correctly. <span style="color:red">**NOT verified by an actual sent message:**</span> there is no way in this environment to click "Send" (no pointer-button synthesis available, only keyboard-key events and cursor position), and blind-Tab-hunting to reach the compose field through ~15+ intervening focusable rows did not reliably land there in the time available — so the markdown rendering, the copy button, and the autoscroll behavior are each reasoned correct and screenshot-checked wherever they could be exercised without a live message, but not confirmed against a real agent reply. Not yet touched: the "half layout vertical half horizontal" header/composer grammar, tool-call/streaming status detail, a "stop generation" control (Services/Agent.qml has no cancel/abort endpoint to call — a real backend gap, not something to fake from the QML side), and a proper design pass on Coding sessions/Memory proposals.
+
+### How to test it
+1. Open the AI agent panel (SUPER+P) and send a message that asks for a markdown-formatted reply (e.g. "give me a bulleted list with one bold word"). The reply should render real bullets/bold, not literal `*`/`**`.
+2. Hover a message bubble — a small copy icon should fade in at its top-right corner; clicking it should copy that message's text (paste somewhere to confirm).
+3. Type a long message and press Shift+Enter partway through — it should insert a newline, not send. Plain Enter (or the Send button) should send it.
+4. Scroll up in the transcript while the agent is replying — it should NOT jerk back to the bottom until you scroll back down yourself.
+5. Look at the chat list on the left (or Dashboard's chat list) — untitled sessions should read "New chat · <date>, <time>", not a raw timestamp string.
+
+---
+
+## The lock screen's power row broke Tab entirely, and the pills didn't match the reference
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 27cd90a lock: restore Tab reachability to the power row, shrink pills, darken the SUPER+L overlay
+- **Original TODO:** none — reported directly: "The lock screen now does not allow tab at all, so i can never reach the power options. Just restore the tab cycling and remove the mouse lock." and "The Lock overlay is still different from the reference, borders are at least 3 times larger. Also the dim is too soft."
+
+### What was asked
+Fix a regression from the previous round's Tab-focus-trap fix (removing the power row from the tab chain also made it keyboard-unreachable), restore mouse cursor visibility, and bring the pill sizing/dim on the SUPER+L overlay closer to the reference image.
+
+### What was done
+- Removed `PowerActionsRow`'s `tabbable` property entirely (it had exactly one caller left setting it non-default). Instead, `Lock/Lock.qml`'s password field now opts INTO the tab chain (`activeFocusOnTab: true`, it never did before), closing the loop: field → pill 1 → … → last pill → back to field. Every stop is reachable, and the field can never be permanently stranded because it's always the next stop after the last pill.
+- Removed the cursor-blanking `MouseArea` from `Lock/Lock.qml` outright, per the direct request.
+- Shrunk `PowerActionsRow`'s pill padding/icon size (was `space3`/`space2`, a settings-panel-button scale; now `space2`/`space1`) to match the reference's slimmer pills.
+- `Dialogs/PowerMenu.qml`'s scrim was already at this shell's darkest existing token (`strong`, 80% black); stacked a second identical layer (two 80%-opaque blacks compound to ~96% transmittance) rather than inventing a new one-off opacity.
+
+### Honest assessment
+Verified live and thoroughly this time, given the previous round's regression: locked the screen on purpose, confirmed the real cursor renders, tabbed through the full loop (3 tabs to reach a visible focus ring on the third pill, 3 more past the last pill), typed test characters and confirmed they landed in the password field — the complete cycle, not just one direction. <span style="color:red">**Still not fully resolved:**</span> the SUPER+L overlay's dim is a flat darkening of the REAL, potentially bright desktop behind it (windows, terminals), not a pre-muted photo the way the reference's own backdrop is — no blur effect is available without an unverified Qt graphical-effects dependency this codebase has never taken, so it will likely never look identical to the reference over a bright desktop.
+
+### How to test it
+1. Lock the screen for real, then press Tab repeatedly. Focus should visibly move across Logout/Suspend/Hibernate/Reboot/Shut down (a pink ring appears on the focused one) and eventually back to the password field — never stuck.
+2. Confirm the real mouse cursor is visible and usable on the lock screen (not hidden/blank).
+3. Compare the pill sizes on SUPER+L (or the lock screen) against `references/lock-options-reference.webp` — they should now read as slim pills, not chunky buttons.
+
+---
+
 ## The SUPER+L power menu didn't match the requested style, and the lock screen had a keyboard lockout risk
 
 - **Date:** 2026-09-15
