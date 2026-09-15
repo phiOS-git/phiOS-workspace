@@ -347,9 +347,16 @@ Produces packages; never installs them, never touches a real machine.
 - `package()` regenerates `_phi` completion and the man page from the
   freshly built binary — nothing generated is checked in.
 
-Current published version: **`phi` 0.16.1** (firewall / sudoers fix). The
-`phi` package pipeline (build → sign → publish → `pacman -Syu`) is run
-**only by the user**. An agent creates and pushes the tag.
+Current published version: **`phi` 0.16.1** (firewall / sudoers fix) per
+this file's own last update — `phi-repo/` (gitignored) has shown build
+artifacts for later versions since, so this line may already be behind
+whatever the user has actually built; not corrected here since only the
+user's own build/publish runs know the true current state. **`v0.20.0`**
+is tagged and pushed on `main` (2026-09-15: `phi fan`, the `theme.schedule`
+state keys, image-open via phi-shell) and ready for that pipeline
+whenever the user runs it. The `phi` package pipeline (build → sign →
+publish → `pacman -Syu`) is run **only by the user**. An agent creates
+and pushes the tag.
 
 `phi-repo/` at the workspace root holds the built package artifacts and the
 `phi.db` — gitignored, not part of any repository.
