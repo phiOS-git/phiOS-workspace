@@ -108,6 +108,8 @@ s3. currently the theme works mainly on using the white/black alternation, with 
 
 s4. all elements should have similar transition (fade and minimal slide) for appearing and disappearing. Elements that are nested (eg. status bar overlays) should have compound transitions where they fade in and the inner elements fade in in order (with minimal delay, just a subtle effect that don't slow down the usage).
 
+s5. all ui elements should have a very thin and elegant style, while many still have a bulkier style (eg. buttons and switch that absolutely requires rework). The style should still be coherent with a terminal based system, following closely the provided references. However it should become more elegant by using thinner borders, smoother shapes (but avoid very curved material-like elements), elegant transitions, subtle details, use of shades rather then B/W contrast.
+
 ## Other UI elements:
 
 - system modal: a warn, prompt or confimration modal that blocks interactions until it's resolved.

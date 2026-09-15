@@ -86,17 +86,6 @@ both places.
     auto-migrate an existing old-layout install?
 13. **Installer:** what specifically is lacking about the current one?
 
-## Interface Rework
-
-- [taken] Full interface rework per `rework.md` (workspace root): two-bar
-  (top+bottom) layout, full status-bar-overlay rework, AI chat panel
-  restructure, lock screen + window overview fixes, feature removals
-  (per-program workspace icons, notification/clipboard panels downgraded
-  to overlays, icon text labels), new features (Thunar file manager,
-  live auto light/dark theme switching, custom-chrome image window,
-  empty-desktop context menu), and a thin/elegant shade-based style pass
-  across every UI element.
-
 ## Bug Fixing / Improvements
 
 ### New and Urgent
@@ -208,6 +197,17 @@ both places.
   ~120ms per-provider budget — needs a design decision first. See Open
   Questions #1.
 
+- switching workspace with a keybind or gesture (Super+Ctrl+arrows/h/l,
+  the three-finger swipe) wraps around at the first/last workspace on a
+  monitor instead of stopping. Hyprland's own `m+1`/`m-1` relative
+  workspace selector always wraps and has no non-wrapping form — a real
+  fix needs the bind to compute the bounded next/prev workspace itself
+  (which workspaces exist on this monitor, and where the current one
+  sits among them) rather than delegating to that selector.
+
+- the network overlay's Wi-Fi section shows a live speed graph but has no
+  actual speedtest trigger — only the passive rate readout exists.
+
 ## Features
 
 - add trash feature (package to be picked). Options (to be checked if
@@ -236,6 +236,22 @@ both places.
 
 - consideration: usare alt come super, così avrei 2 super invece che 2
   alt. Da valutare con software che usano alt [TBD]
+
+- the stats overlay's fan-profile buttons (auto/silent/default/heavy)
+  have no real backend — no fan-control mechanism exists anywhere in
+  this codebase, and every real option found (nbfc-linux, vendor fan
+  utilities) is AUR, which rule 2 forbids. Needs either an official-repo
+  mechanism to be found for the actual hardware (per host), or the
+  buttons stay a visible "not available" state.
+
+- the status overlay's tiling-mode grid has six modes (X scroll, Y
+  scroll, Tile, Center, Fair, Floating); only "Tile"/"Floating" map to a
+  real Hyprland dispatch today (dwindle/master tiling and the per-window
+  float toggle). X scroll, Y scroll, Center and Fair have no stock
+  Hyprland equivalent — they exist only via third-party plugins
+  (hy3, hyprscroller), which are outside rule 2. Needs a decision: accept
+  those four as permanently visual-only, or revisit rule 2 for a Hyprland
+  plugin specifically.
 
 - add gestures to open the chat and notifications panel: 2 finger swipe
   from edge (touchpad). Make the inverted gesture to close the panel as
@@ -266,13 +282,23 @@ both places.
 ## Style
 
 - roll Widgets/ContextMenu.qml (right-click menu) out to more elements
-  that would benefit from one — so far only clipboard entries
-  (Panels/tabs/Clipboard.qml: Restore/Pin/Delete) use it. Candidates not
-  yet wired: notification cards (per-entry delete/mute-this-app), the
-  sidebar's other lists, settings rows with a reset action already
-  buried behind a small button. Each site needs its own judgment call on
-  which actions belong in the menu vs. staying as their own visible
-  control, not a mechanical copy-paste of the clipboard menu's three rows.
+  that would benefit from one — clipboard entries
+  (Panels/tabs/Clipboard.qml: Restore/Pin/Delete) and a right-click on
+  the empty desktop (run/terminal/files/browser/settings) use it so far.
+  Candidates not yet wired: notification cards (per-entry delete/mute-
+  this-app), the other overlay lists, settings rows with a reset action
+  already buried behind a small button. Each site needs its own
+  judgment call on which actions belong in the menu vs. staying as their
+  own visible control, not a mechanical copy-paste of an existing menu's
+  rows.
+
+- terminal windows should have their padding area usable to drag the
+  window when floating (currently only a Super+drag anywhere on the
+  window works). Investigated: kitty has no config option to treat a
+  click inside its own padding as a window-move request, and Hyprland
+  has no per-region (as opposed to per-window) mouse binding to fake it
+  from the compositor side either — would need a kitty feature or patch
+  that does not exist today.
 
 - the settings-panel switch's color transition still looks like it
   finishes before the knob finishes sliding across. Investigated: no

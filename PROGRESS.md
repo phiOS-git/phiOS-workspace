@@ -41,8 +41,8 @@ point (`phi`), one visual identity.
 | Dotfiles foundation (installer, profiles, tokens, `/etc` boundary, capability detection) | **Working**, in daily use on all three hosts |
 | `phi` CLI — theme, state, doctor, pkg, completions | **Working**, packaged, installed on all three hosts |
 | `phi` CLI — vpn, firewall, wallpaper, query, update | **Built**, in use; some paths only exercised on `razer` |
-| `phi-shell` — bar, session integration, Hyprland autostart | **Working** on `razer` and `zotac`, but a 2026-09-11 hardware verification round found real bugs still open: overlay panels sit lower than the bar, the scratchpad icon doesn't call the scratchpad, the bar doesn't reveal on a top-edge hover in fullscreen, touchscreen taps near an icon's top edge hover instead of activating — tracked in `docs/TODO.md` |
-| `phi-shell` — panels, launcher, lock, overview, screenshot, notifications, settings, magnifier, OSD | **Built and in use**, refined over four restyle rounds + a settings overhaul + an ongoing multi-round expert UI/UX pass (started 2026-09-14, still active) covering cursor/hover affordance, keyboard accessibility (systemic Enter/Space activation, Escape/back-navigation, an analog slider gaining arrow-key control), a shared tab-vs-button grammar, several fully-built-but-never-wired capabilities wired up (chat pin/rename/close, clipboard delete via a dormant context-menu widget, AI Agent config edit/restart), a new stopwatch feature, a `NumberField` rounding bug affecting ~20 settings fields, multiple stale/incorrect comments and dead-code cleanups found along the way, and — on direct request — a full ambient-lock-effects overhaul: LavaLamp reworked for a more liquid look, a new Boids flocking effect, and much more per-effect customisability (blob count/wobble, column density, star count, grid resolution, seed density, flock size) across all six backdrops — every round's full detail is in `docs/VERIFICATION.md` (newest first), not repeated here. Known still-open, hardware-blocked items: screenshot/OCR/QR area-selection offset (root-caused to compositor/GPU dithering under fractional scale, not a phi-shell bug), and item 1 of `docs/TODO.md`'s "New and Urgent" list. No UI/UX-pass round is hardware-verified yet (no compositor in any session so far) |
+| `phi-shell` — bar, session integration, Hyprland autostart | **Rebuilt 2026-09-15** into a top+bottom pair per `rework.md`'s interface rework (see the row below and `docs/VERIFICATION.md`), superseding the single-bar shape this row used to describe. The 2026-09-11 hardware-verification bugs (overlay panels sitting lower than the bar, the scratchpad icon, fullscreen top-edge reveal, touchscreen top-edge taps) predate the rebuild and have not been independently re-checked against it — still worth a fresh look on real hardware, not assumed fixed by the rework |
+| `phi-shell` — panels, launcher, lock, overview, screenshot, notifications, settings, magnifier, OSD | **Built and in use**, refined over four restyle rounds + a settings overhaul + a multi-round UI/UX pass, then a full **interface rework** (2026-09-15, `rework.md`, six phases — see `docs/VERIFICATION.md` for the complete write-up): every status-bar overlay reworked (calendar gained a timer + interactive month grid; notifications and clipboard split out of the old sidebar dock into their own overlays with real date→source grouping and DND quick-triggers; new status and stats overlays; network/bluetooth/sound overlays gained real device lists); the AI agent panel restructured to chat/code-session/status tabs, contained between both bars; the lock screen's notification list removed; the window overview now shows only the currently-viewed workspace, panning between them without closing; a right-click context menu on the empty desktop; a native floating image window replacing the external `imv` launch (and fixing its reported focus/close bug by construction); Thunar added as a GUI file manager; and a live auto light/dark theme option (`Config/Tokens.qml`'s colour fields split into a separately-watched `Config/Colors.json` so a variant switch no longer resets the running session). Deliberately left as honest, non-functional UI rather than a fake backend: the stats overlay's fan-profile buttons, the status overlay's camera-sensor toggle, four of the six tiling-grid modes — none has a real mechanism available under rule 2 (official packages only). Also carried forward from before the rework: several fully-built-but-never-wired capabilities wired up (chat pin/rename/close, clipboard delete via a dormant context-menu widget, AI Agent config edit/restart), a stopwatch feature, a `NumberField` rounding bug fix, a full ambient-lock-effects overhaul (LavaLamp, Boids, per-effect customisability across all six backdrops) — every round's full detail is in `docs/VERIFICATION.md` (newest first), not repeated here. Known still-open, hardware-blocked items: screenshot/OCR/QR area-selection offset (root-caused to compositor/GPU dithering under fractional scale, not a phi-shell bug), item 1 of `docs/TODO.md`'s "New and Urgent" list, and the workspace-switch-loop fix (`docs/TODO.md`). **Nothing in this row, old or new, is hardware-verified** — no compositor in any session so far, the interface rework included |
 | Identity & advanced styling — final palette, typography, motion, Plymouth, cursor theme | **Built**, pending a clean end-to-end verification pass |
 | AI agent (`phi agent` + shell agent panel + containment) | **Working end-to-end on `zotac`** (2026-09-14) — the mechanics were sound; nothing had ever actually been configured/started (`broker.json`/`provider-key`/`opencode.json`, the A1/A2 systemd units) on either host. Real gap found and fixed: every failure state (a rejected turn, a down support service) used to vanish silently instead of being shown anywhere — see `docs/VERIFICATION.md`. One remaining blocker is outside phiOS: the configured account (opencode.ai Zen) has no payment method, so a real completion still errors — now surfaced clearly instead of hidden. Needs the same real-hardware pass on `razer` (`docs/ai-agent.output` is `razer`-only and predates this fix) |
 | Server services (`mini`) — cloud sync, photos, Jellyfin, \*arr, LanguageTool | **Not started** |
@@ -104,6 +104,10 @@ Each profile carries `packages.txt`, a `home/` tree symlinked wholesale,
 `services-*.txt` (declared systemd units, printed never enabled), and
 `manual.txt` (one-off commands, printed never run).
 
+2026-09-15 (interface rework, `rework.md`): `desktop/packages.txt` gained
+`thunar` (+ `thunar-volman`, `gvfs`, `tumbler`) as the GUI file manager —
+inherits the existing GTK3 theme templates for free, no new adapter work.
+
 ### `/etc` boundary — done
 
 `profiles/*/system/` mirrors real absolute paths under `/etc` and is shown
@@ -144,7 +148,13 @@ questions (`Q-F04`, `Q-F06`) remain for whenever Chroma is finished.
 consumes these. `bin/phios-render` is kept as the comparison target for
 `phi theme render`. 2026-09-14: added `PHI_OVERLAY_SCRIM_STRONG` (both
 variants) for `phi-shell`'s two-intensity dim split — a screen needs `phi
-theme set <variant>` re-run to pick it up.
+theme set <variant>` re-run to pick it up. 2026-09-15 (interface rework):
+`PHI_TERM_PADDING` raised to 20 (`rework.md` s2); the phi-shell adapter
+row in `design/adapters.txt` split into two — `Config/Tokens.qml.tmpl`
+(structural tokens, unchanged between variants) and a new `Config/
+Colors.json.tmpl` (everything colour, the part that actually changes on
+a variant switch) — verified end to end with a real `phi theme set
+--dry-run` and `phi theme render` against this checkout.
 
 ### ClamAV real-time protection — built, applied on `zotac`
 
@@ -230,36 +240,48 @@ session integration landed). Hot-reloads on save. `Config/Tokens.qml` is
 generated by `phi theme` and gitignored.
 
 **Architecture:** the *type* of a bar module or panel tab is code, written
-once; the *instance* is a row in `Bar/modules.json`, `Panels/tabs.json` or
-`Settings/sections.json` — adding one is a one-file data change (ADR 078).
-Modules declare a capability requirement and appear only where it exists
-(ADR 074). Designed for N monitors from day one (ADR 077). The service
-surface (`Quickshell.Services.*`, `.Hyprland`, `.Wayland`, …) is touched
-only in `Config/` and `Services/`; everything else reads one of those.
+once; the *instance* is a row in `Bar/modules-top.json`/`Bar/modules-
+bottom.json` or `Settings/sections.json` — adding one is a one-file data
+change (ADR 078). Modules declare a capability requirement and appear
+only where it exists (ADR 074). Designed for N monitors from day one
+(ADR 077). The service surface (`Quickshell.Services.*`, `.Hyprland`,
+`.Wayland`, …) is touched only in `Config/` and `Services/`; everything
+else reads one of those. Colour tokens now live in a separately-generated
+`Config/Colors.json`, watched live by `Config/Colors.qml` — `Config/
+Tokens.qml` itself only carries the structural tokens, which is what lets
+a theme-variant switch update colour in place instead of resetting the
+whole running session (interface rework, 2026-09-15; see `docs/
+VERIFICATION.md`).
 
-### Status bar — done
+### Status bars — done
 
-Declarative module registry. Modules in use: phi-agent, workspaces (with
-Steam / btop workspace icons), active window, volume, brightness, GPU
-(NVIDIA only), network (Tailscale), wifi, bluetooth, battery, notifications,
-clock. Three-island layout, N-monitor, capability-gated. Bar popouts align
-to the button, a meter widget, full-height buttons, modal scrim covers the
-bar, one source of truth for bar height, buttons sit on the wallpaper.
+**Rebuilt into a top+bottom pair** (interface rework, 2026-09-15,
+`rework.md`) — a single top bar is what this row used to describe.
+Top bar: Φ agent icon, workspaces (left); clock (centre); clipboard,
+notifications, a "status" overlay trigger (right). Bottom bar: a runner-
+bar trigger, current app name (left); the current workspace's window
+list (centre); brightness, volume, a merged network-status icon,
+bluetooth, battery, a stats-overlay trigger (right). Per-program
+workspace pinning (the old Steam/btop dedicated workspaces) is removed.
+Three-island layout per bar, N-monitor, capability-gated, asymmetric
+corner radii (thin on the outward corner, thicker on the inward one).
 
 ### Session surfaces — built
 
 | Surface | Notes |
 |---|---|
-| **Notification daemon + toasts** | The shell is the notification daemon (ADR 073). Icon-with-scrolling-text toast; detail in the panel. Per-app rules, DND, retention, test, clear. |
-| **Sidebar** | Declarative tab registry. Tabs: Notifications, Clipboard. Also hosts the Calendar and the agent panel. |
+| **Notification daemon + toasts** | The shell is the notification daemon (ADR 073). Icon-with-scrolling-text toast; detail moved into its own overlay (below), not the panel. Per-app rules, DND (+ 30m/1h/4h quick-timers), retention, test, clear; history now grouped by date then by app. |
+| **Notifications / Clipboard overlays** | Interface rework: the old right-edge Sidebar dock (tabbed Notifications/Clipboard) is retired — each is now its own small overlay anchored under its own bar icon, matching every other status-bar overlay's chrome. The Calendar overlay gained a timer and a read-only interactive month grid. A new "status" overlay (profile, power actions, real MPRIS media controls, system toggles, a tiling-mode grid) and a new "stats" overlay (CPU/RAM/disk/GPU/network stats, fan-profile buttons) were added; the network/bluetooth/sound overlays gained real device lists. |
 | **Clipboard history** | The shell owns it (ADR 073), with password exclusion (`I-08`). |
-| **Launcher** | A renderer only — ranking, providers and actions live in `phi query` (ADR 018). Modes are data (ADR 019). Rich-result card for calculator / converter / plot output. |
-| **Lock screen** | `ext-session-lock` protocol, native PAM, fail-closed. Terminal-style input, fade-in, blank cursor, selectable ambient backdrop (lava lamp / matrix rain / starfield / plasma / life / boids flocking), each with a shared speed setting plus its own intensity and effect-specific knobs (blob count, grid resolution, flock size, …). PAM result handling is the one security-critical path — kept simple and explicit. |
-| **Window overview** | Native, all windows, 3-finger up/down gesture (gesture entry confirmed working). Unified with the Alt+Tab surface. |
+| **Launcher** | A renderer only — ranking, providers and actions live in `phi query` (ADR 018). Modes are data (ADR 019). Rich-result card for calculator / converter / plot output. An image result now opens phi-shell's own native image window (below), not an external `imv` process. |
+| **Lock screen** | `ext-session-lock` protocol, native PAM, fail-closed. Terminal-style input, fade-in, blank cursor, selectable ambient backdrop (lava lamp / matrix rain / starfield / plasma / life / boids flocking), each with a shared speed setting plus its own intensity and effect-specific knobs (blob count, grid resolution, flock size, …). PAM result handling is the one security-critical path — kept simple and explicit. Interface rework: the recent-notifications list is removed from this surface. |
+| **Window overview** | Native, 3-finger up/down gesture (gesture entry confirmed working). Unified with the Alt+Tab surface. Interface rework: now shows only the currently-viewed workspace's windows, centred, with a bottom workspace strip; clicking a workspace pill pans the view (cross-fade) without closing the overview, instead of switching-and-closing. |
 | **Screenshot / OCR / QR / recording** | Home-built screenshot + region select, colour picker, OCR, QR decode; `wf-recorder` for video. Scrolling capture is permanently excluded (ADR 075). Area-selection offset is still wrong as the selected region's size changes — confirmed broken 2026-09-11, root cause not yet found, see `docs/TODO.md`. |
-| **Alt+Tab overlay, tooltips, context menu, cheat sheet** | Cheat sheet is read-only from `hyprctl binds -j`. Alt+Tab itself confirmed **broken** on hardware 2026-09-11 — doesn't close on Alt release, doesn't start on the right window, doesn't focus on select (click/touch/Enter/Space), doesn't change workspace; only the gesture entry point works. See `docs/TODO.md`. |
-| **Keybinding scheme** | Defined in `phios-dotfiles`' `hyprland.lua`; the cheat sheet and settings panel group binds by context. Several binds confirmed non-functional on hardware (Super+Shift/Ctrl+arrows, the h/j/k/l workspace alternatives, submap-based resize) — root cause not found by source reading alone, see `docs/TODO.md`. |
+| **Alt+Tab overlay, tooltips, context menu, cheat sheet** | Cheat sheet is read-only from `hyprctl binds -j`. `Widgets/ContextMenu.qml` now also drives a right-click menu on the empty desktop (run/terminal/files/browser/settings). Alt+Tab itself confirmed **broken** on hardware 2026-09-11 — doesn't close on Alt release, doesn't start on the right window, doesn't focus on select (click/touch/Enter/Space), doesn't change workspace; only the gesture entry point works, and this has not been independently re-checked since the interface rework's own changes to this surface. See `docs/TODO.md`. |
+| **Keybinding scheme** | Defined in `phios-dotfiles`' `hyprland.lua`; the cheat sheet and settings panel group binds by context. Several binds confirmed non-functional on hardware (Super+Shift/Ctrl+arrows, the h/j/k/l workspace alternatives, submap-based resize) — root cause not found by source reading alone, see `docs/TODO.md`. The workspace-switch-loop fix (`docs/TODO.md`) needs a Hyprland Lua workspace-enumeration API this project has not confirmed live. |
 | **Magnifier** | Circular glass loupe overlay (`phios-dotfiles` binds + `phi-shell` render). Confirmed broken on hardware — the lens no longer zooms, root cause not yet isolated between two candidates (see `docs/TODO.md`). |
+| **Image window** | New (interface rework): a native floating `FloatingWindow` surface (`Images/ImageWindow.qml`) with a 4px-bordered frame and a draggable bottom filename strip, double-click-to-fullscreen — replaces the external `imv` + Hyprland-window-rule approach and fixes its reported focus/close bug by construction (no second process, no window-rule-matching race). |
+| **AI agent panel** | Restructured (interface rework) from chat/code/memory to chat/code-session/**status** tabs (status = a system-health summary above the existing memory-proposals list); the panel now sits contained between both bars, and its settings button moved to the panel's own top-right corner. |
 | **OSD** | Volume / brightness overlay, split. |
 | **Cursor spotlight** | Dedicated layer-shell vignette overlay following the cursor (no native Hyprland path exists — `Q-F07` resolved negative). |
 
