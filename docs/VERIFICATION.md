@@ -9,6 +9,29 @@ once it is verified.
 
 ---
 
+## The Lava lamp/Life ambient-effect options overflowed the settings dialog
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** f617dc6 settings: fix Lava lamp/Life ambient options overflowing the dialog
+- **Original TODO:** none — reported directly: "the options are out of bound as well" (Settings → Theme → Ambient effect, with Lava lamp selected).
+
+### What was asked
+Fix the Lava lamp (and, by the same mechanism, Life) per-effect settings block rendering past the settings dialog's own right edge.
+
+### What was done
+`Settings/sections/SettingsRow.qml`'s default layout right-aligns a content-sized control slot, sized for one small control — a single `NumberField`, which is all Matrix/Starfield/Plasma/Boids each use. Lava lamp and Life instead pack a `Column` of two label+field rows (Blob count/Wobble; Grid resolution/Seed density) into that same compact slot, which is wide enough to overflow past the dialog. Added `wide: true` to both rows — the component's own existing, documented layout for exactly this case (full-width control below the title, already used elsewhere for wider controls), not a new mechanism.
+
+### Honest assessment
+Confirmed with a real screenshot of the running shell (opened Settings, searched "lock screen" to jump straight to the Lock screen section, selected Lava lamp): both fields now render fully visible, stacked under the title, no clipping. Did not do a full pass of every other settings row in the shell for the same overflow shape — this fix covers the two rows the user pointed at.
+
+### How to test it
+1. Open Settings → Theme, scroll to "Ambient effect", and select "Lava lamp".
+2. "Blob count" and "Wobble" should each show their full label and value/stepper control, stacked one above the other under the "Lava lamp" description — nothing should be cut off at the dialog's right edge.
+3. Select "Life" and check "Grid resolution" / "Seed density" the same way.
+
+---
+
 ## Settings switches were invisible on hover, and looked "always black" regardless of state
 
 - **Date:** 2026-09-15
