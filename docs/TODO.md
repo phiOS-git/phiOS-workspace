@@ -308,18 +308,18 @@ both places.
   settings (2026-09-15, on the user's own request) — LavaLamp specifically
   reworked for a more liquid look; see `docs/VERIFICATION.md`.
 
-- [taken] add status bar icons for active sensors (microphone, camera); the
-  overlay should show a list of apps with the sensor they are using and
-  killswitches. Also add settings for killswitches and permission rules.
-  Investigated: the microphone half is buildable now on a proven
-  mechanism (`AudioBridge.qml` already distinguishes active-capture stream
-  nodes from device nodes via Pipewire). The camera half has no precedent
-  anywhere in this codebase (nothing touches `/dev/video*`/v4l2) and would
-  need a new, unverified detection scheme.
-
-  **Answer:** yes, the permission system must be built. It should be
-  generally restrictive, always asking permission the first time an app
-  requires it (granted once, always, or never).
+- the app-permission system's actual detection/enforcement backend.
+  `Services/SensorPermissions.qml` and its UI (bar icons, overlays,
+  Settings group, the three-choice prompt) are built and real; nothing
+  populates `activeUsers` yet, so the prompt never appears on its own.
+  Needs: a reactive detect-then-kill design (no OS-level prior-restraint
+  mechanism exists on a non-sandboxed desktop, confirmed — this is not
+  the same shape as Flatpak/portal permissions) — microphone via
+  Pipewire capture-stream nodes (`AudioBridge.qml`'s existing `micInUse`
+  mechanism is the proven starting point), camera via `/proc/*/fd`
+  scanning for open `/dev/video*` handles (no precedent anywhere in this
+  codebase yet). Also needs a decision on where `rules`/`activeUsers`
+  should persist across restarts (currently session-only).
 
 - yazi's folder colouring only distinguishes /mnt and /srv from $HOME
   (the two non-home locations this project actually uses today) — a

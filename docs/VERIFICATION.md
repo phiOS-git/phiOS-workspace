@@ -9,6 +9,34 @@ once it is verified.
 
 ---
 
+## App-permission system for microphone/camera access
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** `5ebc113` sensors: build the full app-permission-system UI, backend deferred · merge `7c04eed`
+- **Original TODO:** "add status bar icons for active sensors (microphone, camera); the overlay should show a list of apps with the sensor they are using and killswitches. Also add settings for killswitches and permission rules." + its own recorded **Answer:** "yes, the permission system must be built. It should be generally restrictive, always asking permission the first time an app requires it (granted once, always, or never)."
+
+### What was asked
+Build the app-permission system this backlog entry describes — explicitly, on request, the full UI and interactions now, with the real detection/enforcement mechanism designed and discussed separately afterward rather than attempted in the same pass.
+
+### What was done
+A real architectural constraint shaped the split, confirmed before any code was written (asked back to the user directly): on a traditional, non-sandboxed Linux desktop there is no OS mechanism to block an app from opening a camera/mic device *before* it happens — that is specifically what Flatpak + `xdg-desktop-portal` exist to solve, and this system uses neither. A real implementation would be a reactive detect-then-kill loop, not true prior restraint, and the user asked for the UI to be built against that eventual shape without building the detector yet.
+
+New `Services/SensorPermissions.qml`: real mic/camera master killswitches (mic bridges to `Services.AudioBridge`'s actual Pipewire input mute; camera is a real session flag, consolidated out of a stray property that used to live directly on `Panels/BarPopout.qml`), a real stored-rules list (add/remove, `always`/`never` decisions), a real `pendingPrompt`/`requestPermission`/`respond` flow (the same `open()`-plus-callback shape `Services/ConfirmDialog.qml` already uses), a real `killApp(pid)` (genuinely sends `SIGTERM`), and `activeUsers` — always `[]`, since nothing detects real sensor usage yet. New `Dialogs/SensorPermissionPrompt.qml`: the three-choice (Always/Once/Never) modal. New bar modules `Bar/modules/{Microphone,Camera}.qml` (bottom-bar right isle) — text labels ("MIC"/"CAM"), not a guessed Nerd Font codepoint, since this project has shipped two wrong ones before (`Bar/glyphs.js`'s own header) and rework.md's icon-text-label removal means a wrong glyph here would have no value-text neighbour to degrade to legibly. New "microphone"/"camera" sections in `Panels/BarPopout.qml` (killswitch + empty-state active-users list + settings deep-link). New "Sensor permissions" group in `Settings/sections/Security.qml` (both killswitches, the rules list, and two "preview the permission prompt" buttons that exercise the real dialog end to end without pretending a real app asked — `previewPrompt()` deliberately bypasses the stored-rule lookup so it keeps working even after a test "Always"/"Never" click).
+
+### Honest assessment
+<span style="color:red">**NOT DONE, by explicit agreement, not an oversight:**</span> the actual detection that would populate `activeUsers` and call `requestPermission()` automatically does not exist. The prompt, the bar icons' "in use" state, and the overlay's app list are all real and fully wired, but nothing will ever trigger them outside of Settings' own test-preview buttons until a detection service is built — see the fresh `docs/TODO.md` entry this write-up adds for exactly what that needs (Pipewire capture-stream nodes for the microphone, `/proc/*/fd` scanning for the camera, and a decision on persisting rules/state across restarts). Also unverified from this environment (no compositor, same as every other phi-shell round): whether the "MIC"/"CAM" text labels read well next to the bar's other icon-only modules, and whether the three-button prompt dialog lays out correctly at real screen widths.
+
+### How to test it
+1. Rebuild and reinstall `phi-shell` from this `dev`.
+2. Confirm the bottom bar shows "MIC" and "CAM" text-label icons in the right isle, near the battery icon.
+3. Click each — confirm a small overlay opens with a killswitch toggle and "No app is currently using the microphone/camera."
+4. Toggle the microphone killswitch off from the overlay (or from Settings › Security › Sensor permissions) and confirm it actually mutes the mic (e.g. check `pactl` or an app's own input meter) — this one is real. Toggle the camera killswitch and confirm it's a plain UI state with no hardware effect (expected, per the Honest assessment above).
+5. In Settings › Security, scroll to "Sensor permissions" and click "Test: microphone" — the three-choice prompt (Always/Once/Never) should appear centred, dimming the screen. Pick "Always" and confirm a "Test App — microphone — always" row appears in the rules list; click "Remove" and confirm it disappears. Click "Test: microphone" again and confirm the prompt appears again (it should, even after the Always/Never test above — that's `previewPrompt()`'s whole point).
+6. Nothing should ever pop up the permission prompt on its own — that is the expected, documented state until a detection backend is built.
+
+---
+
 ## Stats overlay's fan-profile buttons had no real backend
 
 - **Date:** 2026-09-15
