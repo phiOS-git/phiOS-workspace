@@ -9,6 +9,160 @@ once it is verified.
 
 ---
 
+## Interface rework — real-hardware bug pass (rework-issues.md, 9 numbered bugs)
+
+- **Date:** 2026-09-16
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 2b627b9 stagger: fix two real QML errors found on real hardware
+  914e5c8 bar: paint one continuous bar background, not per-isle boxes
+  7bdb5e0 bar: remove the never-requested microphone/camera bar icons
+  23bcc84 bar: vertically centre the isle line separators
+  d3a4308 network overlay: drop the stale "Tailscale" card title
+  4491526 bar: show active state on the lens and agent icons when their panel is open
+  ea4e29e bar: workspace list — width-only active pop, small list padding
+  847af58 status overlay: make Tile/Floating apply to every window, not just the focused one
+  82a2134 overlays: cap clipboard/notifications height, size notifications to content
+  1b95da1 status overlay: give the lock icon a real hover color
+  bc890c9 bar: pad and vertically centre the current-app-name label
+  84d551b merge: rework-issues.md real-hardware bug pass (9 numbered bugs)
+- **Original TODO:** `rework-issues.md` (workspace root) — the user tested the
+  interface rework on real hardware and found many real bugs and
+  misunderstandings.
+
+### What was asked
+`rework-issues.md` lists 9 numbered bugs from real-hardware testing plus
+17 further "new requests". This round covers the 9 numbered bugs only,
+each fixed and tested against a real Hyprland session on this machine
+before moving to the next — see the "Honest assessment" below for exactly
+how each was tested and what that testing could and could not reach.
+
+### What was done
+1. **Bar background/radius**: `Widgets/BarIsle.qml` no longer paints its
+   own per-isle background; `Bar/Bar.qml` now paints one continuous
+   `AsymmetricPanel` behind all three isles, radius-flipped by `bar.edge`.
+2. **btop workspace still existing**: not a phi-shell bug — the removal
+   already landed in `phios-dotfiles` in an earlier round; this machine's
+   live `~/.config/hypr/hyprland.lua` just hasn't had that profile
+   re-applied yet. No code change; needs the user to re-run the installer
+   or reload Hyprland's config on this machine.
+3. **Clipboard/notifications overlay height**: both were unconditionally
+   anchored to the bottom of the screen. Both now cap at 3/4 screen
+   height; notifications additionally shrinks to its own content height
+   below that cap (`Panels/tabs/Notifications.qml` exposes its Flickable's
+   `contentHeight` as `naturalContentHeight`).
+4a. **Lock icon hover**: `Panels/BarPopout.qml`'s `_powerTone()` had no
+   `"lock"` case, so its hover color fell through to the same color the
+   icon already uses at rest — the hover Behavior fired but animated to
+   an identical value. Added a real tone.
+4c. **Tiling modes doing nothing / floating only toggling the focused
+   window**: rewired to Hyprland 0.56's own Lua binding
+   (`hl.get_workspace_windows()` + a writable `HL.Window.floating` field,
+   read from `/usr/share/hypr/stubs/hl.meta.lua` on this machine, not
+   guessed) — Tile/Floating now iterate every window on the current
+   workspace and set floating explicitly. X-scroll/Y-scroll/Center/Fair
+   remain UI-only, unchanged (no stock Hyprland equivalent — already
+   disclosed in-panel).
+5. **Mic/cam bar icons never requested**: `Bar/modules/{Microphone,Camera}.qml`
+   deleted, removed from `Bar/modules-bottom.json`.
+6. **Wrong network icon**: not a phi-shell bug — `Bar/modules/
+   NetworkStatus.qml` (the correct merged ethernet/wifi icon) already
+   replaced the old `Bar/modules/Network.qml` (Tailscale/VPN-only) in
+   `modules-bottom.json` in an earlier round. Same stale-live-checkout
+   situation as item 2.
+7. **Stale "Tailscale" network overlay title**: `Services/BarPopout.qml`'s
+   `title("network")` now returns `""`; `Panels/BarPopout.qml` hides the
+   card header and its separator when the title is empty.
+8. **Workspace list**: the active-workspace "pop" used a plain `scale`
+   property (both axes), visibly growing the button taller during the
+   bounce, not just wider — replaced with an X-only `Scale` transform.
+   Also added a small padding around the whole list.
+9. **Separator not vertically centred**: `Row` only manages its
+   children's x position; a plain `y` binding (not `anchors.verticalCenter`,
+   which was tried first and confirmed live to make a Row-managed child
+   disappear entirely) now centres it. Extended the same fix to
+   `Bar/modules/CurrentApp.qml` (also not centred, plus missing left
+   padding — closely related, fixed alongside its own numbered item in
+   the "new requests" half of the file even though this entry only
+   covers the 9 numbered bugs).
+
+### Honest assessment
+<span style="color:red">**NOT DONE:** item 4b (sensor rows should be a
+"list of toggleable icons" with real per-state icons, not text+switch
+rows) and all 17 "new requests" — both re-added to `docs/TODO.md` as
+their own clean entries.</span>
+
+Everything above was tested on this actual machine (real Hyprland
+session, real monitor), never against the user's live
+`~/.config/quickshell/phi` checkout — only via a separate `qs -p
+<this-workspace-checkout>` test instance, screenshotted with `grim` and
+inspected pixel-by-pixel where a change was too subtle to eyeball (the
+separator fix — its resting color is a genuinely low-contrast `#3e3d3a`
+on `#1a1918`, confirmed present and correctly positioned via
+`magick ... txt:` pixel sampling, not by eye). Every test instance was
+launched with `timeout`, or killed and confirmed gone via `qs list --all`
+before moving on — the live shell (PID 1505) was never touched.
+
+Two real limits on how far this testing could go, both because no
+input-simulation tool exists on this machine (`ydotool`/`wtype`/`dotool`
+all absent) and mouse clicks could not be synthesized:
+- Hover states (item 4a) were confirmed to load and render correctly, but
+  the actual color swap on hover could not be triggered and observed.
+- Overlay-opening bar-icon clicks were exercised instead via a temporary,
+  test-instance-only `IpcHandler` added to `Services/BarPopout.qml`
+  (`qs ipc -i <test-instance-id> call debugPopout open <key>`), screenshotted,
+  then reverted before committing — this DID let the network-title fix
+  (item 7), the status/lock overlay (item 4a), and the clipboard/
+  notifications height cap (item 3) all be visually confirmed for real,
+  not just reasoned about.
+
+Item 4c (tiling) could not be click-tested for the same reason, and its
+underlying Lua `.floating` setter specifically was never exercised
+against a real window — only the read side (`get_workspace_windows`,
+`get_active_workspace`, iteration, string building) was proven live, via
+a safe read-only probe piping output to a temp file. The setter itself
+is high-confidence (Hyprland's own shipped type stub, not a guess) but
+not click-confirmed. Mutating a real window even briefly (this machine
+only had two real windows to test against: the user's own live terminal
+and btop) was avoided deliberately rather than risk a visible disruption
+to the user's actual session.
+
+### How to test it
+1. `cd phi-shell && git pull` on the machine that will run this (or pull
+   the whole workspace superproject, which will fast-forward the
+   `phi-shell` submodule pointer).
+2. Restart the shell: `pkill -x qs; qs -p ~/.config/quickshell/phi`.
+3. **Bar background (1):** the whole bar should read as one continuous
+   dark strip; there should be no gap between isles where the wallpaper
+   shows through.
+4. **Mic/cam icons (5):** the bottom-right isle should no longer show
+   "MIC"/"CAM" text icons.
+5. **Separator (9):** zoom into a screenshot of the left isle (Φ icon,
+   then a thin vertical line, then the workspace numbers) — the line
+   should sit centred between the icon above/below it, not flush to the
+   top. It is a subtle, low-contrast line by design; zoom in if it is
+   hard to see.
+6. **Network overlay (7):** click the network icon (bottom-right isle) —
+   the card should open directly into "Ethernet"/"Wi-Fi", "Tailscale",
+   "VPN" sections, no plain "Tailscale" title above them.
+7. **Workspace pop (8):** switch workspaces a few times and watch the
+   active square's "pop" animation — it should visibly widen, not also
+   grow taller.
+8. **Clipboard/notifications height (3):** open each overlay with little
+   or no history — neither should stretch to the bottom of the screen.
+9. **Lock hover (4a):** open the status overlay (profile/power icon row)
+   and hover the lock icon — it should change color like its neighbours.
+10. **Tiling (4c):** open a few windows on one workspace, float one of
+    them (Super+V or the overlay's own Floating button), then click
+    "Tile" in the status overlay's tiling grid — every window on that
+    workspace should return to tiled, not just whichever was focused.
+11. **btop workspace / network icon (2, 6):** if either is still wrong
+    after pulling, this machine's own `~/.config/hypr/hyprland.lua` and
+    `phi-shell` config just haven't been re-applied from the current
+    `phios-dotfiles`/`phi-shell` `dev` — re-run the installer rather than
+    filing this as a new bug.
+
+---
+
 ## App-permission system for microphone/camera access
 
 - **Date:** 2026-09-15

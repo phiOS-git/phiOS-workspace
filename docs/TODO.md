@@ -10,16 +10,24 @@ entries below live in `docs/investigations.md`, so this file stays quick to
 scan — an investigated entry ends with a pointer there instead of the full
 writeup.
 
-## Interface rework — real-hardware bug pass
+## Interface rework — real-hardware bug pass, remaining scope
 
-- [taken] `rework-issues.md` (workspace root): the user tested the interface
-  rework on real hardware and found many real bugs and misunderstandings —
-  bar/isle background and radius, the btop workspace still existing,
-  overlay sizing, the status overlay's tiling/sensor icons, the mic/cam
-  bar icons that were never requested, the network icon/overlay, workspace
-  list sizing, and 17 further style/behaviour requests. Being fixed and
-  verified against a real Hyprland session on this machine before moving
-  to anything else.
+- `rework-issues.md` (workspace root) item 4b: the status overlay's sensor
+  rows (Night mode, True Tone, Stay awake, Microphone, Camera) are still
+  text+switch rows. rework.md itself describes them as a "list of
+  toggleable icons", each with several real visual states (possibly
+  animated between them) — not done this pass, a real icon-set redesign
+  rather than a one-file fix.
+
+- `rework-issues.md`'s 17 "New requests" (items 1-17, workspace root) are
+  entirely untouched — battery-percent setting, a btop-in-new-workspace
+  button, a firewall section in the network panel, clipboard entry
+  trimming/hover sizing, the settings-icon-in-header pattern across every
+  overlay, status-overlay icon layout, section padding/separators in every
+  overlay, the window list's icons/ordering/click-to-focus, a thinner list
+  style replacing bulky buttons, overview ESC/entry-styling/selected-state/
+  workspace-squares, terminal padding, and settings-panel padding/section
+  shading. See that file for the exact wording of each.
 
 ## Open Questions
 
