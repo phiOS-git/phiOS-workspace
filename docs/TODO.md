@@ -92,6 +92,14 @@ both places.
 
 1. In the notification panel, all the clear buttons (single, group, all) don't work until i run `phi theme set` at least once. Investigated 2026-09-14: no code defect found — `clearAll`/`clearApp`/`clearEntry` (Services/Notifications.qml) update `history` in-memory before ever touching disk, so a persistence failure alone can't explain the buttons visually doing nothing; the click-wiring in Panels/tabs/Notifications.qml and Widgets/SmallButton.qml/StyledButton.qml reads correctly by inspection, and no ancestor sets `enabled: false` anywhere in Panels/Sidebar.qml. Traced what `phi theme set` actually does to phi-shell specifically (`phi/internal/theme/set.go` + `phios-dotfiles/design/adapters.txt`): for phi-shell's row the reload command is `-` (none) — its only effect is writing `Config/Tokens.qml`, which Quickshell's own file-watcher then hot-reloads. So the working theory is a stale-binding/startup-race bug that a hot-reload happens to clear, not something `phi theme set`'s content is actually responsible for — but this is unconfirmed, could not reproduce without running the shell. Next time this happens: capture `qs -p ~/.config/quickshell/phi` stdout/stderr at the moment a clear button is clicked and does nothing (any QML warning at that instant is the missing clue), and check whether the DND toggle / group-collapse controls (different widgets, same tab) work at that same moment — narrows whether this is Notifications-tab-wide or specific to SmallButton/StyledButton's `clicked()`.
 
+2. When Night mode is set to automatic, even if i manually disabled it turns on at every minute check if the time condition is met. There should be a flag, until the end of the schedule, if the night mode was manually disable it won't turn on
+
+3. [taken] the lock overlay appears with delay when pressing super+l. Either the transition is too slow or it just lags
+
+4. [taken] in the lock overlay, the lock button is in accent color but that should be the selected state, instead the selected state is just a border. fix it, the selected state should be the accent colour background. Also until i press tab the first option is not automatically seleceted and it should be. Also teh border radius of the option elements should be way less.
+
+
+
 ### Older 
 
 - on razer the trackpad does not work after hibernation — to be tested,
