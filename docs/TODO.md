@@ -226,14 +226,6 @@ both places.
 - consideration: usare alt come super, così avrei 2 super invece che 2
   alt. Da valutare con software che usano alt [TBD]
 
-- [taken] the stats overlay's fan-profile buttons (auto/silent/default/heavy)
-  have no real backend — no fan-control mechanism was found via any
-  official-repo package on zotac at the time this was first written up;
-  a live check of `zotac` itself (2026-09-15) found a real, standard
-  hwmon PWM interface (nct6798, official `lm_sensors` + in-kernel
-  driver) the user's own `sensors-detect` run had missed. Building real
-  control against it.
-
 - the status overlay's tiling-mode grid has six modes (X scroll, Y
   scroll, Tile, Center, Fair, Floating); only "Tile"/"Floating" map to a
   real Hyprland dispatch (dwindle/master tiling and the per-window float

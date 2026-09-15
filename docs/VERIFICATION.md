@@ -9,6 +9,40 @@ once it is verified.
 
 ---
 
+## Stats overlay's fan-profile buttons had no real backend
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi / dev, phios-dotfiles / dev, phi-shell / dev
+- **Commits:**
+  - `phi`: `2470f7b` fan: add real PWM fan control via the standard hwmon ABI · `bc929bf` fan: add --json to status, matching phi vpn status's own convention · merge `7b1c78d`
+  - `phios-dotfiles`: `fb3c3a7` fan: add lm_sensors and the 49-phi-fan sudoers drop-in for phi fan · merge `90d10f9`
+  - `phi-shell`: `f37f0d4` fan: wire FanControl to phi fan, no longer a permanent no-op
+- **Original TODO:** the `[taken]` fan-control bare entry this write-up removes.
+- **Requires phi rebuild:** not yet tagged — same pending-promotion-to-`main` note as the interface rework's own entry above; a tag should be cut once `dev` is promoted.
+
+### What was asked
+The interface rework's own write-up left the stats overlay's four fan-profile buttons (auto/silent/default/heavy) as honest, confirmed no-ops: no fan-control mechanism had been found via any official-repo package. Asked to check again, directly on `zotac`, and build real control if one exists.
+
+### What was done
+A live, read-only check of `zotac` (this development environment is confirmed to run on the real machine — matching hostname, real ASUS ROG STRIX B550-I GAMING hardware, live sensor data) found what the user's own earlier `sensors-detect` run had missed: `hwmon6` is `nct6798`, exposing three real PWM channels (`pwm1`, `pwm2`, `pwm5`, each with a `pwmN_enable` sibling) — the standard Linux hwmon sysfs ABI, driven by the in-kernel `nct6775` driver family and the already-official `lm_sensors` package. No AUR, no vendor tool.
+
+New `phi` package `internal/fan`: `Discover()` finds any `pwmN`+`pwmN_enable` pair under `/sys/class/hwmon` by file presence (never a hardcoded chip name, so the same code applies on `razer`/`mini` too, if either turns out to expose one). `Set()` writes `pwmN_enable=1` plus a fixed 0-255 duty byte for silent/default/heavy (~25%/50%/85%), or `pwmN_enable=2` for auto — a real automatic mode per the documented ABI, though not necessarily the exact automatic mode (`nct6798` was found in mode 5, "SmartFan IV") active before `phi` ever touches it; a deliberate simplification, documented in the code rather than hidden. Every write goes through `sudo -n tee`, the exact shape `internal/firewall`'s own `sudoStdin` already uses, gated by a new `profiles/desktop/system/etc/sudoers.d/49-phi-fan` (never applied by the installer, same contract as `49-phi-vpn`/`49-phi-firewall`) — `phios-dotfiles` also now declares `lm_sensors` in the base profile (it was already installed, unmanaged, on zotac). `phi fan status --json`/`list`/`set` are new CLI verbs. `phi-shell`'s `Services/FanControl.qml` is no longer a permanent no-op — it bridges to `phi fan` the same way `Services/Vpn.qml` already bridges to `phi vpn`, watched-gated like `Services/SysStats.qml` so it only polls while the Stats overlay is open.
+
+### Honest assessment
+<span style="color:red">**NOT independently verified end to end:**</span> `phi fan status`/`list` were run for real against the live hwmon tree from this environment (read-only, unprivileged) and correctly found all three channels with their real current state. `Set()`'s actual privileged write path — the part that would really change a fan's speed — was deliberately **never exercised from here**: this project's workspace rules forbid touching the live machine's `/etc` or running `sudo` regardless of which repository the changing code lives in, and applying the new sudoers drop-in plus clicking a profile button is exactly that. It is reasoned correct against the documented, chip-agnostic kernel ABI (confirmed via the real installed `sensors` output and `/sys/class/hwmon` contents, not guessed), covered by unit tests against a synthetic hwmon tree, and builds/passes `go vet`/`go test` cleanly — but the real write has not happened. The "auto" profile's choice of mode 2 over the board's actual prior mode (5) is a known, accepted simplification, not an oversight — see the code comment in `internal/fan/fan.go`.
+
+### How to test it
+1. Rebuild and reinstall `phi` and `phios-dotfiles` from this `dev` (or promote to `main` and tag first, per the pending-rebuild note above).
+2. Install the new sudoers drop-in by hand, as its own header instructs: `sudo install -m 0440 -o root -g root profiles/desktop/system/etc/sudoers.d/49-phi-fan /etc/sudoers.d/49-phi-fan && sudo visudo -cf /etc/sudoers.d/49-phi-fan`.
+3. `phi fan status` — confirm it lists the same three `nct6798` channels this write-up found, with their current duty/enable values.
+4. Open the Stats overlay (bottom bar's stats icon) and confirm the four fan-profile buttons are visible (not the "not available" message) and clickable.
+5. Click "silent", then check `sensors` (or `phi fan status` again) a few seconds later — the duty cycle should read close to 25% and the enable mode should read `1`. Listen for the fans actually slowing down.
+6. Click "heavy" and confirm the opposite — duty near 85%, fans audibly faster.
+7. Click "auto" and confirm `pwmN_enable` reads `2` — a real automatic mode, not necessarily mode 5 (SmartFan IV) it started in; this is expected per the Honest assessment above, not a bug to report unless the fans behave in a way that reads as actually wrong (stuck at one speed, not responding to load at all).
+8. If any step 5-7 shows an error in the overlay instead of the expected change, check `journalctl` / run `phi fan set silent` directly in a terminal to see the real error message (most likely cause: the sudoers drop-in isn't installed, or wasn't installed for the right desktop username).
+
+---
+
 ## Workspace switching wraps around instead of stopping; no real network speedtest
 
 - **Date:** 2026-09-15
