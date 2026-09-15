@@ -10,6 +10,17 @@ entries below live in `docs/investigations.md`, so this file stays quick to
 scan — an investigated entry ends with a pointer there instead of the full
 writeup.
 
+## Interface rework — real-hardware bug pass
+
+- [taken] `rework-issues.md` (workspace root): the user tested the interface
+  rework on real hardware and found many real bugs and misunderstandings —
+  bar/isle background and radius, the btop workspace still existing,
+  overlay sizing, the status overlay's tiling/sensor icons, the mic/cam
+  bar icons that were never requested, the network icon/overlay, workspace
+  list sizing, and 17 further style/behaviour requests. Being fixed and
+  verified against a real Hyprland session on this machine before moving
+  to anything else.
+
 ## Open Questions
 
 Quick index of every entry below still waiting on a decision. Answer
