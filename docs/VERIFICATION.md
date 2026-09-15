@@ -9,6 +9,59 @@ once it is verified.
 
 ---
 
+## Once a project was used from the chat panel, there was no way back to unfiled chat
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi / dev, phi-shell / dev
+- **Commits:** phi 877c000 agent: add a way to leave the active project; phi-shell 53563cb agent chat: leave the active project instead of staying scoped forever, 6a4bb7e agent chat: show a real "no results" state for a search with zero hits
+- **Original TODO:** none — found during the chat-panel rework's own critical pass, below
+- **Requires phi rebuild:** v0.19.0
+
+### What was asked
+No direct report — this surfaced while re-reading the merged chat panel (`ChatShell.qml`) as its own critic: "Use + chat" on a project sets the agent's active project, but nothing anywhere called the CLI's `project use` with anything other than a real project name.
+
+### What was done
+`phi agent project use` required a name; there was no way to clear the marker file it writes, so once a project was ever used, every later message — including from "New chat" — kept silently routing into that project's context forever, even though the sidebar looked like plain unfiled chat again.
+- `phi`: `Model.ClearActiveProject()` removes the marker; `project use --none` is the new counterpart to `use NAME`, restarting the agent unscoped exactly the way `use NAME` restarts it scoped.
+- `phi-shell`: `Services/Agent.qml` gets `leaveProject()` and a `switchTarget` property (the switch's real destination — `activeProject` itself still holds the old value while a switch is in flight, which previously would have made a "leaving" banner misreport itself as "entering"). Both "New chat" actions (`ChatShell.qml`'s sidebar button and `Chat.qml`'s header button) now call `leaveProject()` first whenever a project is active.
+- Also fixed in the same pass: a chat search with zero hits rendered nothing, indistinguishable from the search not having run yet — `ChatShell.qml` now shows "No matches for "<query>"."
+
+### Honest assessment
+The `phi` side is verified by `go build ./...` and `go test ./internal/agent/...` — both clean — but not live-tested against the real `phi-agent-a1.service` on this machine: the installed `/usr/bin/phi` is the pacman-managed v0.18.0 (writing to `/usr` is off-limits here), so `--none` cannot actually run end-to-end until the tagged `v0.19.0` is built and installed. The shell side (`leaveProject()`, `switchTarget`, both button wirings) is screenshot-verified only for "the panel still renders correctly after the change, no load errors" — not for the actual leave-project round trip, since that needs the rebuilt `phi` binary too. The "no results" search state is a simple, low-risk binding change verified by re-reading the code and a clean reload; not confirmed with a real screenshot of the empty state itself, since reaching the search field needs blind Tab-hunting that (see the entry below) proved unreliable this session.
+
+### How to test it
+1. `phi-packages`: build and install the tagged `v0.19.0` `phi` package.
+2. Open the AI agent panel, open a project, click "Use + chat". Confirm the header shows `<project> › new chat`.
+3. Click "New chat" (either the sidebar's or the header's). The "Rebuilding the containment for the unfiled chat" banner should appear, then the header should go back to plain `new chat` with no project prefix.
+4. Send a message and confirm (via `phi agent project list`, or the Settings › AI Agent "Active project" row) that it is no longer scoped to the project — it should read `(none)`.
+5. Separately: type a search query in the sidebar's search field that matches nothing. It should show `No matches for "<query>".` instead of a blank list.
+
+---
+
+## Full rework of the chat panel — a persistent sidebar instead of two destinations
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** f6fbd9c agent chat: merge Dashboard and Chat into one persistent two-pane shell
+- **Original TODO:** none — direct instruction: "i want a full rework of the chat panel with UX at its core. Do not stop until it's perfect. You can override any previous directive in order to take the best decisions to make this a perfect piece of UI/UX."
+
+### What was asked
+A ground-up UX rework of the AI agent chat panel, with explicit license to override prior, more conservative decisions this session where a better design called for it.
+
+### What was done
+The panel used to have two destinations you navigated BETWEEN on the nav rail — "Dashboard" (chat list, search, projects) and "Chat" (the active conversation) — a Loader swapping between two differently-shaped screens. This is replaced with one persistent two-pane layout, `Panels/tabs/agent/ChatShell.qml`, matching how ChatGPT/Claude/Slack's own chat UIs are laid out: a fixed sidebar (new chat/new project, search, Pinned, Projects, and chats grouped Today/Yesterday/Earlier — `Services/Agent.qml`'s new `relativeDay()`) always visible next to the active conversation, which now updates in place instead of navigating away to a different screen. `Dashboard.qml` is deleted; `Chat.qml` lost its own now-redundant embedded session list and Settings button (both already live in the persistent sidebar and the rail). `Panels/AgentPanel.qml`'s rail dropped to three sections (Chat/Code/Memory, chat is the default) and the panel itself was widened (`baseWidth` now matches `wideWidth`) to give the two-pane layout room. A pre-existing, minor bug is fixed as a side effect: a pinned chat used to also appear a second time in the flat "Chats" list; the recency-grouped list now excludes pinned chats.
+
+### Honest assessment
+Screenshot-verified: the merged panel renders correctly (sidebar + active conversation side by side), switching to Code/Memory and back to Chat via keyboard still works, and the panel loads with no QML errors. <span style="color:red">**NOT independently verified:** a full send-a-message round trip.</span> This environment has no pointer-button synthesis (only keyboard-key events and cursor position), and there was no existing chat history to Tab into safely — blind Tab-hunting to reach the composer was attempted for an unrelated check in this same session and landed on the wrong control (opened Settings instead of a project row), which is exactly the risk of doing it more. The composer, search, and sidebar chat rows are reasoned correct from the code (`Services/Agent.qml`'s existing `send()` already lazily creates a session) rather than confirmed by actually typing and sending. The "critic UX designer, don't stop until perfect" instruction is treated as ongoing, not closed out by this entry — the leave-project fix above and the search empty-state fix were both found by continuing that same pass after this merge landed.
+
+### How to test it
+1. Open the AI agent panel (SUPER+P or the Φ bar segment). You should see a left rail (Chat/Code/Memory + Settings), then a sidebar (New chat/New project buttons, a search field, Projects, and your chats grouped by Today/Yesterday/Earlier), then the active conversation — all at once, no separate "Dashboard" screen to navigate to.
+2. Click a chat in the sidebar. The conversation pane on the right should update in place; the sidebar should stay visible and show that chat highlighted.
+3. Pin a chat (the "Pin" button next to it). It should move into a "Pinned" section at the top and disappear from its Today/Yesterday/Earlier group (not appear in both).
+4. Click "New project", type a valid name, "Create". It should appear under "Projects"; clicking it should replace the conversation pane with the project's own view (Description, Instructions, Context files, Folders, Default personality, Conversations) while the sidebar stays visible.
+
+---
+
 ## The clipboard's right-click menu showed no options
 
 - **Date:** 2026-09-15
