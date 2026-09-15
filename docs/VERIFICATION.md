@@ -9,6 +9,55 @@ once it is verified.
 
 ---
 
+## Settings switches were invisible on hover, and looked "always black" regardless of state
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** f850a92 widgets: fix Toggle hover invisibility and always-black off track
+- **Original TODO:** none — reported directly: "Bug: hovering the switches makes them have the same color as background, making them invisible. Also when active the dot is in black on accent, when disabled is white on black (in dark theme), making it confusing as the right part of the switch is always black."
+
+### What was asked
+Fix a Toggle (on/off switch) regression from an earlier styling pass: hovering a switch made it disappear, and the on/off states were hard to tell apart because the right side of the track always read as black.
+
+### What was done
+Both bugs were in `Widgets/WidgetStates.js`'s `"toggle"` colour recipe, not `Widgets/Toggle.qml` itself:
+
+- `hover` used `appearance.colorMain` for the knob/border colour. `colorMain` is not an ink colour — `Config/Appearance.qml` defines it as `root.background` itself. Every other recipe in this file correctly reaches for `colorOpposite` (the real ink token) for hover; this one alone had the wrong token, so a hovered switch's knob and border exactly matched its own panel's background. Fixed to use `colorOpposite`.
+- The off track was fully `"transparent"`, which on the dark theme's near-black panel reads as solid black — indistinguishable from the ON state's own near-black `accentText` knob. Replaced with `appearance.panelHover`, the same solid, pre-existing background-tinted wash already used for hover fills elsewhere in the shell, so the off track is now a real, visible, non-black fill.
+
+### Honest assessment
+This session got direct screenshot access to the user's real running shell for the first time (`grim`/`hyprctl` against the live Hyprland session) and used it to confirm the on/off contrast fix: OFF now shows a muted grey knob on a visible (non-black) track, ON shows a solid accent-pink track with a dark knob — clearly distinct. <span style="color:red">**NOT independently confirmed:** the hover fix itself.</span> A compositor-side cursor warp (`hyprctl dispatch`) does not generate a real pointer-enter event Quickshell's `MouseArea.containsMouse` reacts to — confirmed by warping onto a button already known to have a working hover fill and seeing no visual change — and no input-synthesis tool (`ydotool`/`wtype`) could be installed (this is one of the three real phiOS machines; installing services is off-limits). The hover fix is code-correct by inspection — `colorOpposite` is the exact token every other working ambient's hover case already uses for the same purpose — but needs one real mouse hover to close out visually.
+
+### How to test it
+1. Open Settings → Notifications (or any section with a switch, e.g. "Do not disturb").
+2. Rest the mouse pointer over a switch. It should stay clearly visible — a light knob/border, not fading to match the dark panel behind it.
+3. Compare an OFF switch and an ON switch side by side: OFF should show a muted grey knob on a visibly lighter-than-panel track; ON should show a solid pink track with a dark knob. Neither should look like a plain black bar.
+
+---
+
+## The SUPER+L power menu's Hibernate row had no icon
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 763cb91 power menu: give Hibernate a real icon instead of none
+- **Original TODO:** "the SUPER+L power menu's Hibernate row still has no icon. Checked nerd-fonts' `glyphnames.json`: no glyph named "hibernate" exists, and no close synonym (sleep, power_standby, moon, bed) reads as hibernate specifically either — needs a deliberate substitute pick, since Lock/Suspend/Reboot all use a real, exact-named icon."
+
+### What was asked
+Pick a deliberate substitute icon for the power menu's Hibernate row, which has rendered with no icon at all since the other four rows (Lock, Suspend, Shut down, Reboot) got real icons.
+
+### What was done
+Added `Glyphs.hibernate` to `Bar/glyphs.js` using `nf-md-snowflake` (codepoint `f0717`) — a "frozen" pictogram, the same convention several real desktop environments already use for hibernate, and visually distinct from Suspend's crescent moon on the same menu. Confirmed against a fresh fetch of nerd-fonts' own `glyphnames.json`, and wired into `Dialogs/PowerMenu.qml`'s Hibernate row.
+
+### Honest assessment
+Confirmed rendering with a real screenshot of the power menu (SUPER+L) on the user's live session — a real snowflake glyph, not a tofu box. One process note: the first live edit (to `Bar/glyphs.js` alone) silently did not take effect, because a `.pragma library` JS file's exports can stay cached across a plain hot-reload of the `.qml` file that imports it — a full shell restart (`pkill -x qs; qs -p ...`) was needed before the change actually rendered. Worth remembering for any future glyph/constant change in this file.
+
+### How to test it
+1. Press SUPER+L once (do not double-tap — a fast double-press locks the screen instantly).
+2. The "Power" menu should show five rows: Lock, Suspend, Hibernate, Shut down, Reboot.
+3. Hibernate's row should show a snowflake icon to the left of the label, matching the visual weight of the other four icons.
+
+---
+
 ## Two more one-click destructive actions had no confirmation, missed by the earlier fix
 
 - **Date:** 2026-09-14

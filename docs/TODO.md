@@ -234,12 +234,6 @@ both places.
   Questions #5.
   *(full notes: `docs/investigations.md#gesture-open-chat-notification-panel`)*
 
-- the SUPER+L power menu's Hibernate row still has no icon. Checked
-  nerd-fonts' `glyphnames.json`: no glyph named "hibernate" exists, and no
-  close synonym (sleep, power_standby, moon, bed) reads as hibernate
-  specifically either — needs a deliberate substitute pick, since Lock/
-  Suspend/Reboot all use a real, exact-named icon.
-
 - there should always be at least 1 workspace (other than the special
   ones), also there should always be at least an empty workspace (so if i
   ope[n...]). See Open Questions #6.
