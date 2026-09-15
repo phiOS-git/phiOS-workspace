@@ -285,10 +285,11 @@ both places.
   of literally everything (Widgets/Segment's many icon-drawing siblings —
   BatteryIcon, GpuIcon, SunMoonIcon, etc. — were reviewed only at their
   call sites, not read individually, since they are pure rendering
-  primitives with no interaction of their own to critique; the Lock
-  screen's five ambient backdrop effects — LavaLamp, Life, MatrixRain,
-  Plasma, Starfield — were not read at all, being pure decoration with no
-  interaction surface of their own).
+  primitives with no interaction of their own to critique). The Lock
+  screen's ambient backdrop effects (LavaLamp, Life, MatrixRain, Plasma,
+  Starfield, and the new Boids) have since all been read and given real
+  settings (2026-09-15, on the user's own request) — LavaLamp specifically
+  reworked for a more liquid look; see `docs/VERIFICATION.md`.
 
 - add status bar icons for active sensors (microphone, camera); the
   overlay should show a list of apps with the sensor they are using and
