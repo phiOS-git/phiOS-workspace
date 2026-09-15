@@ -226,21 +226,22 @@ both places.
 - consideration: usare alt come super, così avrei 2 super invece che 2
   alt. Da valutare con software che usano alt [TBD]
 
-- the stats overlay's fan-profile buttons (auto/silent/default/heavy)
-  have no real backend — no fan-control mechanism exists anywhere in
-  this codebase, and every real option found (nbfc-linux, vendor fan
-  utilities) is AUR, which rule 2 forbids. Needs either an official-repo
-  mechanism to be found for the actual hardware (per host), or the
-  buttons stay a visible "not available" state.
+- [taken] the stats overlay's fan-profile buttons (auto/silent/default/heavy)
+  have no real backend — no fan-control mechanism was found via any
+  official-repo package on zotac at the time this was first written up;
+  a live check of `zotac` itself (2026-09-15) found a real, standard
+  hwmon PWM interface (nct6798, official `lm_sensors` + in-kernel
+  driver) the user's own `sensors-detect` run had missed. Building real
+  control against it.
 
 - the status overlay's tiling-mode grid has six modes (X scroll, Y
   scroll, Tile, Center, Fair, Floating); only "Tile"/"Floating" map to a
-  real Hyprland dispatch today (dwindle/master tiling and the per-window
-  float toggle). X scroll, Y scroll, Center and Fair have no stock
-  Hyprland equivalent — they exist only via third-party plugins
-  (hy3, hyprscroller), which are outside rule 2. Needs a decision: accept
-  those four as permanently visual-only, or revisit rule 2 for a Hyprland
-  plugin specifically.
+  real Hyprland dispatch (dwindle/master tiling and the per-window float
+  toggle). X scroll, Y scroll, Center and Fair have no stock Hyprland
+  equivalent — only third-party plugins (hy3, hyprscroller) provide them,
+  and the user has decided rule 2 (official packages only) stands: those
+  four stay visual-only UI with no working backend, not a plugin
+  dependency. Nothing further to do here unless that decision changes.
 
 - add gestures to open the chat and notifications panel: 2 finger swipe
   from edge (touchpad). Make the inverted gesture to close the panel as
@@ -315,7 +316,7 @@ both places.
   settings (2026-09-15, on the user's own request) — LavaLamp specifically
   reworked for a more liquid look; see `docs/VERIFICATION.md`.
 
-- add status bar icons for active sensors (microphone, camera); the
+- [taken] add status bar icons for active sensors (microphone, camera); the
   overlay should show a list of apps with the sensor they are using and
   killswitches. Also add settings for killswitches and permission rules.
   Investigated: the microphone half is buildable now on a proven
