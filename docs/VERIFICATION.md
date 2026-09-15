@@ -95,6 +95,32 @@ This is **explicitly not the end of this pass** — the standing instruction is 
 
 ---
 
+## The SUPER+L power menu lagged, and its "selected" pill was just a border
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** ab804c3 power menu: fix the show delay, make selection a real accent fill, less rounding
+- **Original TODO:** "the lock overlay appears with delay when pressing super+l. Either the transition is too slow or it just lags" and "in the lock overlay, the lock button is in accent color but that should be the selected state, instead the selected state is just a border. fix it, the selected state should be the accent colour background. Also until i press tab the first option is not automatically seleceted and it should be. Also teh border radius of the option elements should be way less."
+
+### What was asked
+Three things about the SUPER+L overlay: fix a felt delay before it appears, make the accent-filled pill track real keyboard selection (auto-selecting the first one) instead of being a fixed marker with a plain border for actual focus, and reduce the pill corner radius.
+
+### What was done
+- **The delay**: `Services/PowerMenu.qml` waited out the full 350ms double-tap window on every single press before ever showing the menu, so a genuine double-tap would never flash it before locking. That traded a real, felt delay on the far more common single-press case for a cosmetic guarantee on the rare one. The menu now shows immediately on the first press; a confirmed second press within the window hides it and locks instead, exactly as before, just no longer gating the show.
+- **Selection**: removed `PowerActionsRow`'s `highlightedAction` (a static "default pill" marker, independent of real Tab focus) entirely. The accent fill is now driven directly by real keyboard focus, and a new `focusFirst()` (called every time the overlay becomes shown, not just once at startup) auto-selects the first pill so something is always visibly selected without waiting for a first Tab press.
+- **Radius**: was a fully rounded pill (`height / 2`); now `radiusSmall`, the same corner every other small control in this shell uses.
+
+### Honest assessment
+Clean. Confirmed live: triggered the menu and screenshotted with no delay beforehand (caught it still mid-fade, proving there's no artificial pre-delay left), then a settled screenshot showing "Lock" auto-selected with a solid accent background and a visibly smaller corner radius.
+
+### How to test it
+1. Press SUPER+L once. The menu should appear essentially instantly — no perceptible pause before it starts fading in.
+2. The "Lock" pill should already show the solid accent-pink fill without touching Tab.
+3. Press Tab — the accent fill should move to "Logout", then the next pill, etc. (not stay on Lock with just a ring appearing elsewhere).
+4. The pills should read as gently-rounded rectangles now, not fully rounded capsules.
+
+---
+
 ## The lock screen's power row broke Tab entirely, and the pills didn't match the reference
 
 - **Date:** 2026-09-15

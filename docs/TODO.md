@@ -94,10 +94,6 @@ both places.
 
 2. When Night mode is set to automatic, even if i manually disabled it turns on at every minute check if the time condition is met. There should be a flag, until the end of the schedule, if the night mode was manually disable it won't turn on
 
-3. [taken] the lock overlay appears with delay when pressing super+l. Either the transition is too slow or it just lags
-
-4. [taken] in the lock overlay, the lock button is in accent color but that should be the selected state, instead the selected state is just a border. fix it, the selected state should be the accent colour background. Also until i press tab the first option is not automatically seleceted and it should be. Also teh border radius of the option elements should be way less.
-
 
 
 ### Older 
