@@ -9,6 +9,31 @@ once it is verified.
 
 ---
 
+## A rapid double-send in a new chat could silently lose the first message
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** cd22253 agent chat: fix silent message loss on a rapid double-send
+- **Original TODO:** none — found during the chat-panel rework's own critical pass
+
+### What was asked
+No direct report — found by re-reading `Services/Agent.qml`'s `send()` as its own critic. The first message in a new chat has no session yet, so `send()` creates one and queues the text in a single `pendingSend` slot until the id lands.
+
+### What was done
+Nothing guarded that queue against a second call landing in the same short window: `Chat.qml`'s `doSend()` only refuses to send while `agent.processing` is true, and the lazy-session branch never set it — so hitting Send twice before the just-created session's id arrived silently overwrote `pendingSend` with the second message, discarding the first with no error and no trace. The mirror-image case was just as silent: if session creation itself failed, the queued message vanished and the Send button spun forever with nothing to explain why.
+- `Services/Agent.qml`: sets `processing = true` for the lazy-session window too, so the existing `doSend()` guard actually blocks a second click; on a failed session creation, clears the stuck state, sets `lastError`, and emits a new `sendFailed(text)` signal carrying the lost text back.
+- `Panels/tabs/agent/Chat.qml`: restores that text into the composer on `sendFailed` instead of it just disappearing.
+
+### Honest assessment
+Reasoned correct from the code and confirmed with a clean reload (no QML errors) — not confirmed by actually reproducing the race with two real, timed sends, since this environment has no click synthesis and the timing window is on the order of one HTTP round trip.
+
+### How to test it
+1. Start a brand new chat (no prior messages) and type a message.
+2. Click Send twice in very quick succession (or send, then immediately send a second different message) before a reply starts streaming.
+3. The Send button should show its loading state for the brief session-creation window, and the second click should be a no-op rather than replacing the first message. If the network hiccups and session creation fails outright, the typed text should reappear in the composer along with an "error: Could not start a new chat — try sending again." line, not vanish.
+
+---
+
 ## Once a project was used from the chat panel, there was no way back to unfiled chat
 
 - **Date:** 2026-09-15
