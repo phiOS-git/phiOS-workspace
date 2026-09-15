@@ -66,6 +66,35 @@ This is a documentation-integrity fix, not a functional one — no phi-shell or 
 
 ---
 
+## Ambient lock effects: LavaLamp reworked for a more liquid look, a new Boids effect, much more customisability, and a fixed preview layout
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** cfedf3e lock: rework LavaLamp for a more liquid look, add a new Boids effect, and much more per-effect customisability
+- **Original TODO:** none — direct user request mid-session, not from the backlog: "improve settings for the ambient effects, they should have way more customisability (make the layout fit). Also the preview header is covering most part of the preview area. Add as many more options you can, here is a repository with many ideas: github.com/phlx0/drift. Between all options, the lava lamp is the one that i dislike the most, can you make it better looking, with more liquid floating movement and so on."
+
+### What was asked
+Four things: (1) much more customisability for the ambient lock-screen effects, restructured so the settings page layout still fits; (2) fix the live-preview box being visually dominated by the header/chrome above it; (3) look at github.com/phlx0/drift (a similar-purpose terminal screensaver) for ideas on more effect variety; (4) specifically rework LavaLamp, the effect the user dislikes most, for a more liquid, organic feel.
+
+### What was done
+- **LavaLamp rework.** Fetched and read `github.com/phlx0/drift`'s own README for its scene list, then focused the actual rework on real physical cues a lava lamp has that the original flat implementation didn't: each blob is now drawn as an ellipse that squashes/stretches on two independent, out-of-phase sine waves (never a rigid circle); each blob's radius breathes with its own vertical position (bigger near the bottom — the lamp's heat source — smaller near the top, cooling); each blob carries its own colour-phase offset instead of the whole field sharing one global phase, so it reads as many independent floating masses rather than one wash shifting hue in lockstep. Blob count and a new "wobble" amplitude multiplier are both real settable properties now (denser default field: 9 blobs, was a fixed 7).
+- **New effect: `Lock/Boids.qml`** — a textbook Reynolds flocking simulation (separation + alignment + cohesion), drawn as small triangle-arrow heads coloured by current speed (slow → `info`, fast → `accent`). Toroidal wraparound at the edges, with toroidal-aware neighbour-distance calculation so the flock reads as one continuous group across the screen seam rather than splitting near it. Deliberately no persistent-trail effect (drift's own boids demo has one) — the classic "fade the previous frame toward black" trick fades toward black specifically, which would be visibly wrong composited over a light wallpaper; left out rather than shipped wrong.
+- **Much more customisability.** `Config/LockPrefs.qml` gains a generic `paramFor(key, name, default)`/`setParam(...)` namespace (additive to the existing speed/intensity mechanism) so every effect could get real settings without inventing a new named function pair per knob: MatrixRain (density), Starfield (star count), Plasma (grid resolution), Life (grid resolution, seed density), plus LavaLamp's and Boids' own params above. `Settings/sections/Theme.qml` shows one settings block per effect, visible only while that effect is actually the one selected — showing all six at once would have reintroduced the exact clutter this same request asked to fix.
+- **Preview layout fix.** The live-preview box was `chWidth*20` tall sitting under a stack of group title/caption, row title/description and a full-size button — reading as "the header covers most of the preview." Nearly doubled the preview box (`chWidth*34`), removed the now-redundant explanatory sentence while the preview is actually showing (kept only for the hidden state, where it still earns its keep), and switched the Show/Hide toggle to the more compact `SmallButton`.
+- Also corrected two now-stale mentions of "five ambient effects" / "lava lamp / matrix rain / starfield" in `docs/TODO.md` and `PROGRESS.md` that predated Plasma, Life and now Boids.
+
+### Honest assessment
+UNVERIFIED — no compositor in this session, this repo's standing constraint, and this entry carries that caveat more heavily than most: LavaLamp's whole point was a visual/aesthetic improvement judged entirely by eye, and Boids is a brand-new effect whose motion has never been rendered anywhere. The Reynolds algorithm itself and its rule weights are standard, textbook values (not guessed from scratch), and the toroidal-neighbour math and ellipse-via-scale+arc technique were both hand-traced for correctness (documented in each file's own comments), but "does the flock actually look like a flock" and "does the lava lamp actually look more liquid" are calls that need a real screenshot to confirm, not something this session can self-verify. Caught and fixed one real bug in my own first draft before committing: `Lock/Boids.qml`'s re-seed guard used `boids.length === 0`, which a degenerate zero-width seed (possible if the `boidCount` binding fires before the Item's layout resolves) would already falsify — permanently stranding the flock clustered near the origin. Reworked to track whether the last seed actually had a real size to work with, independent of the array's own length.
+
+### How to test it
+1. Open Settings → Theme → Lock screen. Confirm a 7th "Boids" button appears in the effect picker (alongside Lava lamp / Matrix / Starfield / Plasma / Life), and picking any effect auto-shows a live preview that's noticeably larger than before, with no header text overlapping or crowding it.
+2. With "Lava lamp" selected, look at "Blob count" and "Wobble" rows appearing below Intensity — adjust each and confirm the preview updates (more blobs = denser field; higher wobble = more visibly squashing/stretching, wandering blobs). Compare the overall look against memory of the old version — blobs should read as soft, organic, morphing shapes rather than uniform drifting circles, and should visibly swell near the bottom of the frame and shrink near the top.
+3. Switch through Matrix/Starfield/Plasma/Life/Boids and confirm each shows its own one settings row (density / star count / grid resolution / grid resolution+seed density / flock size respectively), and that only the CURRENTLY selected effect's row is visible at a time.
+4. Pick "Boids" and confirm the preview shows small triangular shapes moving in a loose, flocking group — clustering, occasionally separating and re-merging — rather than moving independently or in a rigid grid.
+5. Lock the screen (or wait for it to lock) with each effect selected in turn and confirm the real lock screen matches what the Settings preview showed.
+
+---
+
 ## ColorPicker and BezierEditor were also drag-only, same gap as the earlier Meter fix
 
 - **Date:** 2026-09-15
