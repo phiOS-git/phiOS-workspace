@@ -9,6 +9,33 @@ once it is verified.
 
 ---
 
+## Workspace switching wraps around instead of stopping; no real network speedtest
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev, phios-dotfiles / dev
+- **Commits:**
+  - `phi-shell`: `912168c` hyprland: add a bounded, non-wrapping workspace next/prev · `548ad75` network: add a real speedtest trigger to the Wi-Fi overlay section · merge `d09b94f`
+  - `phios-dotfiles`: `4040ac7` hypr: route workspace next/prev through phi-shell's bounded focus · `d86bb29` desktop: add speedtest-cli for the network overlay's speedtest trigger · merge `1c43720`
+- **Original TODO:** the two bare entries this same write-up removes (workspace-switch-loop, network speedtest trigger) — both were re-added as their own genuine remainders at the end of the interface rework's own entry above.
+
+### What was asked
+Two of the honest gaps left open by the interface rework: workspace-switching keybinds/gestures wrap around at the first/last workspace instead of stopping, and the network overlay's Wi-Fi section has no real speedtest trigger.
+
+### What was done
+**Workspace loop** — the interface rework's own write-up explains why this was left unguessed: no confirmed Hyprland Lua API existed for "which workspaces exist on this monitor." That gap is closed from the other side instead. This machine has the real Quickshell package installed, and its `quickshell-hyprland-ipc.qmltypes` (not the near-empty top-level `quickshell-hyprland.qmltypes` a prior pass apparently didn't find) confirms two properties directly: `HyprlandIpcQml.focusedMonitor` and `HyprlandMonitor.activeWorkspace`. `Services/HyprlandBridge.qml`'s new `focusAdjacentWorkspace(direction)` uses both to compute a bounded next/prev over the live `workspaces` model and ends in a plain `.activate()` call — the same mechanism `Bar/modules/Workspaces.qml`'s click handler already uses successfully, not a dispatch string, so none of this Hyprland build's Lua-repurposed-`dispatch` quirks apply. Exposed via a new `"workspace"` IPC target (`next`/`prev`) in `shell.qml`. `phios-dotfiles`' `hyprland.lua.tmpl` now calls `qs ipc call workspace next/prev` from the Super+Ctrl+arrow/h/l binds and the three-finger swipe gesture instead of Hyprland's native, always-wrapping `m+1`/`m-1` selector.
+
+**Network speedtest** — `speedtest-cli` (`extra`, confirmed via `pacman -Ss speedtest`, not AUR) added to `phios-dotfiles`. New `Services/SpeedTest.qml` runs `speedtest-cli --simple` on demand only (never polled — a real bandwidth test saturates the link for a few seconds, unlike the existing passive rate graph), parsing its three-line `Ping:`/`Download:`/`Upload:` output with a defensive labelled-number regex rather than an assumed fixed format. Wired into the network overlay's Wi-Fi section (`Panels/BarPopout.qml`) as a "Speed test" button with a result readout and an error state.
+
+### Honest assessment
+The workspace-loop fix is reasoned correct against real, installed API metadata (not guessed, and not the same class of risk the original pass correctly declined to take) but is still unverified on an actual live Hyprland session — the qmltypes confirm the properties exist and their types, not that a real compositor's `HyprlandMonitor`/`HyprlandWorkspace` objects behave exactly as documented at runtime. The speedtest feature is similarly unverified end to end: `speedtest-cli` is not installed in this environment, so its `--simple` output format is relied on from established knowledge of that long-stable tool rather than a real run here — the defensive regex parsing means a format drift shows up as a visible error message, not silently wrong numbers, but this has not been confirmed against a real invocation.
+
+### How to test it
+1. Rebuild and reinstall `phi-shell` and `phios-dotfiles` from this `dev` (`phi theme set dark` is not needed for this round — no token changes).
+2. On a host with at least 2-3 numbered workspaces containing windows: press Super+Ctrl+Right repeatedly until you reach the highest workspace, then press it once more — the view should stay on that workspace, not wrap to workspace 1. Same check with Super+Ctrl+Left at the lowest workspace, and with the h/l alternatives and the three-finger swipe gesture.
+3. Open the network overlay (bottom bar's network icon), confirm you're in the Wi-Fi section (no ethernet present), and click "Speed test." It should show "Testing…" while running, then a download/upload/ping readout, or a visible error message if `speedtest-cli` isn't installed or the network is unreachable — never silence or wrong-looking numbers.
+
+---
+
 ## Full interface rework per rework.md
 
 - **Date:** 2026-09-15

@@ -197,17 +197,6 @@ both places.
   ~120ms per-provider budget — needs a design decision first. See Open
   Questions #1.
 
-- [taken] switching workspace with a keybind or gesture (Super+Ctrl+arrows/h/l,
-  the three-finger swipe) wraps around at the first/last workspace on a
-  monitor instead of stopping. Hyprland's own `m+1`/`m-1` relative
-  workspace selector always wraps and has no non-wrapping form — a real
-  fix needs the bind to compute the bounded next/prev workspace itself
-  (which workspaces exist on this monitor, and where the current one
-  sits among them) rather than delegating to that selector.
-
-- [taken] the network overlay's Wi-Fi section shows a live speed graph but has no
-  actual speedtest trigger — only the passive rate readout exists.
-
 ## Features
 
 - add trash feature (package to be picked). Options (to be checked if
