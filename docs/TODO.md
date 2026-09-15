@@ -265,15 +265,6 @@ both places.
   which actions belong in the menu vs. staying as their own visible
   control, not a mechanical copy-paste of the clipboard menu's three rows.
 
-- Widgets/ColorPicker.qml's saturation/value box and hue strip, and
-  Widgets/BezierEditor.qml's curve handles, are drag-only — no keyboard
-  path at all, unlike Widgets/Meter.qml (fixed this pass: Tab-focusable
-  with arrow-key nudging and a focus ring, since it's the volume/
-  brightness bar popouts' real slider). Same gap, two more analog
-  controls, each with a different 2D geometry a plain "arrow key nudges
-  a fraction" mapping isn't a mechanical copy-paste of — worth doing but
-  deliberately not attempted blind in the same pass as Meter's fix.
-
 - the settings-panel switch's color transition still looks like it
   finishes before the knob finishes sliding across. Investigated: no
   mismatched duration/easing found in `Toggle.qml` — every transition

@@ -66,6 +66,29 @@ This is a documentation-integrity fix, not a functional one — no phi-shell or 
 
 ---
 
+## ColorPicker and BezierEditor were also drag-only, same gap as the earlier Meter fix
+
+- **Date:** 2026-09-15
+- **Repo / branch:** phi-shell / dev
+- **Commits:** fa5058f widgets: make ColorPicker and BezierEditor keyboard-accessible
+- **Original TODO:** the Style-section entry logged when `Widgets/Meter.qml` got this same fix earlier this pass ("worth doing but deliberately not attempted blind in the same pass") — removed now that both are done.
+
+### What was asked
+Nothing specific — closing the gap deliberately left open earlier this round rather than guessing at two different interaction geometries blind.
+
+### What was done
+`Widgets/BezierEditor.qml`'s two curve-handle drag points, and `Widgets/ColorPicker.qml`'s saturation/value box and hue strip, all gain: Tab focus, a focus ring (the same border/`focusRing` token pattern `Meter`'s fix uses), and arrow-key nudging by a small step per press. Each press is one atomic commit (`changed()` then `committed()` immediately, mirroring `Meter`'s own "no drag concept applies to a single key press" reasoning) rather than trying to simulate a drag. A plain click now also grabs focus on all four surfaces, so arrow keys work immediately after a drag without a separate Tab press.
+
+### Honest assessment
+UNVERIFIED — no compositor in this session. The two geometries are genuinely different from `Meter`'s 1D fraction (a 2D point for the SV box and each bezier handle, a 1D vertical strip for hue) — traced the axis directions by hand against each widget's own existing mouse-to-value math (`onPressed`/`apply()`) to keep the arrow-key direction matching what dragging the same way would do, but this is exactly the kind of thing that reads correctly on paper and wants a real press-by-press check.
+
+### How to test it
+1. Open Settings → Theme → Colours (or wherever a `ColorField`/`ColorPicker` is exposed) and Tab to the saturation/value box — a focus ring should appear around it. Arrow keys should move the selection handle; Up/Down should move it toward more/less value (brighter/darker), Left/Right toward more/less saturation.
+2. Tab again to the hue strip — Up/Down should cycle the hue marker up/down the strip.
+3. Open the motion/animation curve editor (wherever `BezierEditor` is exposed in Settings → Theme) and Tab to each of the two curve handles — arrow keys should nudge that handle's position, and the live preview marker/cubic-bezier readout should update to match.
+
+---
+
 ## NumberField committed an unrounded value while its own display showed a rounded one
 
 - **Date:** 2026-09-15
