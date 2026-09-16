@@ -12,6 +12,16 @@ writeup.
 
 ## Interface rework — real-hardware bug pass, remaining scope
 
+- [taken] Font-size incoherence across panels (user, 2026-09-16): sizeStep
+  is inconsistent across `Panels/*.qml` — several `StyledText` call sites
+  set no `sizeStep` at all and silently fall back to the body-text default
+  (2), reading oversized next to sibling text at the same hierarchy level
+  that does set one (commonly 0).
+
+- [taken] Status overlay title (user, 2026-09-16): remove the "Status"
+  title and the separator line directly below it from the status bar's
+  status overlay.
+
 - `rework-issues.md`'s "New requests" item 10b: the centre-isle window
   list's ordering should reflect the real Hyprland tiling order (moving a
   window in the tiling should reorder the list to match; an untiled window
