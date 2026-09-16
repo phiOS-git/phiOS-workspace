@@ -9,6 +9,198 @@ once it is verified.
 
 ---
 
+## Status-bar overlay style/feature rework (rework-status-bar.md, full document)
+
+- **Date:** 2026-09-16
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 3aa3d3c match status-bar overlay backgrounds to the bar and add inner-section cards
+  a00ee46 rework the calendar layout, remove the workspace-switch bounce, fix live theme reload
+  c22eae6 unblock the shell while a status-bar overlay is open, fix bar-icon positioning and content
+  8f687c7 fix the clipboard context menu sizing, hover-preview positioning, and network-list scanning feedback
+  396db64 filter empty values, dedupe entries, and add a clear-history option to clipboard history
+  7d6dc5d merge: status-bar rework (rework-status-bar.md, style items 1-10 + features 1-3)
+- **Original TODO:** `docs/reworks/rework-status-bar.md` in full — a set of
+  Style (1–10) and Features (1–3) directives the user wrote directly for
+  this session, not pre-existing `docs/TODO.md` bullets; worked in order,
+  confirming after each item, per the user's own instruction. Its "Without
+  solution" section (light-mode focus border) was explicitly marked not to
+  implement, and was not touched.
+
+### What was asked
+Style: (1) overlay shells should match the status bar's own background,
+with inner sections keeping a distinct one; (2) the calendar's time
+larger/centred with date below it, timer moved below the calendar grid;
+(3) remove the workspace-switch bounce, width-only enlarge; (4) any
+overlay with a keybinding should open at a fixed screen corner, not
+aligned to its triggering icon, as a general rule; (5) theme-variant
+switches should update the running shell live, with a colour transition,
+not require a Hyprland reload; (6) icons above each tiling-mode option's
+label; (7) clipboard history: a working right-click context menu
+(copy/pin/delete), and five fixes to the hover/selection details panel
+(spacing, top/bottom alignment, variable width, variable height, spacing
+before the details line); (8) the network bar icon's overlapping icons;
+(9) four network-overlay bugs (empty area while scanning, misaligned
+Refresh button, VPN restructured to a master switch + selectable list,
+non-interactive Tailscale status row); (10) an open overlay must not
+block clicks/hover anywhere else on screen, while still allowing only one
+overlay open at a time. Features: filter out empty clipboard values;
+dedupe clipboard entries by value; add a "clear clipboard history"
+setting that spares pinned entries.
+
+### What was done
+Full detail is in each commit message; summarized by item:
+
+- **1.** `Widgets/Panel.qml` gained `bgColorOverride`; every overlay's
+  outer shell (`BarPopout`, `ClipboardOverlay`, `NotificationsOverlay`,
+  `Calendar`, `QuickNote`) now sets it to the bar's own background. New
+  `Widgets/OverlaySection.qml` wraps each logically distinct group inside
+  BarPopout's volume/brightness/network/bluetooth/status/stats/battery
+  cards, the notifications tab's DND controls, and Calendar's timer/month
+  grid, in its own `surface1` card — per the user's own follow-up
+  instruction to extend this to every overlay's content, not just the
+  outer background.
+- **2.** `Panels/Calendar.qml`: the flip-clock moved into a centred,
+  larger (`sizeStep` 4→5) row; a new centred `dddd d MMMM yyyy` line sits
+  below it; the timer `OverlaySection` now comes after the calendar-grid
+  one.
+- **3.** `Bar/modules/Workspaces.qml`: removed `popScale`/the `Scale`
+  transform/`wsPop` entirely — the active square only grows via
+  `widthBoost`, already smoothly animated with no overshoot.
+- **4.** `Services/NotificationPanel.qml`'s `open*`/`toggle*` functions no
+  longer take an icon x position at all; both overlays always resolve to
+  their own fixed corner (`Panels/NotificationsOverlay.qml`,
+  `Panels/ClipboardOverlay.qml`) regardless of trigger source.
+- **5.** Root-caused by actually running the installed Quickshell build
+  (`qs -p`) against a throwaway, windowless test file in scratchpad,
+  external to this repo: `FileView.watchChanges: true` fires `fileChanged`
+  but does not re-read the file or re-emit `loaded` on its own.
+  `Config/Colors.qml` gained `onFileChanged: colorsFile.reload()`,
+  confirmed live (same test) to pick up new content immediately. The
+  colour-transition half was already built (`Behavior on color` in
+  `Widgets/Panel.qml`, `StyledText.qml`, `Segment.qml`,
+  `AsymmetricPanel.qml`) — nothing to add there.
+- **6.** `Bar/glyphs.js` gained six tiling-mode glyphs, fetched live
+  against nerd-fonts' own `glyphnames.json` (this file's standing rule).
+  `Panels/BarPopout.qml`'s tiling grid delegate rebuilt on `Widgets.Panel`
+  (icon above label, both centred) since `Widgets/SmallButton` has no
+  icon slot and is used in ~40 unrelated places.
+- **7.** (a) Root-caused a SECOND bug behind the already-once-"fixed"
+  context menu: `Widgets/ListRow.qml` never reported its own
+  `implicitWidth`, so the Column driving the popup's width still
+  collapsed to ~0. Added a real `implicitWidth` (additive; every existing
+  caller already sets `width:` explicitly). (b–e) Clipboard hover-preview
+  panel (`Panels/tabs/Clipboard.qml`): real spacing from the overlay
+  (`panelGap` + `space1`, was bare `panelGap`), aligns to the entry's top
+  or bottom edge (whichever has more screen room) instead of centring,
+  content-driven width 100–600px (was a fixed 80% of the dock), and its
+  own spacing between the main content and the trailing time/source line.
+- **8.** `Bar/modules/NetworkStatus.qml`'s icon delegate reserves
+  permanent side-by-side space for the main wifi/ethernet glyph and the
+  VPN/Tailscale badge instead of both occupying the same
+  `anchors.centerIn`/corner box.
+- **9.** (a) `Widgets/Skeleton.qml`'s placeholder rows switched from the
+  near-invisible `panelHover` wash to `surface2` for real contrast against
+  the cards it sits in since item 1. (b) `Widgets/WifiNetworkList.qml`'s
+  Refresh button anchors to the right edge now. (c) `BarPopout.qml`'s VPN
+  section restructured to one master `ToggleRow` (drives/reflects
+  `Services.Vpn.anyUp`) plus a tap-to-toggle `ListRow` per tunnel — see
+  `docs/TODO.md`'s Open Questions #8, reopened and re-answered by this
+  item. (d) Tailscale's "Overlay name" row is now plain text, not a
+  `ListRow` with unwired hover/click affordances.
+- **10.** Every overlay window now sets `mask: Region { item: cardWrap }`
+  (confirmed real in the installed `quickshell-window.qmltypes`),
+  restricting its own input region to the visible card instead of the
+  whole screen. New `Services/OverlayGrab.qml` wraps Hyprland's own
+  `HyprlandFocusGrab` (confirmed real in
+  `quickshell-hyprland-focus-grab.qmltypes`, unused anywhere in this repo
+  before now) to keep "click outside closes it" working without a
+  click-catching surface. Removed the old fullscreen `MouseArea` and the
+  now-redundant "swallow" `MouseArea` on each card from all four overlays.
+- **Features 1–3:** `Services/Clipboard.qml`'s capture pass now deletes a
+  whitespace-only text entry automatically (pinned entries spared), and
+  reduces same-value duplicates to one (pinned, else newest, copy kept;
+  others deleted outright) — both run on every refresh, not just for
+  newly captured entries. `Settings/sections/Security.qml`'s "Clipboard
+  history rules" group gained a "Clear clipboard history" button (confirm
+  dialog) that deletes everything except pinned entries.
+
+### Honest assessment
+<span style="color:red">**Only item 5's specific reload mechanism was
+actually verified** — by running the real installed Quickshell build
+against a throwaway test file, not by guessing at the API. Every other
+item is unverified on real hardware: this session had no way to run
+phi-shell itself or take a screenshot (`phi-shell/CLAUDE.md`'s own
+rule), so every visual/layout change (items 1, 2, 6, 7b–e, 8, 9a/9b) and
+every interaction change (items 3, 4, 7a, 9c/9d) needs a real check.</span>
+Item 10 deserves a specific flag beyond that: it is the largest
+architectural change in this batch, uses two real Quickshell/Hyprland
+mechanisms (`mask`/`Region`, `HyprlandFocusGrab`) confirmed to exist
+against this machine's own installed qmltypes but never previously used
+anywhere in this repository — the API surface is real, but its actual
+on-screen behavior (does a click on another bar icon now correctly open
+that overlay; does clicking the empty desktop still close the current
+one; does the card's own input region track it correctly as its height
+changes) is completely unverified. If it doesn't work as designed, the
+fastest rollback is reverting to the pre-item-10 state of the four
+overlay files (BarPopout/ClipboardOverlay/NotificationsOverlay/Calendar)
+rather than debugging the new mechanism live.
+
+Item 9c reopens a design decision `docs/TODO.md`'s own Open Questions #8
+had already closed the other way ("independently toggleable, no
+restructure needed") — implemented per the user's new, more specific
+instruction this session; that entry has been updated in place, not
+removed, to record both answers.
+
+Every item was implemented in full — nothing was cut or deferred.
+
+### How to test it
+This needs `phi-shell` cloned at `~/.config/quickshell/phi` and a running
+Hyprland session (`phi-shell/CLAUDE.md`); `pkill -x qs; qs -p
+~/.config/quickshell/phi` to pick up this branch fresh.
+
+1. **Item 5 (theme live-reload):** run `phi theme set light` (or `dark`)
+   while the shell is running. Every surface should recolour immediately,
+   with a visible crossfade, no Hyprland reload needed.
+2. **Item 10 (overlay blocking):** open any status-bar overlay (e.g. the
+   volume popout). While it's open: hover another bar icon — it should
+   show its normal hover state; click it — it should close the current
+   overlay and open the new one; click empty desktop — the overlay should
+   close; click inside the open overlay's own card — it should NOT close.
+3. **Item 1/OverlaySection:** open the network, status, stats, battery,
+   bluetooth, and volume/brightness popouts, the notifications overlay,
+   and the calendar — the outer shell should match the bar's own colour,
+   each logical group inside should sit on its own lighter card.
+4. **Item 2:** open the calendar (click the clock) — the time should be
+   large and centred, the date line below it, the timer section below
+   the calendar grid.
+5. **Item 3:** switch workspaces — the active square should only grow in
+   width, no overshoot/bounce.
+6. **Item 4:** press Super+N and Super+Shift+V — both should open at the
+   same fixed top-right corner every time, not track the mouse or bar
+   position.
+7. **Item 6:** open the status overlay's Tiling section — each of the six
+   options should show an icon above its label.
+8. **Item 7:** right-click a clipboard entry — the menu should show
+   Restore/Pin/Delete with real width. Hover an entry long enough to
+   trigger the preview — check its spacing from the dock, its top/bottom
+   alignment, and that its width/height track the content.
+9. **Item 8:** check the bottom bar's network icon — the VPN/Tailscale
+   badge (only visible with a tunnel or Tailscale up) should sit beside
+   the main icon, not on top of it.
+10. **Item 9:** open the network overlay: trigger a Wi-Fi rescan and
+    check the list shows a visible placeholder (not blank) while
+    scanning; check the Refresh button sits at the right edge; check the
+    VPN section shows one master switch plus a selectable list of
+    configs; check Tailscale's "Overlay name" row has no hover/pointer
+    state.
+11. **Features:** copy an empty selection (or all-whitespace text) —
+    it should never appear in the clipboard history. Copy the exact same
+    text twice — only one entry should exist afterward, at the top. In
+    Settings > Security, use "Clear clipboard history" — everything
+    except pinned entries should be gone.
+
+---
+
 ## Notifications overlay missing a title; sound overlay's stray button; GPU bar icon; wifi/bluetooth list mismatch
 
 - **Date:** 2026-09-16

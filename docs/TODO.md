@@ -104,6 +104,15 @@ both places.
    own disabled-with-reason pattern stays, unchanged, since that page has
    room to explain why and already applies that pattern to every
    capability-gated group, not just VPN).
+   **Reopened and re-answered (2026-09-16, `rework-status-bar.md` Style
+   item 9c):** the user asked directly for the restructure this entry had
+   closed as unnecessary — a generic master activation switch, then the
+   individual configs as a tap-to-select list like the Wi-Fi/Bluetooth
+   device lists. Built that way now (`Panels/BarPopout.qml`'s "network"
+   card): each tunnel stays independently toggleable underneath (nothing
+   about the 2026-09-14 technical finding changed), but the interaction
+   is a master switch (reflects/drives `Services.Vpn.anyUp`) plus a
+   `ListRow` per tunnel instead of one `ToggleRow` per tunnel.
 9. **Scrim/dim split:** what does "the scratchpad" dim refer to (nothing
    implements a scratchpad dim today), and is it acceptable for Clipboard
    to share whatever change is made to the Notifications panel's dim?
