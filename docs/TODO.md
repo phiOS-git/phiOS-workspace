@@ -12,25 +12,6 @@ writeup.
 
 ## Interface rework — real-hardware bug pass, remaining scope
 
-- [taken] `rework-issues.md`'s "New requests" item 8: every status bar
-  overlay should have more padding around each inner section, divided by a
-  thin horizontal separator. Confirmed already present in the network
-  overlay, the notifications tab, and (this round) the clipboard overlay's
-  Pinned/Recent split — a full audit of the rest (status, stats,
-  bluetooth, battery, timer cards in `Panels/BarPopout.qml`) is not done.
-
-- [taken] Bar element vertical alignment (user, 2026-09-16): the line
-  separators, the bottom bar's active-window-name label and the top bar's
-  Φ icon are still not vertically centred against their isle siblings,
-  despite 23bcc84/bc890c9 claiming to fix this.
-
-- [taken] Status overlay layout (user, 2026-09-16): the row of power icons
-  (lock/suspend/hibernate/logout/reboot/shutdown) should be laid out
-  space-between, not packed to one side; the four sensor/toggle entries
-  currently rendered as text abbreviations (TT, Z, MIC, CAM) should be
-  real icons with the distinct off/on/in-use states rework.md and
-  rework-issues.md both call for, not a label swap.
-
 - `rework-issues.md`'s "New requests" item 10b: the centre-isle window
   list's ordering should reflect the real Hyprland tiling order (moving a
   window in the tiling should reorder the list to match; an untiled window
@@ -45,12 +26,6 @@ writeup.
   clients -j` poll (a real `floating` field exists there) running
   alongside the live model, a bigger architecture change than a one-file
   fix, not attempted.
-
-- [taken] `rework-issues.md`'s "New requests" item 14: every status bar
-  overlay's option lists should be a thin text style with a highlight
-  hover/selected state (the runner bar's own effect), replacing bulky
-  buttons — a cross-cutting style pass across every overlay's
-  Widgets.SmallButton/StyledButton usage, not done.
 
 - AltTab/AltTab.qml's Alt+Tab selection can intermittently land on a
   window whose address `root.flat`'s own cached data disagrees with live

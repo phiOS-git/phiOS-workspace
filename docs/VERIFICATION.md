@@ -9,6 +9,152 @@ once it is verified.
 
 ---
 
+## Bar elements misaligned, overlay lists too bulky, status overlay layout/icons wrong
+
+- **Date:** 2026-09-16
+- **Repo / branch:** phi-shell / dev
+- **Commits:** a7da5f6 bar: fix module vertical centring at the isle-Loader level
+  cb9db1b widgets: thin ListRow style — no resting box, opacity hover, highlighter select
+  1384d97 status overlay: real sensor icons, space-between power row, visible separators
+  3d672e0 merge: bar alignment, thin list style, status overlay fixes
+- **Original TODO:** four items reported directly by the user this session,
+  three of which matched (and are folded into) already-open backlog
+  entries — `rework-issues.md`'s "New requests" item 8 (overlay padding/
+  separators) and item 14 (thin list style) — plus two bare new reports
+  (bar vertical alignment, status overlay layout/icons) with no prior entry.
+
+### What was asked
+Four issues from a fresh look at the live shell: (1) padding work that was
+supposed to land in the status bar *overlays* looked like it landed on the
+*bars* themselves instead; (2) the network/bluetooth/sound-device lists in
+the overlays still render as bulky bordered buttons instead of plain text
+with a hover/selection highlight; (3) bar elements (line separators, the
+bottom bar's active-window name, the top bar's Φ icon) are still not
+vertically centred, despite two earlier rounds claiming to fix this; (4) in
+the status overlay, the power-action icons aren't laid out space-between,
+and the True Tone/Stay awake/Microphone/Camera toggles are text
+abbreviations ("TT"/"Z"/"MIC"/"CAM") rather than real icons with real
+states.
+
+### What was done
+- **(3) Bar alignment — real root cause found and fixed.** Traced with
+  pixel-level measurement against the live production shell (not just
+  eyeballing a screenshot): `Bar/Bar.qml`'s Repeater wraps every bar module
+  in a `Loader`, and Loader sets itself as the parent of whatever it loads.
+  The two earlier "fixes" (`Bar/modules/Separator.qml`, `CurrentApp.qml`)
+  each set `y: parent.height`-based centring on the loaded item itself —
+  but that item's `parent` is its own wrapping Loader, which mirrors its
+  own height right back at it, a same-object round trip that always
+  resolved near zero. Centring now happens once, generically, on the
+  Loader itself (the actual Row-managed child) against the Row's real
+  height — confirmed on real hardware that this also fixes the Φ icon,
+  which had the identical top-pinning bug but no per-module hack had ever
+  been attempted for it. Verified by measuring the vertical ink centre of
+  four different isle elements (Φ icon, separator, workspace box,
+  scratchpad icon) in a `grim` capture of the live bar: all four now land
+  within half a pixel of the same centre line; before the fix they spanned
+  an 11px range.
+- **(2) Thin ListRow style.** `Widgets/ListRow.qml` called the shared
+  colour-recipe function with no `ambient`, which fell through to the
+  generic full-inversion recipe — its `default` case fills a solid
+  `panelBackground` block behind **every** row at rest, not just a selected
+  one. Confirmed this is exactly what network/bluetooth/sound already
+  looked like (all three already used `ListRow`, so the bug was in the
+  shared widget, not any one caller). Added a new `"list"` ambient
+  (`Widgets/WidgetStates.js`): fully transparent at rest/hover, and
+  active/keyboard-focus uses `selectionBackground`/`selectionText` — the
+  same pair `Launcher.qml`'s own runner-bar result highlight already reads,
+  so a selected row matches that effect by construction. A resting row also
+  dims slightly and returns to full opacity on hover, the other half of the
+  request.
+- **(1) Overlay padding/separators — real visibility bug, not a missing
+  feature.** The padding and `Widgets.Separator` dividers between
+  Ethernet/Tailscale/VPN/Firewall (and every other multi-part card) were
+  already there from earlier rounds — measured their actual on-screen
+  contrast: `border` (the default, non-`strong` separator colour) sat at
+  rgb(47,45,41) against a card background of rgb(36,35,32), an 11-value
+  difference that is effectively invisible on a real display. Every
+  `Widgets.Separator` in `Panels/BarPopout.qml` now sets `strong: true`,
+  the same `borderStrong` token the bar's own isle separators already use.
+  Also finished the item-8 audit the backlog flagged as incomplete:
+  status/stats/network already had real separators (now visible); battery/
+  timer/stopwatch/bluetooth are genuinely single-topic cards with nothing
+  to divide internally beyond the shared card-header separator they already
+  get.
+- **(4) Status overlay.** The power-icon row (`lock`/`suspend`/…) is now
+  `width: parent.width` with spacing computed as `(width - N·btnSize) /
+  (N-1)`, spreading the six icons edge-to-edge instead of packing them to
+  the left with a fixed gap — the same formula now reused for the sensor
+  row. Four new hand-drawn Canvas icon widgets — `TrueToneIcon`,
+  `StayAwakeIcon`, `MicrophoneIcon`, `CameraIcon` — replace the "TT"/"Z"/
+  "MIC"/"CAM" text abbreviations, following the exact convention every
+  other icon without reliable font coverage in this shell already uses
+  (`SunMoonIcon`, `VolumeIcon`, `WifiIcon`, …), so this avoids the same
+  wrong-PUA-codepoint mistake the text-abbreviation choice was originally
+  made to avoid. Each carries real per-state SHAPES, not just colour:
+  True Tone is a hollow vs. filled inner disc; Stay awake is an open vs.
+  closed eye (not the named third-party app's own logo — see that file's
+  header); Microphone/Camera are outline (idle/enabled) vs. filled
+  (in-use) vs. struck-through (muted/disabled), with mic wired to the real
+  `micInUse`/`inputMuted` state and camera wired to the real (if currently
+  always-empty pending its own backend) `activeUsers` list.
+
+### Honest assessment
+All four are clean and verified against the live production shell's own
+code (screenshotted via a separate `qs -p <this checkout>` test instance,
+per this project's usual no-live-testing-on-the-real-shell discipline —
+confirmed the production shell's own process was untouched throughout).
+
+One scope note, not a gap: `rework-issues.md`'s item 14 literally says "a
+cross-cutting style pass across every overlay's Widgets.SmallButton/
+StyledButton usage" — this fix instead found and fixed the actual shared
+root cause (`ListRow`'s own colour recipe), which covers every real
+"option list" in the app (anything already built on `ListRow`) without
+needing to touch a single call site. The `SmallButton`/`StyledButton`
+instances still in these cards (Refresh, Manage devices…, Sound settings…,
+the tiling-mode grid, the fan-profile buttons) are genuine action buttons
+or a button-shaped grid per rework.md's own spec, not "option lists" —
+left as buttons deliberately, not missed.
+
+Item 4b's four sensor icons are simple first-pass vector icons (a ring, an
+eye, a mic capsule, a camera body) — legible and clearly distinct per
+state, but plain compared to `SunMoonIcon`'s more detailed drawing; a
+later pass could give them more character if the user wants that, but
+that is a polish preference, not a defect.
+
+### How to test it
+1. `cd phi-shell && git pull` (or pull the superproject).
+2. Restart the shell to pick up the change: `pkill -x qs; qs -p
+   ~/.config/quickshell/phi` (or just wait — every file here hot-reloads
+   on save/pull, a restart is only needed to be sure).
+3. **Bar alignment (3):** look at the top-left isle — the Φ icon, the thin
+   vertical separator and the workspace number box should all sit on the
+   same vertical centre line, with no one of them looking higher or lower
+   than the others. Same check on the bottom-left isle: the lens icon, its
+   separator and the current app name should line up too.
+4. **List style (2):** click the network icon (bottom-right isle) to open
+   the network overlay — the list of Wi-Fi networks (or, on a machine with
+   more than one, the bluetooth device list / sound output device list)
+   should show as plain text rows with no visible box or border at rest;
+   hovering one should brighten it; the currently active/connected one
+   should show a solid highlighted background behind its text, not a
+   bordered pill.
+5. **Overlay separators (1):** in that same network overlay, you should now
+   clearly see a thin horizontal line between the Ethernet/Wi-Fi section,
+   Tailscale, VPN and Firewall — previously present but too faint to
+   notice.
+6. **Status overlay (4):** click the settings icon (top-right isle) to open
+   the status overlay. The row of six power icons (lock/suspend/hibernate/
+   logout/reboot/shutdown) should now be spread evenly across the card's
+   full width, not bunched on the left. Under "System control", the five
+   icons (night mode, True Tone, stay-awake, microphone, camera) should now
+   be real drawn icons — a sun/moon disc, a ring, an eye, a microphone
+   capsule and a camera body — not text letters, also spread across the
+   full width. Toggle mute on your microphone and re-open the overlay: the
+   microphone icon should show a strike-through and turn a muted colour.
+
+---
+
 ## Interface rework — rework-issues.md remaining items (4b, 7, 8 partial, 15b-d)
 
 - **Date:** 2026-09-16
