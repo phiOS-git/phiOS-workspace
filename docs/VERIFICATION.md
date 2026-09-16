@@ -9,6 +9,114 @@ once it is verified.
 
 ---
 
+## Interface rework — rework-issues.md remaining items (4b, 7, 8 partial, 15b-d)
+
+- **Date:** 2026-09-16
+- **Repo / branch:** phi-shell / dev
+- **Commits:** be387e9 overview: larger window boxes, real selected-state root cause, workspace pills match the bar
+  ae49600 status overlay: sensor rows become a horizontal icon list
+  f4d6dcd clipboard: divide Pinned/Recent with a thin separator
+  c7ce776 merge: overview/sensor-icons/padding fixes (15b-d, 4b, 7, 8 partial)
+- **Original TODO:** `rework-issues.md` (workspace root) items 4b, 7, 8
+  (partial), 15b-d — the remainder after the two earlier rounds (9
+  numbered bugs, then 13 of the 17 "New requests").
+
+### What was asked
+The items left open after the previous two rounds: the status overlay's
+sensor rows redesigned as icons (4b) with horizontal distribution (7),
+more overlays getting the padding/separator treatment (8), and the
+overview's window boxes/selected-state/workspace strip (15b-d).
+
+### What was done
+- **4b/7 — sensor icon row**: the five stacked Night mode/True Tone/Stay
+  awake/Microphone/Camera rows (each a `Widgets.ToggleRow` or a bespoke
+  label+switch `Item`) are now one horizontal row of icon-buttons, the
+  same bare-icon-plus-hover-tint idiom the power icons row (two sections
+  up, in this same card) already used. Night mode reuses
+  `Widgets.SunMoonIcon` — a real hand-drawn, animated day/night disc, not
+  a static glyph, so it genuinely gets rework.md's "possibly animating
+  from one to another." The other four use short text abbreviations
+  ("TT", "Z", "MIC", "CAM") rather than invented icon-font glyphs —
+  `Bar/modules/Microphone.qml`'s own retired header already recorded that
+  this project has twice shipped a wrong PUA codepoint before, and this
+  shell already treats a short label as a legitimate icon fallback
+  elsewhere (`Bar/modules/Workspaces.qml`'s digit, `WindowList.qml`'s
+  letter) — each still carries a real, distinct colour per state
+  (off/on/in-use), not just a label swap.
+- **8 (partial)**: the clipboard overlay's Pinned/Recent split gets a
+  real separator (previously just a label + spacing) — see the "Honest
+  assessment" below for what is still open.
+- **15b**: the overview's window boxes grew from 22x9ch to 28x12ch, with
+  an explicit, more generous padding than `Widgets.Panel`'s own 8px
+  default.
+- **15c**: found the real root cause via live debugging, not a style
+  gap — this shell's own process shows up in `hyprctl clients -j` as a
+  plain toplevel (`class: "org.quickshell"`, assigned to a real
+  workspace by Hyprland — not a test artifact, confirmed by PID against
+  the actual running shell), so Alt+Tab's "select the window after the
+  active one" could land on this phantom entry. The grid never renders
+  it as a box, so the true selection pointed at nothing on screen and no
+  visible box ever looked selected. Filtered out at the same place every
+  other toplevel gets parsed (`AltTab/AltTab.qml`'s `clientsProc`
+  parser).
+- **15d**: the workspace strip pills used `ambient: "isle"` (the plain
+  bar-button recipe) while this file's own comment already claimed
+  parity with `Bar/modules/Workspaces.qml`'s real pills (`ambient:
+  "workspace"` plus a width boost on the active one) — now actually
+  matched, not just claimed in a comment.
+
+### Honest assessment
+<span style="color:red">**NOT DONE:** item 8's full cross-overlay
+audit (status, stats, bluetooth, battery, timer cards in
+`Panels/BarPopout.qml` not checked this round — only clipboard was, and
+fixed), item 10b (window-list/overview ordering matching Hyprland's real
+tiling order — investigated, no data source exists in Quickshell's
+current Hyprland model for this, would need a separate `hyprctl clients
+-j` poll), item 14 (thinner list style replacing bulky buttons across
+every overlay) — all three re-added to `docs/TODO.md` as their own clean
+entries.</span>
+
+Item 15c is also only **partially** resolved:
+<span style="color:red">**NOT DONE:** while live-debugging 15c, a
+SECOND, separate timing inconsistency surfaced — a real toplevel's own
+cached `wsId` was observed to disagree with live Hyprland state between
+two points within the same overview session, which could still
+occasionally leave the wrong (or no) window selected even with the
+phantom-window fix in place. Not root-caused; re-added to
+`docs/TODO.md`.</span> This file has already been through several
+delicate, multiply-patched async races around exactly this kind of
+snapshot/selection timing (see its own header comments), and a further
+blind patch risked regressing something that already works — diagnosing
+it properly needs real Alt+Tab keypresses and mouse interaction, not the
+IPC calls this environment is limited to.
+
+Every fix here was tested via a separate `qs -p <workspace-checkout>`
+test instance, screenshotted with `grim`, never against the live shell —
+including confirming the `org.quickshell` finding was real (cross-
+checked its PID against the actual running production shell process,
+not assumed) rather than dismissing it as test contamination.
+
+### How to test it
+1. `cd phi-shell && git pull` (or pull the superproject).
+2. Restart the shell: `pkill -x qs; qs -p ~/.config/quickshell/phi`.
+3. **Sensor icons (4b/7):** open the status/power overlay — Night mode,
+   True Tone, Stay awake, Microphone and Camera should appear as one row
+   of small icons/labels below the power-action icons, not text rows
+   with switches. The moon/sun icon should reflect whether Night mode is
+   currently on.
+4. **Clipboard separator (8):** open the clipboard overlay with both
+   pinned and unpinned history present — a thin line should separate the
+   "Pinned" and "Recent" sections.
+5. **Overview (15b-d):** open the overview (three-finger gesture or
+   Alt+Tab) — window boxes should look noticeably larger/more padded
+   than before; switch workspaces or Alt+Tab between windows and check
+   that the currently-selected window's box now visibly highlights
+   (an inverted/elevated box with an accent-coloured edge), and that the
+   workspace-count strip at the bottom shows the active one as a wider,
+   inverted square exactly like the bar's own workspace list.
+
+---
+
 ## Interface rework — rework-issues.md "New requests" (13 of 17)
 
 - **Date:** 2026-09-16

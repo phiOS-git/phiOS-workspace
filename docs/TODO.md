@@ -12,50 +12,44 @@ writeup.
 
 ## Interface rework — real-hardware bug pass, remaining scope
 
-- `rework-issues.md` (workspace root) item 4b: the status overlay's sensor
-  rows (Night mode, True Tone, Stay awake, Microphone, Camera) are still
-  text+switch rows. rework.md itself describes them as a "list of
-  toggleable icons", each with several real visual states (possibly
-  animated between them) — not done this pass, a real icon-set redesign
-  rather than a one-file fix.
-
-- `rework-issues.md`'s "New requests" item 7: in the status overlay, icons
-  (the power/lock/suspend/etc. row) should be "distributed horizontally" —
-  tied to item 4b above (both are the same status-overlay icon-row
-  redesign), not done separately.
-
 - `rework-issues.md`'s "New requests" item 8: every status bar overlay
   should have more padding around each inner section, divided by a thin
-  horizontal separator. The network overlay already has this (its own
-  per-section headers/separators); a full audit + fix across every OTHER
-  overlay (notifications, clipboard, status, stats, bluetooth, battery,
-  timer) is not done this pass.
+  horizontal separator. Confirmed already present in the network overlay,
+  the notifications tab, and (this round) the clipboard overlay's
+  Pinned/Recent split — a full audit of the rest (status, stats,
+  bluetooth, battery, timer cards in `Panels/BarPopout.qml`) is not done.
 
 - `rework-issues.md`'s "New requests" item 10b: the centre-isle window
   list's ordering should reflect the real Hyprland tiling order (moving a
   window in the tiling should reorder the list to match; an untiled window
   should sort to the end), in both the bottom bar's window list and the
-  overview. Not done this pass — Quickshell's HyprlandToplevel model
-  carries no tiling-position field to sort by (checked against this
-  machine's own installed quickshell-hyprland-ipc.qmltypes, same source
-  that caught this file's real wmClass/activate() bugs, both fixed); would
-  need either a `hyprctl clients -j` snapshot (its own ordering may or may
-  not already reflect tiling order — unconfirmed) or a different data
-  source entirely.
+  overview. Not done — confirmed against this machine's own installed
+  Quickshell qmltypes (both `quickshell-hyprland-ipc.qmltypes` and
+  `quickshell-wayland-toplevel-management.qmltypes`, the same source that
+  caught this file's real wmClass/activate() bugs, both fixed) that
+  neither `HyprlandToplevel` nor the wrapped Wayland toplevel handle
+  exposes a tiling-position or floating field at all — the live, reactive
+  model this file uses has nothing to sort by. Would need a `hyprctl
+  clients -j` poll (a real `floating` field exists there) running
+  alongside the live model, a bigger architecture change than a one-file
+  fix, not attempted.
 
 - `rework-issues.md`'s "New requests" item 14: every status bar overlay's
   option lists should be a thin text style with a highlight hover/selected
   state (the runner bar's own effect), replacing bulky buttons — a
   cross-cutting style pass across every overlay's Widgets.SmallButton/
-  StyledButton usage, not done this pass.
+  StyledButton usage, not done.
 
-- `rework-issues.md`'s "New requests" item 15, parts b-d: the overview's
-  window boxes should be larger with padding and a shade background (b),
-  the currently-selected window needs a real selected state — currently
-  every box looks the same (c), and the bottom workspace strip should be a
-  row of padded/bordered squares with a selected state identical to the
-  bar's own workspace list (d). Part a (Escape closes it) is done; b-d are
-  a real AltTab/AltTab.qml layout/style pass, not done this pass.
+- AltTab/AltTab.qml's Alt+Tab selection can intermittently land on a
+  window whose address `root.flat`'s own cached data disagrees with live
+  Hyprland state about (observed live: a real toplevel's own `wsId` field
+  read back inconsistently between two points in the same open — this is
+  DIFFERENT from and in addition to the item-15c phantom-window bug
+  already fixed this round). Not root-caused — this file has already been
+  through several delicate, multiply-patched async races around exactly
+  this snapshot/selection timing, and diagnosing it further needs
+  interactive testing (real Alt+Tab presses, not IPC calls) this
+  environment cannot do.
 
 ## Open Questions
 
