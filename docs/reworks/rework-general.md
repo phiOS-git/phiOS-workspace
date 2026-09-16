@@ -22,6 +22,7 @@ Those are some general reworks for the whole system or specific elements of it.
     a. the tag should get the "highlighter" effect with transition, using a color code associated with the tag itself
     b. the runner bar should change the border color with the associated color code (with transition, clockwise in, counter-clokwise out, with accelleration)
     c. when deleting text from the runner, deletion should stop at the tag, so if i keep pressed backspace i will reach the tag and won't delete it. In order to delete the tag it requires to double click backspace. The "x" button in the searchbar should delete the tag as well.
+    d. the "phi" glyph in the runner changes to a corresponding glyph associated with the tag. Have it change with a transition, and using the tag's color
 
 5. The runner bar text input can go out of bound. It should instead have visual limits cutting of the overflowing text. Hoewever when the "ask" tag is active, the text input will grow vertically (within a limit of height) to fit larger prompts.
 
