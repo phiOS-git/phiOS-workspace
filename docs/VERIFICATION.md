@@ -62,39 +62,40 @@ behavior):**
 **Comment cleanup (behavior-neutral by construction, verified per file —
 see below):** `Config/*.qml` (all 8), `Services/*.qml` (all 46), and in
 `Components/`: `Background.qml`, `Osd.qml`, `Toast.qml`, `Cheatsheet.qml`,
-`ImageWindow.qml`, `Overview.qml`, all 6 of `Dialogs/`, and all 17 of
-`Bar/` (`Bar.qml` + 16 `Bar/modules/*.qml`) — 87 files in total — are
-done. Each file had its step-number/ADR/master-plan/dated narrative
-stripped, while keeping: every security-relevant rule (Tailscale/
-Firewall/Vpn's "never expose an IP/address" contracts, the lock screen's
-PAM fail-closed posture — untouched, not yet reached by this pass), every
-"UNVERIFIED against real hardware" flag, and the actual non-obvious
-engineering reasoning (the `running=false`-before-destroy Process-respawn
-pattern that recurs in ~15 files, the battery-saver suppression state
-machine, the Colors/Tokens singleton-reload split, the head-c-vs-head-n1
-clipboard preview bug, the Alt-Tab window-snapshot races, etc.).
+`ImageWindow.qml`, `Overview.qml`, all 6 of `Dialogs/`, all 17 of `Bar/`
+(`Bar.qml` + 16 `Bar/modules/*.qml`), all 2 of `Launcher/`
+(`Launcher.qml`, `RichResult.qml`), and all 7 of `Lock/` (`Lock.qml` +
+`Boids/LavaLamp/Life/MatrixRain/Plasma/Starfield.qml`) — 98 files in
+total — are done. Each file had its step-number/ADR/master-plan/dated
+narrative stripped, while keeping: every security-relevant rule
+(Tailscale/Firewall/Vpn's "never expose an IP/address" contracts, and
+especially `Lock/Lock.qml`'s PAM fail-closed switch, the "unlocking has
+no IPC path" contract, and the tab-chain-reachability fix — handled as
+its own single-file commit, with extra care, since it is this repo's one
+security-critical file), every "UNVERIFIED against real hardware" flag,
+and the actual non-obvious engineering reasoning (the
+`running=false`-before-destroy Process-respawn pattern that recurs in
+~15 files, the battery-saver suppression state machine, the Colors/
+Tokens singleton-reload split, the head-c-vs-head-n1 clipboard preview
+bug, the Alt-Tab window-snapshot races, etc.).
 
 Also fixed as a real (not just cosmetic) import bug: `Components/qmldir`
 listed `ImageViewer 1.0 ImageViewer.qml` — no such file exists (only
 `ImageWindow.qml`, already listed separately) — caught by the editor's
 own QML diagnostics, not assumed; removed.
 
-`Components/Launcher/`, `Components/Lock/`, `Components/Settings/`,
-`Widgets/`, and `Tools/` — still roughly 65 files — are
-<span style="color:red">**NOT YET DONE.**</span> This entry will be
-updated (or a follow-up filed) once they are.
+`Components/Settings/`, `Widgets/`, and `Tools/` — still roughly 60
+files — are <span style="color:red">**NOT YET DONE.**</span> This entry
+will be updated (or a follow-up filed) once they are.
 
 ### Honest assessment
-<span style="color:red">**NOT DONE:** `Components/Launcher/` (2 files,
-`Launcher.qml` is 1005 lines), `Components/Lock/` (7 files, `Lock.qml` is
-679 lines and is this repo's one security-critical file — PAM
-authentication), `Components/Settings/` (12 files, `sections/Theme.qml`
-is 1621 lines, the single largest file in the repo), `Widgets/` (~45
-files), and `Tools/` (3 files) have not had their comments touched
-yet.</span> This is genuinely more work than one session comfortably
-covers at the level of care the user asked for (preserving real
-engineering reasoning, not just deleting text), so it is being handed
-back in this partial state rather than rushed.
+<span style="color:red">**NOT DONE:** `Components/Settings/` (12 files,
+`sections/Theme.qml` is 1621 lines, the single largest file in the
+repo), `Widgets/` (~45 files), and `Tools/` (3 files) have not had their
+comments touched yet.</span> This is genuinely more work than one
+session comfortably covers at the level of care the user asked for
+(preserving real engineering reasoning, not just deleting text), so it
+is being handed back in this partial state rather than rushed.
 
 Four things found along the way, not fixed, flagged for the user:
 
