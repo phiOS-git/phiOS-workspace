@@ -9,6 +9,106 @@ once it is verified.
 
 ---
 
+## Font sizes inconsistent across panels; stray "Status" heading in the status overlay
+
+- **Date:** 2026-09-16
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 648111d overlays: remove the Status title/separator, normalise BarPopout font sizes
+  88d0074 panels: normalise font sizes across the calendar, notifications and clipboard overlays
+  0d0407b merge: ListRow highlighter rework, status-overlay title removal, panel font-size normalisation
+- **Original TODO:** "Font-size incoherence across panels" and "Status
+  overlay title" — both added and claimed this session, no prior entry.
+
+### What was asked
+Two new requests: (1) normalise the font sizes used across the panels,
+which the user found noticeably inconsistent; (2) remove the "Status"
+heading (and the separator line under it) from the status bar's status
+overlay.
+
+### What was done
+- **(2) Status title.** `Services/BarPopout.qml`'s `title("status")` now
+  returns `""`. The shared card header `Item` and the `Separator` right
+  below it are both already gated on `title(which).length > 0` — the same
+  mechanism `rework-issues.md` item 7 used to drop the stale "network"
+  title in an earlier round — so this removes both the heading and the
+  separator in one place, no new flag. The profile-name row (already a
+  real `kind: "title"` heading, right below where "Status" used to sit) is
+  this card's own headline now.
+- **(1) Font-size audit.** Read every `StyledText` in `Panels/*.qml`
+  looking specifically for call sites with no explicit `sizeStep` — those
+  silently inherit the widget's own body-text default (2), which is how
+  they drift out of line with sibling text at the same hierarchy level
+  that DOES set one. Found and fixed real cases in `Panels/BarPopout.qml`
+  (the Ethernet/Wi-Fi/Tailscale/VPN/Firewall sub-headings rendered
+  noticeably larger than "Network"/"Tiling"/"System control" and the
+  file's other sub-headings, all sizeStep 0; the mic/camera in-use app
+  name, the GPU placeholder text and the Mpris now-playing line all
+  rendered at body size inside otherwise-dense cards), `Panels/
+  Calendar.qml` (the "Timer" section heading and its list rows), `Panels/
+  tabs/Notifications.qml` (the Active/History headings, the date-group and
+  per-app group headers, and each history row's summary text), `Panels/
+  tabs/Clipboard.qml` (the Pinned/Recent labels and each entry's single-
+  line text), and the dormant `Panels/tabs/Calendar.qml` placeholder.
+  Each fix used the site's own real sibling as the reference, not a
+  blanket number — e.g. `Panels/tabs/agent/PersonalityEditor.qml`'s "name"
+  form-field label is set to `sizeStep: 1` specifically because it sits
+  next to a `Widgets.TextField`, and `Widgets/TextField.qml`'s own
+  `font.pixelSize` is confirmed (by reading the file, not assumed) to be
+  `fontSize1`, not the generic label default.
+- Also, as part of the same audit: `Widgets/ListRow.qml` itself (network/
+  bluetooth/sound/Settings-nav list rows) never set a `sizeStep` either —
+  see the separate "overlay lists too bulky" entry above, where this
+  exact bug is fixed as part of that entry's own round 3.
+
+### Honest assessment
+<span style="color:red">**NOT DONE:** the AI agent side panel's deeper
+internals — `Chat.qml`, `ProjectView.qml`, `CodingSessions.qml`,
+`MemoryProposals.qml` — beyond the one `PersonalityEditor.qml` label fixed
+above.</span> Those files mix genuine page-level headings (e.g. "Coding
+sessions", "Personalities" — each the one heading for its whole tab,
+correctly matching `Panels/BarPopout.qml`'s own card-title convention at
+the same default size) with in-list sub-headings in ways that need the
+same per-site reading this pass already did for every other panel, not a
+mechanical sweep — a first attempt at treating every un-sized `kind:
+"label"` as a bug found a real counter-example immediately (a search-field
+placeholder that has to match its adjacent field's own larger font), so
+guessing at the agent panel's dozen-plus remaining sites without reading
+each one individually risked introducing new mismatches rather than
+fixing the reported ones. Scoped instead to the panels the user has
+actually been testing this session (the status-bar overlays, the calendar
+corner panel, notifications, clipboard) where every fix could be checked
+against a real, confirmed sibling. Re-added to `docs/TODO.md` as its own
+entry if the user wants it extended to the agent panel.
+
+Calendar's day-of-month grid numbers were deliberately left at the body-
+text default — they are the calendar's own primary content (glanced at
+across a whole grid), not secondary/list text, so the "smaller is more
+consistent" rule doesn't apply there; flagged in case this reads as an
+oversight rather than a judgment call.
+
+Verified by reading every changed site against a real sibling at the same
+hierarchy level (not by rendering — this pass was a text-level audit) plus
+a live screenshot of the status overlay confirming the "Status" heading
+and separator are gone and the panel opens directly on the profile row.
+
+### How to test it
+1. `cd phi-shell && git pull` (or pull the superproject).
+2. Restart the shell to pick up the change: `pkill -x qs; qs -p
+   ~/.config/quickshell/phi` (or just wait for the hot-reload).
+3. **Status title:** click the settings icon (top-right isle) to open the
+   status overlay. It should now open directly on the profile row (your
+   username, avatar, uptime) — no "Status" heading or line above it.
+4. **Font sizes:** open the network overlay (bottom-right isle) — the
+   "Ethernet"/"Wi-Fi"/"Tailscale"/"VPN"/"Firewall" section headings should
+   all now look the same size as each other (previously Ethernet/Wi-Fi/
+   Tailscale/VPN/Firewall looked noticeably bigger than "Network" or
+   "Tiling" elsewhere in the same family of overlays). Open the clipboard
+   overlay (Super+Shift+V or the bar icon) and check the "Pinned"/"Recent"
+   labels and each entry's own text read at the same small, consistent
+   size as similar labels elsewhere.
+
+---
+
 ## Bar elements misaligned, overlay lists too bulky, status overlay layout/icons wrong
 
 - **Date:** 2026-09-16
@@ -19,6 +119,7 @@ once it is verified.
   3d672e0 merge: bar alignment, thin list style, status overlay fixes
   5ee2d23 bar/widgets: fix top-bar height regression and still-bulky list rows
   8474d72 merge: top-bar height regression and bulky list-row follow-ups
+  42db0a6 widgets: ListRow — no row box at all, highlight hugs text, smaller font
 - **Original TODO:** four items reported directly by the user this session,
   three of which matched (and are folded into) already-open backlog
   entries — `rework-issues.md`'s "New requests" item 8 (overlay padding/
@@ -72,7 +173,22 @@ states.
   total — a real, measurable mismatch, not a subjective read. Matched
   exactly. Also converted the firewall preset picker (a select-one option
   list rendered as a row of `SmallButton`s, the same shape as the already-
-  fixed Wi-Fi/bluetooth lists) to `ListRow`.
+  fixed Wi-Fi/bluetooth lists) to `ListRow`. The user then re-reported it a
+  THIRD time: "still wrong ... simple 'highlighted' text, no padding,
+  border radius and such. Also the text is way too large." Round 2 had
+  fixed the row's height and colour recipe but left two things from the
+  old "panel button" shape untouched — round 3 found both: the active/
+  focus state still painted a Rectangle across the row's FULL WIDTH (with
+  its own `radiusBase` corner and a symmetric 2ch `inset` pushing every
+  row's content in from both edges — literally "padding and border
+  radius"), and `labelText`/`valueText` never set `sizeStep` at all,
+  silently rendering at the body-text default (2). Reworked to match
+  `Launcher.qml`'s own result-row technique exactly this time: the
+  highlight now hugs only the leading glyph + label text (with the same
+  small 0.6ch overshoot Launcher.qml itself uses), not the row's full
+  width; the generic `inset` is gone entirely (content aligns flush with
+  the card, the same as every other text element in it); both text
+  elements now set `sizeStep: 0` explicitly.
 - **(1) Overlay padding/separators AND bar height — two distinct real
   bugs, not a missing feature.** The padding and `Widgets.Separator`
   dividers between Ethernet/Tailscale/VPN/Firewall (and every other
@@ -114,15 +230,19 @@ states.
   always-empty pending its own backend) `activeUsers` list.
 
 ### Honest assessment
-Items 3 and 4 were user-confirmed correct after round 1 and untouched
-since. Items 1 and 2 needed a second round each — both rounds are folded
-into this one entry rather than left as two near-duplicate ones, since it
-is the same reported issue reaching an actually-finished state, not a new
-ask. All four are now verified against the live production shell's own
-code (screenshotted via a separate `qs -p <this checkout>` test instance,
-per this project's usual no-live-testing-on-the-real-shell discipline —
-confirmed the production shell's own process was untouched throughout,
-both rounds).
+Items 1, 3 and 4 were user-confirmed correct after round 1 (item 1 needed
+one more round, folded in above) and untouched since. Item 2 took three
+rounds to actually match the cited reference — every round is folded into
+this one entry rather than left as separate near-duplicates, since it is
+the same reported issue reaching an actually-finished state, not a new
+ask each time. All four are now verified against the live production
+shell's own code (screenshotted via a separate `qs -p <this checkout>`
+test instance, per this project's usual no-live-testing-on-the-real-shell
+discipline — confirmed the production shell's own process was untouched
+throughout, all three rounds), including a direct visual comparison
+against `Launcher.qml`'s own highlight for round 3 and a check that
+`ListRow`'s other real callers (the Settings nav sidebar) still render
+correctly with the new shape.
 
 One scope note, not a gap: `rework-issues.md`'s item 14 literally says "a
 cross-cutting style pass across every overlay's Widgets.SmallButton/
@@ -151,16 +271,17 @@ that is a polish preference, not a defect.
    same vertical centre line, with no one of them looking higher or lower
    than the others. Same check on the bottom-left isle: the lens icon, its
    separator and the current app name should line up too.
-4. **List style (2):** click the network icon (bottom-right isle) to open
-   the network overlay — the list of Wi-Fi networks (or, on a machine with
-   more than one, the bluetooth device list / sound output device list)
-   should show as plain, DENSE text rows (noticeably thinner than a
-   button, close to the runner bar's own result-row height) with no
-   visible box or border at rest; hovering one should brighten it; the
-   currently active/connected one should show a solid highlighted
-   background behind its text, not a bordered pill. If the firewall is
-   enabled, its profile picker (Home/Public/Custom or whatever presets
-   exist) should show the same thin list style, not buttons.
+4. **List style (2):** click the bluetooth icon (bottom-right isle, needs
+   at least one known device) or the network icon's Wi-Fi list to open an
+   overlay with a device/network list. Each entry should read as small,
+   plain text (noticeably smaller than the section heading above it, e.g.
+   "Bluetooth"/"Devices") with no visible box or border at rest; hovering
+   one should brighten it; the currently active/connected one should show
+   a SMALL highlighted pill hugging just its own text (the exact shape the
+   runner bar's own search results use — open it with Super and compare
+   directly), not a box spanning the full row width. If the firewall is
+   enabled, its profile picker should show the same thin list style, not
+   buttons.
 5. **Top bar height (1):** compare the top bar's height/padding to the
    bottom bar's — they should now look the same. (Previously the top bar
    was visibly taller/more padded than the bottom bar.)

@@ -12,15 +12,15 @@ writeup.
 
 ## Interface rework — real-hardware bug pass, remaining scope
 
-- [taken] Font-size incoherence across panels (user, 2026-09-16): sizeStep
-  is inconsistent across `Panels/*.qml` — several `StyledText` call sites
-  set no `sizeStep` at all and silently fall back to the body-text default
-  (2), reading oversized next to sibling text at the same hierarchy level
-  that does set one (commonly 0).
-
-- [taken] Status overlay title (user, 2026-09-16): remove the "Status"
-  title and the separator line directly below it from the status bar's
-  status overlay.
+- Font-size incoherence in the AI agent side panel (2026-09-16): the same
+  audit already done for every status-bar overlay, the calendar corner
+  panel, notifications and clipboard (see `docs/VERIFICATION.md`) was not
+  extended to `Panels/tabs/agent/{Chat,ProjectView,CodingSessions,
+  MemoryProposals}.qml` — those files mix genuine page-level headings with
+  in-list sub-headings in ways that need the same per-site reading, not a
+  mechanical sweep, and a first attempt at treating every un-sized `kind:
+  "label"` as a bug found a real counter-example (a search-field
+  placeholder that has to match its adjacent field's own larger font).
 
 - `rework-issues.md`'s "New requests" item 10b: the centre-isle window
   list's ordering should reflect the real Hyprland tiling order (moving a
