@@ -12,6 +12,25 @@ writeup.
 
 ## Interface rework — real-hardware bug pass, remaining scope
 
+- [taken] Notifications overlay title (user, 2026-09-16): add a
+  "Notifications" title with the shared header settings icon (the same
+  layout every other status bar overlay's card header already uses) —
+  this overlay never had one.
+
+- [taken] Sound overlay settings button (user, 2026-09-16): the volume
+  card still uses a trailing "Sound settings…" button instead of the
+  shared header settings icon every other overlay already moved to
+  (rework-issues.md item 6).
+
+- [taken] Wi-Fi vs bluetooth list style mismatch (user, 2026-09-16): the
+  bluetooth device list and the Wi-Fi network list render differently —
+  use the Wi-Fi list's own style as the reference.
+
+- [taken] Remove the standalone GPU bar module (user, 2026-09-16): delete
+  the separate GPU icon/popout in the bottom status bar (not the GPU
+  section inside the "Stats" overlay, which stays) and any file that
+  becomes unused as a result.
+
 - Font-size incoherence in the AI agent side panel (2026-09-16): the same
   audit already done for every status-bar overlay, the calendar corner
   panel, notifications and clipboard (see `docs/VERIFICATION.md`) was not
