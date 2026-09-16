@@ -16,11 +16,12 @@ once it is verified.
 - **Commits:** c1c2725 shell: fix Component.Osd typo, drop stale pre-Components imports
   1b602ae config: strip planning-journal comments, keep the load-bearing facts
   024c149 shell: correct two comments from the structural pass
-  348e97d services: strip planning-journal comments from PowerBridge, Notifications
-  b7e95a3 services: strip planning-journal comments from HyprlandBridge, Clipboard
-  d1e57d5 services: strip planning-journal comments from Agent
-  (and 14 further `services: strip planning-journal comments from ...` commits,
-  same branch, covering the rest of Services/)
+  82b33aa components: strip planning-journal comments, fix broken qmldir entry
+  e261dab components: strip planning-journal comments from Bar/Bar.qml
+  b94bfd1 components: strip planning-journal comments from Bar/modules/Network, StatusMenu, WindowList
+  (and ~45 further `services:`/`components:` commits on the same branch,
+  covering the rest of Services/ and Components/Background, Osd, Toast,
+  Cheatsheet, ImageWindow, Overview, Dialogs/, Bar/)
 - **Original TODO:** none — a direct request in this session, not a `docs/TODO.md` entry.
 
 ### What was asked
@@ -59,32 +60,43 @@ behavior):**
   mechanism untouched; only tidied its header comment.
 
 **Comment cleanup (behavior-neutral by construction, verified per file —
-see below):** `Config/*.qml` (all 8 files) and `Services/*.qml` (all 46
-files) are done. Each file had its step-number/ADR/master-plan/dated
-narrative stripped, while keeping: every security-relevant rule
-(Tailscale/Firewall/Vpn's "never expose an IP/address" contracts, the lock
-screen's PAM fail-closed posture — untouched, not yet reached by this
-pass), every "UNVERIFIED against real hardware" flag, and the actual
-non-obvious engineering reasoning (the `running=false`-before-destroy
-Process-respawn pattern that recurs in ~15 files, the battery-saver
-suppression state machine, the Colors/Tokens singleton-reload split, the
-head-c-vs-head-n1 clipboard preview bug, etc.).
+see below):** `Config/*.qml` (all 8), `Services/*.qml` (all 46), and in
+`Components/`: `Background.qml`, `Osd.qml`, `Toast.qml`, `Cheatsheet.qml`,
+`ImageWindow.qml`, `Overview.qml`, all 6 of `Dialogs/`, and all 17 of
+`Bar/` (`Bar.qml` + 16 `Bar/modules/*.qml`) — 87 files in total — are
+done. Each file had its step-number/ADR/master-plan/dated narrative
+stripped, while keeping: every security-relevant rule (Tailscale/
+Firewall/Vpn's "never expose an IP/address" contracts, the lock screen's
+PAM fail-closed posture — untouched, not yet reached by this pass), every
+"UNVERIFIED against real hardware" flag, and the actual non-obvious
+engineering reasoning (the `running=false`-before-destroy Process-respawn
+pattern that recurs in ~15 files, the battery-saver suppression state
+machine, the Colors/Tokens singleton-reload split, the head-c-vs-head-n1
+clipboard preview bug, the Alt-Tab window-snapshot races, etc.).
 
-`Components/`, `Widgets/`, and `Tools/` — roughly 100 more files — are
+Also fixed as a real (not just cosmetic) import bug: `Components/qmldir`
+listed `ImageViewer 1.0 ImageViewer.qml` — no such file exists (only
+`ImageWindow.qml`, already listed separately) — caught by the editor's
+own QML diagnostics, not assumed; removed.
+
+`Components/Launcher/`, `Components/Lock/`, `Components/Settings/`,
+`Widgets/`, and `Tools/` — still roughly 65 files — are
 <span style="color:red">**NOT YET DONE.**</span> This entry will be
 updated (or a follow-up filed) once they are.
 
 ### Honest assessment
-<span style="color:red">**NOT DONE:** `Components/` (~50 files, including
-the three largest in the repo — `Settings/sections/Theme.qml` at 1621
-lines, `Launcher/Launcher.qml` at 1005, `Overview.qml` at 667, `Lock/
-Lock.qml` at 679), `Widgets/` (~45 files), and `Tools/` (3 files) have not
-had their comments touched yet.</span> This is genuinely more work than
-one session comfortably covers at the level of care the user asked for
-(preserving real engineering reasoning, not just deleting text), so it is
-being handed back in this partial state rather than rushed.
+<span style="color:red">**NOT DONE:** `Components/Launcher/` (2 files,
+`Launcher.qml` is 1005 lines), `Components/Lock/` (7 files, `Lock.qml` is
+679 lines and is this repo's one security-critical file — PAM
+authentication), `Components/Settings/` (12 files, `sections/Theme.qml`
+is 1621 lines, the single largest file in the repo), `Widgets/` (~45
+files), and `Tools/` (3 files) have not had their comments touched
+yet.</span> This is genuinely more work than one session comfortably
+covers at the level of care the user asked for (preserving real
+engineering reasoning, not just deleting text), so it is being handed
+back in this partial state rather than rushed.
 
-Three things found along the way, not fixed, flagged for the user:
+Four things found along the way, not fixed, flagged for the user:
 
 1. **A whole UI surface layer is sitting in `_TRASH/Panels/`, not
    deleted:** `_TRASH/Panels/{BarPopout,ClipboardOverlay,
@@ -116,6 +128,15 @@ Three things found along the way, not fixed, flagged for the user:
    `Panels/BarPopout.qml` button called it; that button doesn't exist,
    see finding 1). Left as-is, not removed — it may be exactly what a
    restored bar-popout battery card is meant to call.
+4. **Pre-existing `pragma ComponentBehavior: Bound` warnings** from the
+   editor's own QML diagnostics, in `Bar/modules/Network.qml` and
+   `Bar/modules/WindowList.qml` (accessing an outer `id` from inside a
+   nested `Component`/delegate without that pragma). Confirmed
+   pre-existing, not introduced by this pass — no non-comment line in
+   either file changed. Left alone: a functional QML-semantics question,
+   not a comment or import issue, and fixing it needs the same kind of
+   real-hardware verification this repo's own header comments keep
+   asking for elsewhere.
 
 Every comment-only commit was verified individually: a whitespace/
 comment-stripped diff against the pre-edit content, confirming no code
