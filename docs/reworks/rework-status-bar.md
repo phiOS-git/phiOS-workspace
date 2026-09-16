@@ -32,6 +32,8 @@ Those are directive specific to the status bars and the overlay elements.
     c. VPN should have a generic activation switch, then the configurations should appear in a list of elements that can be selected (like the list of wifi or sound devices)
     d. The tailscale "overlay name" has no interaction, it shouldn't have an hover state, pointer cursor, selected state and so on. It's just status text.
 
+10. While an overlay is open, the status bar (or maybe the whole quickshell) gets "blocked": no more hover, no curor pointers and to make it work again the overly must be closed. This means, for example, that once i open an overlay clicking on another icon won't open the right overlay, it will just close the current one (same as clicking everywhere outside the overlay). Opening an overlay should not block quickshell, everything should work just the same. However remember that no more then 1 overlay can be opened at a time.
+
 # Features
 
 1. the clipboard history should automatically filter out "empty" values

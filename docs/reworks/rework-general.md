@@ -45,6 +45,12 @@ Those are some general reworks for the whole system or specific elements of it.
     a. in the Network Overlay, under the Tailscale section, the entry "Overlay name" does not have any interaction, it's just status text
     b. in the settings almost every section has some (eg. in the ai settings: the services and their status, and the brokers and their statuses; in the security settings the clamav, face unlock and secrets inner sections have some; etc.). Fix and normalise this globally.
 
+13. The "Speed & latency" in the settings panel and in the Network Overlay requires some changes:
+    a. is part of the Wifi sections. Instead it should be available with ethernet connections as well. This must not monitor the local connection speed but the internet connection speed, so it's related only to the presence of an internet connection (and should have a state for missing internet connection.
+    b. visually it should not have lines, rather a bar graph..
+
+14. The General section of the Settings Panel, should show user informations. Some extra informations should exist like name, profile image, etc. Informations that can be changed should be editable. Changing password should also be possible from this panel, using the System Overlay with a custom body: old password, new password, repeat passoword, confirm/cancel buttons, validation (consider i will change style for this, so the System Overlay should allow custom panels as well, reusing the blocking logic).
+
 # Features
 
 1. The notifications don't seem to work correctly. There's probably a lot of dead code and changes done in time as various issues are cumulating. Clear up the notification logic as much as possible in order to have a very clean and linear setup.
