@@ -17,6 +17,8 @@ once it is verified.
   cb9db1b widgets: thin ListRow style — no resting box, opacity hover, highlighter select
   1384d97 status overlay: real sensor icons, space-between power row, visible separators
   3d672e0 merge: bar alignment, thin list style, status overlay fixes
+  5ee2d23 bar/widgets: fix top-bar height regression and still-bulky list rows
+  8474d72 merge: top-bar height regression and bulky list-row follow-ups
 - **Original TODO:** four items reported directly by the user this session,
   three of which matched (and are folded into) already-open backlog
   entries — `rework-issues.md`'s "New requests" item 8 (overlay padding/
@@ -54,33 +56,45 @@ states.
   scratchpad icon) in a `grim` capture of the live bar: all four now land
   within half a pixel of the same centre line; before the fix they spanned
   an 11px range.
-- **(2) Thin ListRow style.** `Widgets/ListRow.qml` called the shared
-  colour-recipe function with no `ambient`, which fell through to the
-  generic full-inversion recipe — its `default` case fills a solid
-  `panelBackground` block behind **every** row at rest, not just a selected
-  one. Confirmed this is exactly what network/bluetooth/sound already
-  looked like (all three already used `ListRow`, so the bug was in the
-  shared widget, not any one caller). Added a new `"list"` ambient
-  (`Widgets/WidgetStates.js`): fully transparent at rest/hover, and
-  active/keyboard-focus uses `selectionBackground`/`selectionText` — the
-  same pair `Launcher.qml`'s own runner-bar result highlight already reads,
-  so a selected row matches that effect by construction. A resting row also
-  dims slightly and returns to full opacity on hover, the other half of the
-  request.
-- **(1) Overlay padding/separators — real visibility bug, not a missing
-  feature.** The padding and `Widgets.Separator` dividers between
-  Ethernet/Tailscale/VPN/Firewall (and every other multi-part card) were
-  already there from earlier rounds — measured their actual on-screen
-  contrast: `border` (the default, non-`strong` separator colour) sat at
-  rgb(47,45,41) against a card background of rgb(36,35,32), an 11-value
-  difference that is effectively invisible on a real display. Every
-  `Widgets.Separator` in `Panels/BarPopout.qml` now sets `strong: true`,
-  the same `borderStrong` token the bar's own isle separators already use.
-  Also finished the item-8 audit the backlog flagged as incomplete:
+- **(2) Thin ListRow style — two rounds.** Round 1: `Widgets/ListRow.qml`
+  called the shared colour-recipe function with no `ambient`, which fell
+  through to the generic full-inversion recipe — its `default` case fills a
+  solid `panelBackground` block behind **every** row at rest, not just a
+  selected one. Added a new `"list"` ambient (`Widgets/WidgetStates.js`):
+  fully transparent at rest/hover, and active/keyboard-focus uses
+  `selectionBackground`/`selectionText` — the same pair `Launcher.qml`'s
+  own runner-bar result highlight already reads. The user then re-reported
+  entries as still "large button-like elements", pointing at the sound
+  overlay's output-device list as the correct reference — round 2 found the
+  real remaining gap: `ListRow`'s own row HEIGHT was still button-sized
+  (`2 × space2`, 4ch, of vertical padding) against `Launcher.qml`'s own
+  result row (the exact "runner bar" reference cited) at `space1`, 1ch,
+  total — a real, measurable mismatch, not a subjective read. Matched
+  exactly. Also converted the firewall preset picker (a select-one option
+  list rendered as a row of `SmallButton`s, the same shape as the already-
+  fixed Wi-Fi/bluetooth lists) to `ListRow`.
+- **(1) Overlay padding/separators AND bar height — two distinct real
+  bugs, not a missing feature.** The padding and `Widgets.Separator`
+  dividers between Ethernet/Tailscale/VPN/Firewall (and every other
+  multi-part card) were already there from earlier rounds — measured their
+  actual on-screen contrast: `border` (the default, non-`strong` separator
+  colour) sat at rgb(47,45,41) against a card background of rgb(36,35,32),
+  an 11-value difference that is effectively invisible on a real display.
+  Every `Widgets.Separator` in `Panels/BarPopout.qml` now sets `strong:
+  true`. Also finished the item-8 audit the backlog flagged as incomplete:
   status/stats/network already had real separators (now visible); battery/
   timer/stopwatch/bluetooth are genuinely single-topic cards with nothing
   to divide internally beyond the shared card-header separator they already
-  get.
+  get. The user then re-reported the TOP bar specifically as still having
+  "large padding" it shouldn't — round 2 found a real, different bug this
+  time: `Bar/modules/Workspaces.qml`'s own padding (added in an earlier
+  round for rework-issues.md's numbered item 8, "the list itself should
+  have a little padding") was applied to BOTH axes, including
+  `implicitHeight` — and `Bar/Bar.qml`'s own bar height is a `Math.max()`
+  across every module in both isles, so inflating one module's height
+  inflated the WHOLE bar (measured live: 44px vs. the bottom bar's 30px,
+  exactly `padding × 2` for this token). Horizontal only now; the top bar
+  measures 31px against the bottom bar's 30px.
 - **(4) Status overlay.** The power-icon row (`lock`/`suspend`/…) is now
   `width: parent.width` with spacing computed as `(width - N·btnSize) /
   (N-1)`, spreading the six icons edge-to-edge instead of packing them to
@@ -100,10 +114,15 @@ states.
   always-empty pending its own backend) `activeUsers` list.
 
 ### Honest assessment
-All four are clean and verified against the live production shell's own
+Items 3 and 4 were user-confirmed correct after round 1 and untouched
+since. Items 1 and 2 needed a second round each — both rounds are folded
+into this one entry rather than left as two near-duplicate ones, since it
+is the same reported issue reaching an actually-finished state, not a new
+ask. All four are now verified against the live production shell's own
 code (screenshotted via a separate `qs -p <this checkout>` test instance,
 per this project's usual no-live-testing-on-the-real-shell discipline —
-confirmed the production shell's own process was untouched throughout).
+confirmed the production shell's own process was untouched throughout,
+both rounds).
 
 One scope note, not a gap: `rework-issues.md`'s item 14 literally says "a
 cross-cutting style pass across every overlay's Widgets.SmallButton/
@@ -135,15 +154,21 @@ that is a polish preference, not a defect.
 4. **List style (2):** click the network icon (bottom-right isle) to open
    the network overlay — the list of Wi-Fi networks (or, on a machine with
    more than one, the bluetooth device list / sound output device list)
-   should show as plain text rows with no visible box or border at rest;
-   hovering one should brighten it; the currently active/connected one
-   should show a solid highlighted background behind its text, not a
-   bordered pill.
-5. **Overlay separators (1):** in that same network overlay, you should now
+   should show as plain, DENSE text rows (noticeably thinner than a
+   button, close to the runner bar's own result-row height) with no
+   visible box or border at rest; hovering one should brighten it; the
+   currently active/connected one should show a solid highlighted
+   background behind its text, not a bordered pill. If the firewall is
+   enabled, its profile picker (Home/Public/Custom or whatever presets
+   exist) should show the same thin list style, not buttons.
+5. **Top bar height (1):** compare the top bar's height/padding to the
+   bottom bar's — they should now look the same. (Previously the top bar
+   was visibly taller/more padded than the bottom bar.)
+6. **Overlay separators (1):** in the network overlay, you should now
    clearly see a thin horizontal line between the Ethernet/Wi-Fi section,
    Tailscale, VPN and Firewall — previously present but too faint to
    notice.
-6. **Status overlay (4):** click the settings icon (top-right isle) to open
+7. **Status overlay (4):** click the settings icon (top-right isle) to open
    the status overlay. The row of six power icons (lock/suspend/hibernate/
    logout/reboot/shutdown) should now be spread evenly across the card's
    full width, not bunched on the left. Under "System control", the five
