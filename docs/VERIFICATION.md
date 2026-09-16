@@ -9,6 +9,138 @@ once it is verified.
 
 ---
 
+## phi-shell comments read like a development log, and the Components/ reorg was left half-finished (in progress)
+
+- **Date:** 2026-09-16
+- **Repo / branch:** phi-shell / cleanup-imports-comments (local topic branch off dev, not yet merged)
+- **Commits:** c1c2725 shell: fix Component.Osd typo, drop stale pre-Components imports
+  1b602ae config: strip planning-journal comments, keep the load-bearing facts
+  024c149 shell: correct two comments from the structural pass
+  348e97d services: strip planning-journal comments from PowerBridge, Notifications
+  b7e95a3 services: strip planning-journal comments from HyprlandBridge, Clipboard
+  d1e57d5 services: strip planning-journal comments from Agent
+  (and 14 further `services: strip planning-journal comments from ...` commits,
+  same branch, covering the rest of Services/)
+- **Original TODO:** none — a direct request in this session, not a `docs/TODO.md` entry.
+
+### What was asked
+"Clean this whole project": (1) remove informative/narrative comments —
+step numbers, ADR references, master-plan section numbers, dated
+"confirmed against real hardware on 2026-09-NN" journal entries — and
+replace them with minimal comments that explain a genuinely non-obvious
+WHY, not the file's history; (2) fix the import structure so it is
+consistent and reliable, picking whichever system (with or without
+`qmldir`) is actually correct for Quickshell, not assumed; (3) don't
+touch `_TRASH/` folders — those are the user's own in-progress scratch
+space, to be deleted by hand once superseded code is confirmed unneeded.
+
+### What was done so far
+**Structural fixes (small, reviewable, the only commits that touch
+behavior):**
+- `shell.qml`: `Component.Osd` was a typo for `Components.Osd` — the
+  bar/lock/settings/etc. surfaces are composed via
+  `import qs.Components as Components`, and `Component` (singular) is not
+  that import; this never resolved. Fixed.
+- `shell.qml` had a 15-line block of commented-out top-level imports
+  (`import qs.Bar as Bar`, `import qs.Lock as Lock`, ...) left over from
+  before those directories moved under `Components/`; they reference a
+  namespace that no longer exists on disk. Deleted as dead.
+- A `Components.Dialogs.SensorPermissionPrompt` line was accidentally
+  double-commented (`// //`), inconsistent with every sibling line around
+  it. Fixed to single-comment, matching the rest of that disabled block.
+- `Components/qmldir` is the correct, load-bearing mechanism here, not
+  optional cruft: `Bar/Bar.qml`, `Launcher/Launcher.qml`, `Lock/Lock.qml`,
+  `Settings/Settings.qml` each live one directory below `Components/`, and
+  this file is what lets `shell.qml` reach them as `Components.Bar`,
+  `Components.Lock`, etc. instead of `Components.Bar.Bar`. Confirmed by
+  reading git history: the file predates the messy "1"/"2"/"3"/"trashing"
+  cleanup commits, so it is not a leftover from an abandoned experiment —
+  it is what made the *last-known-working* shell.qml work. Left its
+  mechanism untouched; only tidied its header comment.
+
+**Comment cleanup (behavior-neutral by construction, verified per file —
+see below):** `Config/*.qml` (all 8 files) and `Services/*.qml` (all 46
+files) are done. Each file had its step-number/ADR/master-plan/dated
+narrative stripped, while keeping: every security-relevant rule
+(Tailscale/Firewall/Vpn's "never expose an IP/address" contracts, the lock
+screen's PAM fail-closed posture — untouched, not yet reached by this
+pass), every "UNVERIFIED against real hardware" flag, and the actual
+non-obvious engineering reasoning (the `running=false`-before-destroy
+Process-respawn pattern that recurs in ~15 files, the battery-saver
+suppression state machine, the Colors/Tokens singleton-reload split, the
+head-c-vs-head-n1 clipboard preview bug, etc.).
+
+`Components/`, `Widgets/`, and `Tools/` — roughly 100 more files — are
+<span style="color:red">**NOT YET DONE.**</span> This entry will be
+updated (or a follow-up filed) once they are.
+
+### Honest assessment
+<span style="color:red">**NOT DONE:** `Components/` (~50 files, including
+the three largest in the repo — `Settings/sections/Theme.qml` at 1621
+lines, `Launcher/Launcher.qml` at 1005, `Overview.qml` at 667, `Lock/
+Lock.qml` at 679), `Widgets/` (~45 files), and `Tools/` (3 files) have not
+had their comments touched yet.</span> This is genuinely more work than
+one session comfortably covers at the level of care the user asked for
+(preserving real engineering reasoning, not just deleting text), so it is
+being handed back in this partial state rather than rushed.
+
+Three things found along the way, not fixed, flagged for the user:
+
+1. **A whole UI surface layer is sitting in `_TRASH/Panels/`, not
+   deleted:** `_TRASH/Panels/{BarPopout,ClipboardOverlay,
+   NotificationsOverlay,AgentPanel,QuickNote}.qml` exist there, and
+   `shell.qml` still has commented-out mount points for all five
+   (`Panels.BarPopout`, etc.), and their backend singletons
+   (`Services/{BarPopout,NotificationPanel,AgentPanel,QuickNote}.qml`)
+   are live and fully wired. This project's own `phi-shell/CLAUDE.md`
+   describes `Panels/NotificationsOverlay.qml` and
+   `Panels/ClipboardOverlay.qml` as current architecture ("Notifications
+   and Clipboard are now independent overlays"). This reads like a
+   mid-move: the files need moving from `_TRASH/Panels/` to somewhere
+   under `Components/` (and shell.qml's mount points uncommented) to
+   actually reconnect, not a decision this cleanup pass should make
+   unilaterally. Comments touched by this pass that used to say
+   "`Panels/BarPopout.qml`" etc. now say something generic like "the
+   popout UI" instead of asserting a path that doesn't currently resolve
+   from `Components/` — the precise location is this finding, not
+   something to silently restate as fact in a comment.
+2. **`Config/Tokens.example.qml` is missing from the tree entirely** —
+   not even in `_TRASH/` — though `phi-shell/CLAUDE.md` calls it "the
+   checked-in worked example" for the gitignored, generated
+   `Config/Tokens.qml`. Only `docs/tokens-example.md` exists. Not
+   restored by this pass; flagged for the user to confirm whether it was
+   meant to be deleted or needs regenerating.
+3. **`Services/PowerBridge.qml`'s `setBatterySaverActive()` has zero
+   callers anywhere in the tree** — a manual battery-saver toggle with no
+   UI wired to it yet (its own comment used to claim a
+   `Panels/BarPopout.qml` button called it; that button doesn't exist,
+   see finding 1). Left as-is, not removed — it may be exactly what a
+   restored bar-popout battery card is meant to call.
+
+Every comment-only commit was verified individually: a whitespace/
+comment-stripped diff against the pre-edit content, confirming no code
+character actually changed, only comment text (and, in `HyprlandBridge.qml`,
+two functions reordered to sit under their own comments instead of both
+comments preceding both functions in a different order).
+
+### How to test it
+This is a comments-and-structure-only change so far — nothing here should
+alter how phi-shell looks or behaves. To sanity-check:
+1. On a machine with this repo cloned to `~/.config/quickshell/phi`:
+   `pkill -x qs; qs -p ~/.config/quickshell/phi` and confirm the shell
+   starts exactly as before (bar, lock, settings, launcher, etc. all
+   still reachable).
+2. `git -C phi-shell log --oneline dev..cleanup-imports-comments` to see
+   every commit on the branch; `git -C phi-shell diff dev..cleanup-imports-comments -- Config/ Services/ shell.qml Components/qmldir`
+   to review the full diff before it is merged into `dev`.
+3. This branch is **local only** — not yet merged into `phi-shell`'s
+   `dev` and not pushed anywhere, per the workspace rule that a topic
+   branch never itself goes on a remote. It will be merged into `dev` and
+   `dev` will be pushed once the remaining directories are done (or once
+   the user says to land the partial result now instead of waiting).
+
+---
+
 ## Status-bar overlay style/feature rework (rework-status-bar.md, full document)
 
 - **Date:** 2026-09-16
