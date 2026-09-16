@@ -9,6 +9,164 @@ once it is verified.
 
 ---
 
+## Interface rework — rework-issues.md "New requests" (13 of 17)
+
+- **Date:** 2026-09-16
+- **Repo / branch:** phi-shell / dev, phi / dev, phios-dotfiles / dev
+- **Commits (phi-shell):** 87632ee calendar: centre the overlay under the clock, not the screen corner
+  b0188a5 settings panel: uniform padding on all sides, shade each group
+  ed793b2 overlays: replace trailing "Show in settings" buttons with a header icon
+  3a647ea settings: add a toggle for the battery charge percentage in the bar
+  9b580de settings: add a customisable terminal window padding
+  e0a166e stats overlay: add a button to open btop in a new workspace
+  a75bef6 overview: make Escape close it in gesture-opened (persistent) mode
+  44191b7 clipboard: single-line entries, larger/split-layout hover preview
+  3dd14c2 network overlay: add a compact firewall toggle + preset section
+  e63220a window list: fix real icons and click-to-focus (both were silently dead)
+  9455b2f merge: rework-issues.md new requests (13 of 17)
+- **Commits (phi):** 8febc8f state: add bar.battery-percent and terminal.padding keys
+  4c009aa merge: bar.battery-percent and terminal.padding state keys
+- **Commits (phios-dotfiles):** 10b5d2d design: bump the default terminal padding to 40px
+- **Original TODO:** `rework-issues.md` (workspace root), "New requests" 1-17.
+- **Requires phi rebuild:** not yet tagged — bumps needed for `bar.battery-percent`/`terminal.padding` to actually persist (the phi-shell side degrades gracefully without it: both settings rows still render and update in-session, they just won't survive a restart until the running `phi` binary has these keys).
+
+### What was asked
+`rework-issues.md`'s 17 "New requests" (below the file's 9 numbered bugs,
+already covered in the entry directly below this one). This round covers
+items 1, 2, 3, 4, 5, 6, 9, 10a, 10c, 11, 12, 13, 15a, 16, 17 — 13 of 17
+(9, 11, 12 were already done in the bug-pass round, since they turned out
+to duplicate numbered-bug fixes; see that entry). Items 4b/7/8/10b/14/15b-d
+remain, each re-filed as its own clean `docs/TODO.md` entry (see below).
+
+### What was done
+- **1 — battery percent setting**: `Services/PowerBridge.qml` gets a
+  persisted `showPercentInBar` (phi state `bar.battery-percent`);
+  `Bar/modules/Battery.qml`'s label reads it. New Settings row in Devices
+  › Battery.
+- **2 — btop-in-new-workspace button**: added to the stats overlay;
+  focuses (current highest workspace + 1) then launches btop, via the
+  same `hl.dsp.focus`/`hl.dsp.exec_cmd` dispatchers already proven live
+  elsewhere in this codebase.
+- **3 — firewall section in the network panel**: a compact on/off +
+  preset picker, reusing the already-real `Services/Firewall.qml`
+  backend (Settings › Connectivity already has the full control surface).
+- **4/5 — clipboard entries/hover preview**: entries are now a single
+  elided line with no time row (time stays in the hover preview only);
+  the hover preview is clamped to a 100-300px height range, and its
+  timestamp/source line is a real left/right split instead of one
+  `" · "`-joined blob.
+- **6 — settings-icon-in-header pattern**: new `Widgets/IconButton.qml`
+  (bare glyph, hover-opacity, no background/border/padding — explicitly
+  not a button). Every trailing "Show in settings…" button in
+  `Panels/BarPopout.qml` is gone; single-topic cards get one icon in
+  their shared header, the network card's Wi-Fi/Tailscale/VPN/Firewall
+  sections each keep their own. Same treatment for the chat panel's
+  settings icon.
+- **10a/10c — window list icons/click-to-focus**: real bugs, not style
+  gaps — `HyprlandToplevel.wmClass` and `.activate()` do not exist on
+  that type at all (checked against this machine's own installed
+  `quickshell-hyprland-ipc.qmltypes`), so every window silently showed
+  its letter fallback forever and clicking one did nothing. Fixed:
+  `.wayland.appId` for the icon lookup, `hl.dsp.focus({ window =
+  "address:..." })` for the click (the same dispatch AltTab.qml's own
+  `_focusWindow` already proved live).
+- **13 — calendar not centred**: was right-anchored to the screen corner;
+  its trigger (the clock) sits at the bar's true horizontal centre, so
+  the card is now horizontally centred on the screen instead.
+- **15a — Escape closes the overview**: the Alt+Tab (held) mode already
+  had this via Hyprland's own submap; the gesture-opened persistent mode
+  never grabbed real Wayland keyboard focus at all until now
+  (`Services.LayerFocus`, the same mechanism every other overlay in this
+  shell already uses).
+- **16 — customisable terminal padding**: default bumped to 40px
+  (`design/tokens.common.sh`); a real Settings row (Theme › Shape &
+  spacing) persists a value through `phi state` and re-renders
+  immediately via `phi theme set`; `phi`'s own `theme.Set` overrides the
+  design default with the state value when the user has set one, so it
+  survives future theme/variant switches instead of being silently reset.
+- **17 — settings panel padding/shading**: all four outer edges (header
+  top, nav-column left, content-pane right, bottom) now add the same
+  `root.gap` beyond `Widgets.Panel`'s own uniform base padding — the
+  header used to reserve extra height just for itself, and the nav
+  column's left edge had none. `SettingsGroup` gets a real shade
+  background separating one group from the next (`surface2` — `surface1`
+  turned out to already be the panel's own background colour, confirmed
+  live that a same-shade fill was invisible).
+
+### Honest assessment
+<span style="color:red">**NOT DONE:** items 4b, 7, 8, 10b, 14, and 15b-d
+— re-filed as their own clean `docs/TODO.md` entries, each with why (4b/7
+are a real icon-set redesign; 8/14 are cross-cutting style passes across
+every overlay; 10b needs a tiling-order data source that does not appear
+to exist in Quickshell's current Hyprland model; 15b-d are an
+AltTab.qml layout/style pass).</span>
+
+Everything above was tested the same way as the numbered-bug round: a
+separate `qs -p <workspace-checkout>` test instance, never the live shell
+(PID 1505), screenshotted with `grim`, every test instance confirmed
+killed via `qs list --all` before moving on. Two extensions to that
+methodology this round:
+- **Temporary debug `IpcHandler`s**: several overlays (network, calendar,
+  the shared BarPopout header, the status overlay) have no real IPC entry
+  point of their own. A one-line `IpcHandler { target: "debugPopout" ...
+  }` (or equivalent) was added to the relevant `Services/*.qml`
+  singleton, used to open the overlay and screenshot it, then reverted
+  (`git checkout --`) before the real commit — confirmed each time that
+  the file returned to its exact prior committed state.
+- **Cross-checking the installed Quickshell type definitions**: item
+  10a/10c's real bug (not a style gap) was found by grepping this
+  machine's own `/usr/lib/qt6/qml/Quickshell/**/*.qmltypes` for the
+  properties/methods this file's code was actually calling, rather than
+  trusting the file's own header comment (which had flagged them as
+  merely "unverified" rather than "confirmed absent"). Worth doing again
+  for anything else in this codebase whose own comments say "unverified
+  against real source."
+
+Still not click-tested (no input-simulation tool on this machine):
+the firewall toggle/preset buttons, the btop-launch button's actual
+dispatch, the clipboard hover preview, and Escape itself inside the
+overview — all confirmed to render/load correctly, not exercised by an
+actual click or keypress.
+
+### How to test it
+1. `cd phi-shell && git pull` (or pull the superproject).
+2. Restart the shell: `pkill -x qs; qs -p ~/.config/quickshell/phi`.
+3. **Battery percent (1):** Settings › Devices › Battery › "Show the
+   charge percentage in the status bar" — toggle it, the battery bar icon
+   should grow a "NN%" label (laptop only; this has no battery to check
+   against).
+4. **btop button (2):** open the stats overlay (bottom-right isle, the
+   bar-chart icon) and scroll to the bottom — "Open btop in a new
+   workspace" should open a new workspace with btop running in it.
+5. **Firewall (3):** open the network overlay — a "Firewall" section
+   with its own gear icon should sit below VPN, with an "Inbound
+   firewall" toggle and, once enabled, a home/public/paranoid preset row.
+6. **Clipboard (4/5):** open the clipboard overlay — every entry should
+   be one line with "…" trimming and no visible time; hovering one for a
+   moment should show a larger preview with the time on the left and the
+   source (mime type) on the right of one line.
+7. **Settings icons (6):** open any bar popout with a settings deep-link
+   (Wi-Fi, Bluetooth, Timers, Microphone, Camera, Brightness) — the gear
+   icon should sit in the card's own title row, not as a button at the
+   bottom. Same for the chat panel's own settings icon (top-right).
+8. **Window list icons/click (10a/10c):** with more than one window open
+   on the current workspace, the bottom bar's centre isle should show
+   each window's real app icon (not a letter, unless that app truly has
+   no icon), and clicking one should focus that window.
+9. **Calendar (13):** click the clock (top bar centre) — the calendar
+   should drop centred under it, not in the top-right corner.
+10. **Overview Escape (15a):** open the overview with the three-finger
+    gesture (not Alt+Tab), press Escape — it should close.
+11. **Terminal padding (16):** Settings › Theme › Shape & spacing ›
+    "Terminal window padding" — change the value, open a new kitty
+    window, its padding should match.
+12. **Settings panel (17):** open Settings — the gap between the panel's
+    edge and its content should look the same on all four sides; each
+    group (e.g. General's "Machine"/"System"/"Battery") should sit on a
+    visibly distinct shaded card, not flush against the panel background.
+
+---
+
 ## Interface rework — real-hardware bug pass (rework-issues.md, 9 numbered bugs)
 
 - **Date:** 2026-09-16

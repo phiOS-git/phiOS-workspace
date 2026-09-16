@@ -19,15 +19,43 @@ writeup.
   animated between them) — not done this pass, a real icon-set redesign
   rather than a one-file fix.
 
-- `rework-issues.md`'s 17 "New requests" (items 1-17, workspace root) are
-  entirely untouched — battery-percent setting, a btop-in-new-workspace
-  button, a firewall section in the network panel, clipboard entry
-  trimming/hover sizing, the settings-icon-in-header pattern across every
-  overlay, status-overlay icon layout, section padding/separators in every
-  overlay, the window list's icons/ordering/click-to-focus, a thinner list
-  style replacing bulky buttons, overview ESC/entry-styling/selected-state/
-  workspace-squares, terminal padding, and settings-panel padding/section
-  shading. See that file for the exact wording of each.
+- `rework-issues.md`'s "New requests" item 7: in the status overlay, icons
+  (the power/lock/suspend/etc. row) should be "distributed horizontally" —
+  tied to item 4b above (both are the same status-overlay icon-row
+  redesign), not done separately.
+
+- `rework-issues.md`'s "New requests" item 8: every status bar overlay
+  should have more padding around each inner section, divided by a thin
+  horizontal separator. The network overlay already has this (its own
+  per-section headers/separators); a full audit + fix across every OTHER
+  overlay (notifications, clipboard, status, stats, bluetooth, battery,
+  timer) is not done this pass.
+
+- `rework-issues.md`'s "New requests" item 10b: the centre-isle window
+  list's ordering should reflect the real Hyprland tiling order (moving a
+  window in the tiling should reorder the list to match; an untiled window
+  should sort to the end), in both the bottom bar's window list and the
+  overview. Not done this pass — Quickshell's HyprlandToplevel model
+  carries no tiling-position field to sort by (checked against this
+  machine's own installed quickshell-hyprland-ipc.qmltypes, same source
+  that caught this file's real wmClass/activate() bugs, both fixed); would
+  need either a `hyprctl clients -j` snapshot (its own ordering may or may
+  not already reflect tiling order — unconfirmed) or a different data
+  source entirely.
+
+- `rework-issues.md`'s "New requests" item 14: every status bar overlay's
+  option lists should be a thin text style with a highlight hover/selected
+  state (the runner bar's own effect), replacing bulky buttons — a
+  cross-cutting style pass across every overlay's Widgets.SmallButton/
+  StyledButton usage, not done this pass.
+
+- `rework-issues.md`'s "New requests" item 15, parts b-d: the overview's
+  window boxes should be larger with padding and a shade background (b),
+  the currently-selected window needs a real selected state — currently
+  every box looks the same (c), and the bottom workspace strip should be a
+  row of padded/bordered squares with a selected state identical to the
+  bar's own workspace list (d). Part a (Escape closes it) is done; b-d are
+  a real AltTab/AltTab.qml layout/style pass, not done this pass.
 
 ## Open Questions
 
