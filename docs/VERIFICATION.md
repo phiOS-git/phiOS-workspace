@@ -9,6 +9,129 @@ once it is verified.
 
 ---
 
+## Notifications overlay missing a title; sound overlay's stray button; GPU bar icon; wifi/bluetooth list mismatch
+
+- **Date:** 2026-09-16
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 211a695 notifications overlay: add a title with the shared header settings icon
+  4eaaa28 bar: remove the standalone GPU icon/popout (Stats overlay's own GPU section stays)
+  69d8714 widgets: scope the ListRow thin restyle to status-bar-overlay device lists only
+  97e7ea8 merge: notifications title, sound settings icon, GPU module removal, ListRow scope fix
+- **Original TODO:** five items reported directly by the user this
+  session (four claimed and completed; the fifth was a mid-session
+  correction to the very work landing in this same entry, so it was never
+  a separate claimed TODO line — see "What was done" below).
+
+### What was asked
+Five items: (1) add a "Notifications" title with the settings button to
+the notifications overlay; (2) the sound overlay still uses a trailing
+"Sound settings" button instead of the shared header settings icon every
+other overlay already has; (3) the Wi-Fi list uses a different entry
+style than other lists; (4) remove the standalone GPU icon/popout from
+the bottom status bar (explicitly NOT the GPU section inside the "Stats"
+overlay) and delete any file left unused by that; (5) the bluetooth and
+Wi-Fi list entries render differently — make bluetooth match Wi-Fi's
+style. Mid-session, a sixth, more important report arrived correcting
+the approach taken for (3)/(5): the "thin list" restyle from an earlier
+round had been built into `Widgets/ListRow.qml`'s own default look, which
+is shared by far more than the status bar overlays (Settings nav, the
+agent panel, a right-click context menu, several Settings sections' own
+rows) — all of those unrelated, purpose-built surfaces had silently
+changed shape too, which was never asked for and needed reverting.
+
+### What was done
+- **(1) Notifications title.** `Panels/tabs/Notifications.qml` gets the
+  same header shape every other overlay's shared card title already uses
+  — a `kind: "title"` label left, an icon-button settings deep-link
+  (`Services.SettingsPanel.reveal("notifications")`, a real section id)
+  right, space-between, a separator below.
+- **(2) Sound settings icon.** `_hasHeaderSettings`/`_headerSettingsActivate`
+  (`Panels/BarPopout.qml`) gain a "volume" case using the same
+  `openSection("devices")` shape "brightness" already has (no single
+  options.js anchor exists for "the sound section" either); the trailing
+  `Widgets.SmallButton { label: "Sound settings…" }` is deleted.
+- **(4) GPU module removal.** Deleted `Bar/modules/Gpu.qml` and
+  `Widgets/GpuIcon.qml` (its own icon widget, confirmed used nowhere
+  else) outright, and removed the "gpu" row from `Bar/modules-bottom.json`,
+  its `componentFor()` case/Component in `Bar/Bar.qml`, its `title()`
+  entry and `_bottomKeys` membership in `Services/BarPopout.qml`, and its
+  placeholder popout section in `Panels/BarPopout.qml`.
+  `Config.Capabilities.nvidiaGpu` and `Services/GpuStats.qml` both stay —
+  confirmed the former gates other real things (Settings' own GPU stat
+  tile) and the latter's watch-gating is a plain reference count
+  (`watchers++`/`watchers--`) that the Stats overlay alone already drives
+  correctly, so removing the bar module's own watch call cannot leak or
+  double-count. Five other files with stale comments naming the deleted
+  module as a sibling example are updated.
+- **(3)/(5)/mid-session correction — the real fix.** Root-caused the
+  actual style mismatch first: `Widgets/WifiNetworkList.qml`'s own
+  `ListRow` never sets `active` — a connected network is conveyed by its
+  value text alone ("Connected · 87%"); the bluetooth device list's
+  `ListRow` set `active: modelData.connected`, pinning a permanent
+  highlight pill on the connected device. Dropped, matching Wi-Fi. Then,
+  responding to the mid-session correction: added a `thin` property to
+  `Widgets/ListRow.qml` (default `false`, reproducing the pre-restyle
+  look byte-for-byte, verified against commit `4494290` — the last one
+  before any of this style work began) and moved the actual "thin" look
+  behind `thin: true`, set explicitly only at the real status-bar-overlay
+  device-list call sites: `Widgets/WifiNetworkList.qml`'s delegate and
+  all fifteen `Widgets.ListRow` instances in `Panels/BarPopout.qml` (that
+  file *is* the status bar overlays). Every other caller — Settings nav,
+  every Settings section's own rows, the agent panel's project/chat
+  lists, `Widgets/ContextMenu.qml` — sets nothing and is back to
+  rendering exactly as it did before any of this session's list-style
+  work started.
+
+### Honest assessment
+The mid-session correction is the important part of this entry: an
+earlier round's "thin" list restyle was fixed against the wrong scope —
+built into a shared widget's own default instead of gated behind an
+opt-in flag — so it visibly changed several purpose-built surfaces
+(Settings nav chief among them) that were never part of the original
+report. That is now corrected and verified two ways: a live screenshot of
+Settings nav showing its original bordered-button look restored, and a
+live screenshot of the bluetooth device list showing the thin style still
+in place. The agent panel's project/chat lists were not separately
+screenshotted (no projects/chats existed in the test session to render),
+but the fix is a code-level guarantee, not a per-surface patch — those
+call sites never set `thin` and cannot silently regress the way the
+previous shared-default approach did.
+
+All five (six, counting the correction) verified against the live
+production shell's own code via a separate `qs -p <this checkout>` test
+instance; the production shell's own process was confirmed untouched
+throughout.
+
+### How to test it
+1. `cd phi-shell && git pull` (or pull the superproject).
+2. Restart the shell to pick up the change: `pkill -x qs; qs -p
+   ~/.config/quickshell/phi` (or wait for the hot-reload).
+3. **Notifications title (1):** open the notifications overlay (bar icon
+   or its keybind) — it should now show a "Notifications" heading with a
+   settings gear icon aligned to the right, a separator below it, then
+   the Do Not Disturb controls.
+4. **Sound settings icon (2):** click the volume icon to open its
+   overlay — the header should show "Volume" with a settings gear on the
+   right; there should be no "Sound settings…" button below the device
+   list any more.
+5. **GPU removal (4):** look at the bottom-right isle — there should be
+   no separate GPU icon after the stats icon. Open the Stats overlay
+   (still reachable from its own icon) — its GPU utilisation/temperature
+   section (on an nvidia host) should still be there, unchanged.
+6. **List style parity (3/5):** open the bluetooth overlay with a known,
+   connected device — the device should show as plain text with a muted
+   "connected" value on the right, no highlighted background box (this
+   used to have one).
+7. **Scoping correction:** open Settings (the gear icon or Super+S) — the
+   left-hand section list (General/Theme/Connectivity/…) should look like
+   it did before this whole multi-round list-style saga: bordered,
+   filled, button-shaped rows — NOT the thin/plain-text style. Compare
+   against the bluetooth/Wi-Fi device lists from step 6, which should
+   still show the thin style; the two should now look deliberately
+   different, not accidentally identical.
+
+---
+
 ## Font sizes inconsistent across panels; stray "Status" heading in the status overlay
 
 - **Date:** 2026-09-16
