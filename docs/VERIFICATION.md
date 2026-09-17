@@ -9,6 +9,49 @@ once it is verified.
 
 ---
 
+## The BarPopout card was one 2106-line file, and Calendar/Notifications/Clipboard had gone dark
+
+- **Date:** 2026-09-17
+- **Repo / branch:** phi-shell / dev
+- **Commits:** 0f38f80 barpopout: split into per-key modules, share a popout shell (merged into dev via a merge commit)
+- **Original TODO:** none — a direct request in this session, not a `docs/TODO.md` entry.
+
+### What was asked
+Clean up `Services/BarPopout.qml`: replace its accumulated inline commentary with minimal, atomic documentation, keeping every behavior exactly as it was. Separate `Components/BarPopout/BarPopout.qml` — the single 2106-line file holding all 14 of the popout's "which"-keyed sections (volume, brightness, wifi, ethernet, bluetooth, network, timer, stopwatch, battery, microphone, camera, power, status, stats) inline in one `Component` — into well-organised, per-context files, following this repo's own conventions. Then reintegrate `_TRASH/Panels/Calendar.qml`, `_TRASH/Panels/ClipboardOverlay.qml` and `Services/NotificationPanel.qml`'s own overlay (`_TRASH/Panels/ClipboardOverlay.qml`/`NotificationsOverlay.qml`), building them from the same structural components the other popouts now use.
+
+### What was done
+**`Services/BarPopout.qml`:** every accumulated planning-journal comment condensed to short, atomic notes. No logic changed — a pure documentation pass.
+
+**`Components/BarPopout/BarPopout.qml` split**, matching the `<Container>/modules/<Name>.qml` convention already used by `Components/AgentPanel/` and `Components/Bar/`:
+- `Components/BarPopout/modules/{Volume,Brightness,Wifi,Ethernet,Bluetooth,Network,Timer,Stopwatch,Battery,Microphone,Camera,Power,Status,Stats}.qml` — one file per "which" key, each taking a plain `active` bool (what a `root.which === "x"` check used to gate) and, where needed, `chWidth`. Every section stays instantiated for the shell's whole session, same as before — never `Loader`-swapped — so per-section state (`Status.qml`'s tiling-mode highlight, live countdown timers) survives close/reopen exactly as it did in the monolith; a `Loader`-per-key design was considered and rejected after finding it would silently drop `Widgets.StaggerReveal`'s reveal-cascade animation on every reopen, not just the first one.
+- `Components/BarPopout/modules/Header.qml` — the shared title row + settings icon + separator, one component instead of duplicated per-section markup.
+- `Components/BarPopout/modules/PowerActions.qml` — the glyph/tone/confirm-dialog logic shared by the Power and Status cards' power actions, a plain reusable `QtObject` each instantiates (same shape as `Services/LayerFocus.qml`).
+- `Widgets/Format.js` — the `rate()`/`countdown()`/`stopwatch()` formatters shared across Wifi/Network/Timer/Stopwatch/Stats (and now Calendar's own timer list too), pulled out as a pure `.pragma library` file, same convention as `Bar/glyphs.js`.
+- `Components/BarPopout/BarPopout.qml` itself is now a thin ~150-line file: window-level state (`which`, `chWidth`, the corner-radius/anchor math, the net/stats watch-gating, the `power` IPC target) plus one `Column` instantiating the 14 modules and the header.
+
+**A shared popout shell, `Widgets/PopoutSurface.qml`:** every corner overlay in this shell (BarPopout, and now Calendar/ClipboardOverlay/NotificationsOverlay) was independently reimplementing the same ~140 lines — the full-screen transparent `PanelWindow`, the `exclusiveZone: -1` double-count fix, the fade-in `Item`, the click-outside-to-dismiss `MouseArea`, `Services.LayerFocus`, the anchored/clamped card position, and `Widgets.Panel`'s per-corner radii. Factored into one reusable component, parameterized over exactly what differs between the four: `shown`, `cardWidth`/`cardHeight`, `anchorEdge` ("right" | "left" | "center" — Calendar's own one case), `fromBottom`, the four corner radii, and a `closeRequested()` signal. Each caller keeps its own singleton and its own `shown`/anchor state — this is shared structure, not shared state; `Services.BarPopout`, `Services.Calendar` and `Services.NotificationPanel` are untouched.
+
+**Calendar, ClipboardOverlay and NotificationsOverlay were fully disconnected**, not just uncleaned: their `.qml` files sat in `_TRASH/Panels/`, and `shell.qml`'s mount points for the notifications/clipboard pair were commented out — `Services/Calendar.qml`'s own `shown` singleton is live and the bar clock already calls `toggle()` on it, but nothing was left to actually show. (`docs/VERIFICATION.md`'s own prior entry, "phi-shell comments read like a development log", flagged this exact gap as finding 1 without acting on it — "not a decision that cleanup pass should make unilaterally.") Rebuilt on `Widgets/PopoutSurface.qml` and reconnected:
+- `Components/Calendar/Calendar.qml` — the flip-clock readout inline, plus two new modules: `modules/MonthGrid.qml` (the interactive read-only month grid) and `modules/TimerList.qml` (the timer creation control + list, reusing `Widgets/Format.js`). The one surface that anchors horizontally centred under its trigger (the bar clock) rather than a corner icon, and the one whose nearest-trigger-corner rule gives both top corners the small radius — both now plain `PopoutSurface` parameters (`anchorEdge: "center"`, explicit `cornerRadiusTop{Left,Right}`) instead of bespoke logic.
+- `Components/ClipboardOverlay/ClipboardOverlay.qml` and `Components/NotificationsOverlay/NotificationsOverlay.qml` — each a thin `PopoutSurface` wrapper around its existing tab content, relocated verbatim (no internal changes) from `_TRASH/Panels/tabs/{Clipboard,Notifications}.qml` to `modules/{Clipboard,Notifications}.qml` in their own directory.
+- All three registered in `Components/qmldir` and mounted in `shell.qml`, replacing the commented-out placeholder block.
+
+Verified with the `/code-review` skill (high effort) before landing: it independently confirmed every extracted module reproduces the deleted monolith's logic exactly, the new `PopoutSurface` anchor/corner math is algebraically equivalent to the four implementations it replaces (including the both-anchors-zero fallback case), every relative import resolves, and no hardcoded colour/font/size was introduced. It found one stale comment (a leftover `Tabs.Clipboard` reference in `PopoutSurface.qml`, the old pre-split component name) — fixed before this commit.
+
+### Honest assessment
+This shell cannot be run in this environment (no compositor, per `phi-shell/CLAUDE.md`) and this environment's own QML language server could not resolve even `import QtQuick` for any file touched — it was checked by hand against the deleted original, not by a linter or the shell itself. Nothing here is hardware-verified.
+
+`Components/BarPopout/modules/Wifi.qml` and `Ethernet.qml` remain dormant (unchanged from the monolith — no bar module opens either key on its own any more, both folded into `Network.qml`), carried over as-is rather than deleted, same as before this split.
+
+### How to test it
+1. `pkill -x qs; qs -p ~/.config/quickshell/phi` to get a clean process and see stdout for any QML warning at startup (an import or property-binding mistake in any of the new/moved files would show here first).
+2. Click each bottom-bar icon that opens a `BarPopout` card — volume, brightness, network, bluetooth, battery, stats, microphone, camera — and each top-bar one — the status/profile icon, power — confirming each card still shows its usual content, its settings-icon header (where it has one), and closes on click-outside/Escape/re-click. Specifically check: the "status" card's tiling-mode grid still remembers your last selection after closing and reopening it; the "power" card's Reboot/Shutdown buttons still show the centered confirm dialog; the "stats" card's live network/CPU/GPU graphs still update only while that card is open.
+3. Click the bar clock — the Calendar overlay should now appear (it did not, before this change): a flip-digit clock, the date, an interactive month grid (click a day, it highlights; Prev/Next change month), and a timer section below it.
+4. Click the bar's notification bell and clipboard icons (or `Super+N` / `Super+Shift+V`) — both overlays should now appear (neither did, before this change), each anchored under its own icon, each still closing on click-outside/Escape.
+5. Confirm mutual exclusion still holds: with any one overlay open (a BarPopout card, Calendar, Notifications, Clipboard, the AI agent panel, or Settings), opening any other one closes the first.
+
+---
+
 ## phi-shell comments read like a development log
 
 - **Date:** 2026-09-17
