@@ -9,19 +9,18 @@ once it is verified.
 
 ---
 
-## phi-shell comments read like a development log, and the Components/ reorg was left half-finished (in progress)
+## phi-shell comments read like a development log
 
-- **Date:** 2026-09-16
-- **Repo / branch:** phi-shell / cleanup-imports-comments (local topic branch off dev, not yet merged)
-- **Commits:** c1c2725 shell: fix Component.Osd typo, drop stale pre-Components imports
+- **Date:** 2026-09-17
+- **Repo / branch:** phi-shell / dev (merged from local topic branch `cleanup-imports-comments`, which never itself went on a remote)
+- **Commits:** 70 commits merged from the topic branch, in order:
+  c1c2725 shell: fix Component.Osd typo, drop stale pre-Components imports
   1b602ae config: strip planning-journal comments, keep the load-bearing facts
-  024c149 shell: correct two comments from the structural pass
   82b33aa components: strip planning-journal comments, fix broken qmldir entry
-  e261dab components: strip planning-journal comments from Bar/Bar.qml
-  b94bfd1 components: strip planning-journal comments from Bar/modules/Network, StatusMenu, WindowList
-  (and ~45 further `services:`/`components:` commits on the same branch,
-  covering the rest of Services/ and Components/Background, Osd, Toast,
-  Cheatsheet, ImageWindow, Overview, Dialogs/, Bar/)
+  (~60 further `services:`/`components:`/`widgets:`/`tools:` commits, one
+  per file or small related group, covering every remaining directory)
+  05ed336 widgets: fix stale cross-references and restore dead-code notes
+  — full list: `git -C phi-shell log --oneline <merge-base>..dev`
 - **Original TODO:** none — a direct request in this session, not a `docs/TODO.md` entry.
 
 ### What was asked
@@ -35,69 +34,72 @@ consistent and reliable, picking whichever system (with or without
 touch `_TRASH/` folders — those are the user's own in-progress scratch
 space, to be deleted by hand once superseded code is confirmed unneeded.
 
-### What was done so far
-**Structural fixes (small, reviewable, the only commits that touch
-behavior):**
-- `shell.qml`: `Component.Osd` was a typo for `Components.Osd` — the
-  bar/lock/settings/etc. surfaces are composed via
-  `import qs.Components as Components`, and `Component` (singular) is not
-  that import; this never resolved. Fixed.
-- `shell.qml` had a 15-line block of commented-out top-level imports
-  (`import qs.Bar as Bar`, `import qs.Lock as Lock`, ...) left over from
-  before those directories moved under `Components/`; they reference a
-  namespace that no longer exists on disk. Deleted as dead.
-- A `Components.Dialogs.SensorPermissionPrompt` line was accidentally
-  double-commented (`// //`), inconsistent with every sibling line around
-  it. Fixed to single-comment, matching the rest of that disabled block.
-- `Components/qmldir` is the correct, load-bearing mechanism here, not
-  optional cruft: `Bar/Bar.qml`, `Launcher/Launcher.qml`, `Lock/Lock.qml`,
-  `Settings/Settings.qml` each live one directory below `Components/`, and
-  this file is what lets `shell.qml` reach them as `Components.Bar`,
-  `Components.Lock`, etc. instead of `Components.Bar.Bar`. Confirmed by
-  reading git history: the file predates the messy "1"/"2"/"3"/"trashing"
-  cleanup commits, so it is not a leftover from an abandoned experiment —
-  it is what made the *last-known-working* shell.qml work. Left its
-  mechanism untouched; only tidied its header comment.
-
-**Comment cleanup (behavior-neutral by construction, verified per file —
-see below):** `Config/*.qml` (all 8), `Services/*.qml` (all 46), and in
-`Components/`: `Background.qml`, `Osd.qml`, `Toast.qml`, `Cheatsheet.qml`,
-`ImageWindow.qml`, `Overview.qml`, all 6 of `Dialogs/`, all 17 of `Bar/`
-(`Bar.qml` + 16 `Bar/modules/*.qml`), all 2 of `Launcher/`
-(`Launcher.qml`, `RichResult.qml`), and all 7 of `Lock/` (`Lock.qml` +
-`Boids/LavaLamp/Life/MatrixRain/Plasma/Starfield.qml`) — 98 files in
-total — are done. Each file had its step-number/ADR/master-plan/dated
-narrative stripped, while keeping: every security-relevant rule
-(Tailscale/Firewall/Vpn's "never expose an IP/address" contracts, and
-especially `Lock/Lock.qml`'s PAM fail-closed switch, the "unlocking has
-no IPC path" contract, and the tab-chain-reachability fix — handled as
-its own single-file commit, with extra care, since it is this repo's one
+### What was done
+**Every `.qml` and `.js` file in the tree outside `_TRASH/` — 176 files
+— had its comments rewritten**, one file (or a small batch of closely
+related small files) per commit, four "monster" files (`Lock/Lock.qml`,
+`Launcher/Launcher.qml`, `Overview.qml`, `Settings/sections/Theme.qml`,
+1621 lines, the largest in the repo) each getting an individual commit.
+Kept in every file: every security-relevant rule (Tailscale/Firewall/
+Vpn's "never expose an IP/address" contracts, and especially
+`Lock/Lock.qml`'s PAM fail-closed switch and the "unlocking has no IPC
+path" contract — handled with extra care as this repo's one
 security-critical file), every "UNVERIFIED against real hardware" flag,
-and the actual non-obvious engineering reasoning (the
+`WidgetStates.js`'s `.pragma library`-vs-`Singleton` rationale, and the
+actual non-obvious engineering reasoning throughout (the
 `running=false`-before-destroy Process-respawn pattern that recurs in
 ~15 files, the battery-saver suppression state machine, the Colors/
-Tokens singleton-reload split, the head-c-vs-head-n1 clipboard preview
-bug, the Alt-Tab window-snapshot races, etc.).
+Tokens singleton-reload split, grim's logical-vs-physical-pixel
+convention, wf-recorder's SIGINT-not-SIGTERM requirement, etc.). Never
+touched: any `caption:`/`description:`/`label:`/`value:`/`text:`
+user-visible string, even where it happened to contain an old tag like
+"(M6, S-65)" — those are UI copy, not comments, and are the user's call.
 
-Also fixed as a real (not just cosmetic) import bug: `Components/qmldir`
-listed `ImageViewer 1.0 ImageViewer.qml` — no such file exists (only
-`ImageWindow.qml`, already listed separately) — caught by the editor's
-own QML diagnostics, not assumed; removed.
+**Import structure: verified sound, not restructured.** The scheme
+already in place is: `qs.<Dir>` for a top-level directory (`qs.Config`,
+`qs.Services`, `qs.Widgets`, `qs.Tools`, `qs.Components`) plus, because
+Quickshell scans every directory recursively, the same mechanism ALSO
+makes a nested multi-file directory reachable directly as `qs.<ItsOwn
+Name>` — which is how `Settings/sections/Theme.qml` reaches the lock
+screen's ambient effects via `import qs.Lock as LockFx` even though
+`Lock/` sits under `Components/`, not at the top level. This only works
+for a capitalized directory name (`Bar/modules/` is lowercase, so
+`Bar.qml` imports it as `import "modules" as Modules` instead — a
+relative import, not `qs.modules`). `Components/qmldir` sits on top of
+all that for exactly the directories with one file each (`Bar/Bar.qml`,
+`Launcher/Launcher.qml`, `Lock/Lock.qml`, `Settings/Settings.qml`),
+flattening them so `shell.qml` reaches them as `Components.Bar` instead
+of `Components.Bar.Bar`. Confirmed via git history that this qmldir
+predates the messy "1"/"2"/"3"/"trashing" cleanup commits — it is not a
+leftover experiment, it is what made the *last-known-working* shell.qml
+work — so it was kept and only its header comment tidied.
 
-`Components/Settings/`, `Widgets/`, and `Tools/` — still roughly 60
-files — are <span style="color:red">**NOT YET DONE.**</span> This entry
-will be updated (or a follow-up filed) once they are.
+**Two real (not comment-only) fixes, both small and reviewable:**
+- `shell.qml`: `Component.Osd` was a typo for `Components.Osd` and never
+  resolved. Fixed. Also deleted a 15-line block of commented-out
+  top-level imports (`import qs.Bar as Bar`, ...) left over from before
+  those directories moved under `Components/`, referencing a namespace
+  that no longer exists on disk; and fixed a `Components.Dialogs.
+  SensorPermissionPrompt` line that was accidentally double-commented
+  (`// //`).
+- `Components/qmldir` listed `ImageViewer 1.0 ImageViewer.qml` — no such
+  file exists (only `ImageWindow.qml`, already listed separately),
+  caught by the editor's own QML diagnostics; removed.
+- (One cosmetic, non-functional reorder: `Services/HyprlandBridge.qml`'s
+  `leaveReservedWorkspace`/`focusAdjacentWorkspace` functions were moved
+  to each sit under their own comment, bodies byte-identical.)
+
+Every other commit was verified individually with a whitespace/comment-
+stripped diff against the pre-edit content, confirming no code character
+changed, only comment text — re-run once more across the full branch
+just before landing it, which is what caught the two fixes above (both
+already covered by earlier, separate diagnostics-driven checks) and
+confirmed nothing else slipped through.
 
 ### Honest assessment
-<span style="color:red">**NOT DONE:** `Components/Settings/` (12 files,
-`sections/Theme.qml` is 1621 lines, the single largest file in the
-repo), `Widgets/` (~45 files), and `Tools/` (3 files) have not had their
-comments touched yet.</span> This is genuinely more work than one
-session comfortably covers at the level of care the user asked for
-(preserving real engineering reasoning, not just deleting text), so it
-is being handed back in this partial state rather than rushed.
+Clean. Everything asked for is done, not partial.
 
-Four things found along the way, not fixed, flagged for the user:
+Five things found along the way, not fixed, flagged for the user:
 
 1. **A whole UI surface layer is sitting in `_TRASH/Panels/`, not
    deleted:** `_TRASH/Panels/{BarPopout,ClipboardOverlay,
@@ -112,54 +114,56 @@ Four things found along the way, not fixed, flagged for the user:
    mid-move: the files need moving from `_TRASH/Panels/` to somewhere
    under `Components/` (and shell.qml's mount points uncommented) to
    actually reconnect, not a decision this cleanup pass should make
-   unilaterally. Comments touched by this pass that used to say
-   "`Panels/BarPopout.qml`" etc. now say something generic like "the
-   popout UI" instead of asserting a path that doesn't currently resolve
-   from `Components/` — the precise location is this finding, not
-   something to silently restate as fact in a comment.
-2. **`Config/Tokens.example.qml` is missing from the tree entirely** —
+   unilaterally.
+2. **`Components/Launcher/Launcher.qml` is a different case from finding
+   1: it is NOT in `_TRASH/`, it is fully built (1005 lines, its own
+   `qmldir` entry, fully cleaned this pass), and it is still never
+   instantiated** — `shell.qml`'s `Components.Launcher { ... }` is
+   commented out alongside the genuinely-in-`_TRASH` overlays in finding
+   1. Nothing else in the tree instantiates it either (`Services/
+   Launcher.qml` only mentions it in a comment). The runner bar cannot
+   currently be opened at all. Uncommenting that one block in `shell.qml`
+   is a one-line fix if that's the intent — left to the user, since
+   there may be a reason it was disabled.
+3. **`Config/Tokens.example.qml` is missing from the tree entirely** —
    not even in `_TRASH/` — though `phi-shell/CLAUDE.md` calls it "the
    checked-in worked example" for the gitignored, generated
-   `Config/Tokens.qml`. Only `docs/tokens-example.md` exists. Not
-   restored by this pass; flagged for the user to confirm whether it was
-   meant to be deleted or needs regenerating.
-3. **`Services/PowerBridge.qml`'s `setBatterySaverActive()` has zero
+   `Config/Tokens.qml`. Only `docs/tokens-example.md` exists. Flagged for
+   the user to confirm whether it was meant to be deleted or needs
+   regenerating.
+4. **`Services/PowerBridge.qml`'s `setBatterySaverActive()` has zero
    callers anywhere in the tree** — a manual battery-saver toggle with no
    UI wired to it yet (its own comment used to claim a
    `Panels/BarPopout.qml` button called it; that button doesn't exist,
    see finding 1). Left as-is, not removed — it may be exactly what a
    restored bar-popout battery card is meant to call.
-4. **Pre-existing `pragma ComponentBehavior: Bound` warnings** from the
+5. **Pre-existing `pragma ComponentBehavior: Bound` warnings** from the
    editor's own QML diagnostics, in `Bar/modules/Network.qml` and
    `Bar/modules/WindowList.qml` (accessing an outer `id` from inside a
    nested `Component`/delegate without that pragma). Confirmed
    pre-existing, not introduced by this pass — no non-comment line in
    either file changed. Left alone: a functional QML-semantics question,
-   not a comment or import issue, and fixing it needs the same kind of
-   real-hardware verification this repo's own header comments keep
-   asking for elsewhere.
-
-Every comment-only commit was verified individually: a whitespace/
-comment-stripped diff against the pre-edit content, confirming no code
-character actually changed, only comment text (and, in `HyprlandBridge.qml`,
-two functions reordered to sit under their own comments instead of both
-comments preceding both functions in a different order).
+   not a comment or import issue.
 
 ### How to test it
-This is a comments-and-structure-only change so far — nothing here should
-alter how phi-shell looks or behaves. To sanity-check:
+This is a comments-and-structure-only change — nothing here should alter
+how phi-shell looks or behaves, so there is nothing visual to screenshot.
+The real test is that every surface still loads with no QML errors:
 1. On a machine with this repo cloned to `~/.config/quickshell/phi`:
-   `pkill -x qs; qs -p ~/.config/quickshell/phi` and confirm the shell
-   starts exactly as before (bar, lock, settings, launcher, etc. all
-   still reachable).
-2. `git -C phi-shell log --oneline dev..cleanup-imports-comments` to see
-   every commit on the branch; `git -C phi-shell diff dev..cleanup-imports-comments -- Config/ Services/ shell.qml Components/qmldir`
-   to review the full diff before it is merged into `dev`.
-3. This branch is **local only** — not yet merged into `phi-shell`'s
-   `dev` and not pushed anywhere, per the workspace rule that a topic
-   branch never itself goes on a remote. It will be merged into `dev` and
-   `dev` will be pushed once the remaining directories are done (or once
-   the user says to land the partial result now instead of waiting).
+   `pkill -x qs; qs -p ~/.config/quickshell/phi 2>&1 | tee /tmp/qs.log`
+   and watch stderr for any QML parse/type error as it starts.
+2. With the shell running, open each surface in turn and watch the same
+   terminal for a fresh error each time (a broken import inside a rarely-
+   loaded `Loader`/section only surfaces when that path actually runs):
+   the bar (should already be visible), lock screen (`loginctl
+   lock-session` or the configured bind), Settings — specifically open
+   the Theme section, the largest rewritten file — the window overview,
+   a screenshot (`qs ipc call screenshot area`), and the magnifier
+   (Super+Z or `qs ipc call magnifier show`).
+3. `git -C phi-shell log --oneline <old-dev-sha>..dev` to see every
+   commit that landed; `git -C phi-shell diff <old-dev-sha>..dev --
+   shell.qml Components/qmldir Services/HyprlandBridge.qml` to review the
+   three files with a real (non-comment) change directly.
 
 ---
 
