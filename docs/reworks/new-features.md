@@ -6,11 +6,40 @@ Those are new interesting features to add.
     a. create a select UI element for sounds * OR DECIDE ANOTHER COOL SELECT SYSTEM BUT NO LIST OF TOGGLEABLE ELEMENTS IF ONLY 1 CAN BE SELECTED
     b. add a "System Sounds" inner section in the Theme section to setup all sounds (move those that exist for notifications and battery there, maybe duplicate them using the same logic so they stay updated?).
 
-2. option to invert the scrolling direction (must not interfere with touchpad)
+2. option to invert the scrolling direction (must not interfere with touchscreen)
 
 3. hovering a tab should allow scrolling in that one without focus *
 
 4. replace completely the "lava lamp" ambient effect with a configurable one exactly like this: https://github.com/AngelJumbo/lavat
+
+5. Line separator in status bars should be using the full color and not a shade and be taller
+
+6. WHEN TYPING IN A TERMINAL OR NVIM REMOVE THE CURSOR, REQUIRES INPUT TO RESTORE (AVOID MISCLICK ON TOUCHPAD, BUT ALLOW TOUCHSCREEN)
+
+7. ~~network icons in the bottom status bar have different spacing than other icons. Also wifi/ethernet should be the rightmost.~~
+
+8. Stats overlay:
+    a. Disk usage should list all mounted disks
+    b. 
+
+9. ~~Touchscreen does not work on system modals~~
+
+10. In the clipboard history preview panel the minimum width is not enough to fit the details. I should not have any minimal height. If the selected entry is an image it should have a greater minimum width then normal, and the content should be the image (with a limit, there should be a max height and the image must fit the area.
+
+11. When running `phi theme set dark` if "Automatic" is set, it shold request confirmation to apply it, if so it disables the Auto mode
+
+12. Move keybindings for status popups to FN.
+    - status: fn+s
+    - clipboard: fn+v
+    - notifications: fn+n
+    - phi agent: fn+p
+    - etc.
+
+13. 
+
+# Codebase
+
+1. Why color picker with Screenshot? Delete, it's a feature of the magnifier
 
 # To be built
 
@@ -60,3 +89,11 @@ Inspirations:
 3. The settings panel should be a floating window with minimum width, not a locking overlay in the centre
 
 4. 
+
+
+# Reminders
+
+1. VLC: to be considered for advanced codec
+2. WiVRn
+3. LocalSend / Shared Clipboard / Handoff
+4. Cloud File Manager

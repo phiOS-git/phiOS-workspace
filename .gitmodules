@@ -10,3 +10,6 @@
 [submodule "phios-dotfiles"]
 	path = phios-dotfiles
 	url = git@github.com:phiOS-git/phios-dotfiles.git
+[submodule "apps/phi-notes"]
+	path = apps/phi-notes
+	url = git@github.com:phiOS-git/phi-notes
