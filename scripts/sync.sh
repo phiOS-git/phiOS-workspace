@@ -34,6 +34,19 @@ sync_repo() {
     local label=$1 dir=$2
     printf '%s\n' "${bold}=== $label ===${rst}"
 
+    # A repository cloned --single-branch keeps a narrowed fetch refspec
+    # (+refs/heads/main:refs/remotes/origin/main), so a plain `git fetch
+    # origin` asks for that one branch by name. Since `main` and `master`
+    # were deleted when `dev` became the only branch, such a clone fails
+    # with "couldn't find remote ref refs/heads/main" and can never recover
+    # on its own. Widen it to the wildcard first; idempotent, and reported
+    # when it actually changes something.
+    local want='+refs/heads/*:refs/remotes/origin/*'
+    if [ "$(git -C "$dir" config --get-all remote.origin.fetch)" != "$want" ]; then
+        git -C "$dir" config --replace-all remote.origin.fetch "$want"
+        printf '  %swidened a single-branch fetch refspec%s\n' "$dim" "$rst"
+    fi
+
     if ! git -C "$dir" fetch --quiet --prune --tags origin; then
         printf '  %sfetch failed%s\n' "$red" "$rst"; rc=1; return
     fi

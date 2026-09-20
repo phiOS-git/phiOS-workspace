@@ -166,6 +166,11 @@ Generalise `phi-agent-contain` rather than writing a second harness.
 > which are defined here and test the kernel and bubblewrap rather than
 > anything phiOS owns. **Phase 0 is exactly this**: prove the containment
 > primitive before anything depends on it. Do not reorder.
+>
+> **Result (`razer`, bubblewrap 0.12.0): C-01..C-06 all pass.** `$HOME` is
+> invisible by default, `--unshare-net` genuinely leaves no network, and the
+> unix-socket bridge crosses the namespace boundary — so T3 is real and the
+> proxied-egress shape is viable. `zotac` still to be run.
 
 ### 3.4 Monitoring
 
@@ -276,7 +281,7 @@ the launcher are guarding the same door.
 
 | Phase | Repo | Deliverable |
 |---|---|---|
-| **0** | — | **User**: run Appendix A's `phios-contain-check` on `zotac` and on `razer` and report the output. It changes nothing. Nothing below ships until C-01..C-05 pass. |
+| **0** | — | **User**: run Appendix A's `phios-contain-check` on `zotac` and on `razer`. **`razer`: all six passed (bubblewrap 0.12.0), C-06 included.** `zotac` still to run. Phase 1 is unblocked. |
 | **1a** | `phios-dotfiles` | `external.txt` format documented in `profiles/README.md`; `bin/lib/external.sh` parser; `--check` reporting. |
 | **1b** | `phi` | `internal/external` (parse, enumerate, diff, fingerprint); `internal/doctor/external.go`; amend `packageCategories`; `phi pkg audit` / `accept` / `--manager external`. Table-driven tests. |
 | **1c** | `phi` | `desktopEntryDirs()` gains the two Flatpak export directories; `.desktop` generation for T4 entries, manifest-recorded (§3.8). |
