@@ -1,5 +1,41 @@
 Those are new interesting features to add.
 
+# Next steps
+
+1. optimise code and remove redundancy
+    - overview -> AppSwitcher
+    - optimise shells
+        - cleanup Dialogs
+        - cleanup Popout
+    - usare folder phios in .config e .local (oltre a etc)
+        - migliorare organizzazione wallapapers (currently /dynamic è hardcoded per essere evitata, non ha senso)
+    - mathx e simili hanno sesnso in phi? non dovrei snellire phi e creare dei tool separati come phi-packages ?
+
+2. studiare Ai agent da zero: usare pi + opencode (con possibilità di integrare altri motori come claude code)
+
+3. nvim: setup plugins e separazione IDE e notes
+    a. IDE:
+    b. Notes: zettlekaste + image (and other medias + websites) render and drop + grammar checking
+    c. keybinding
+
+4. ultimi fix:
+    - magnifier
+    - AppSwitcher
+    - spotlight (borders)
+    
+
+5. ultime features:
+    a. server:
+        - cloud file manager
+        - indexing (movies + series + music)
+        - git remote manager APIs
+    b. desktop:
+        - color picker
+        - 
+
+6. completare lavore di stilizzazione + keybinding coherency
+
+
 # Urgent
 
 1. The setting panel sounds:
