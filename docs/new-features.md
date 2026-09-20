@@ -143,6 +143,10 @@ Those are new interesting features to add.
 
 # Known bugs
 
+- In the MediaControls
+    - the title "marquee" does not slowly move, it's instant and stuck at the end 
+    - shows the title twice: title, author+title instead it should show author+album in the second row
+
 - when hibernating the laptop, touchpad does not always come back (touchscreen always works)
 
 - hovering a tab should allow scrolling in that one without focus *
