@@ -1,203 +1,138 @@
 # phiOS — workspace
 
-phiOS is a personal Arch Linux desktop environment for three machines:
-`zotac` (desktop, NVIDIA), `razer` (laptop, primary), `mini` (headless
-server, 4 GB RAM). All three are installed and in daily use.
+phiOS is a personal Arch Linux desktop environment, built from scratch, for
+three machines that are all installed and in daily use:
 
-This directory is a git superproject (`phiOS-git/phiOS-workspace`) that ties
-the four component repositories together as submodules, so they can be
-developed together and synced across machines in one step. Work happens
-**inside** a submodule; the superproject only records which commit of each
-is current.
+| Host | Role | Notes |
+|---|---|---|
+| `zotac` | Desktop — work and gaming | NVIDIA (open DKMS), Btrfs + LUKS, second disk at `/mnt/bulk`. The only build host. |
+| `razer` | Laptop — the primary machine | Razer Book 13, Intel Iris Xe, IR camera, ambient-light sensor, per-key Chroma keyboard |
+| `mini` | Headless server — support backend | 4 GB soldered RAM, `/srv` on an unlocked LUKS volume, never a graphical session |
 
-## Repositories
+The base OS — disk layout, boot, drivers, the Hyprland session, Tailscale,
+Steam, snapper — predates this workspace and is not tracked here. Only the
+phiOS layer on top is.
+
+## The repositories
+
+This directory is a git superproject that ties four component repositories
+together as submodules, so they can be developed together and synced across
+machines in one step. Work happens **inside** a submodule; the superproject
+only records which commit of each is current.
 
 | Submodule | Language | What it is |
 |---|---|---|
-| `phios-dotfiles` | bash + text | Configuration: the install engine, per-host profiles, design tokens, `/etc` material (kept, never applied), bootstrap scripts |
-| `phi` | Go | The unified `phi` CLI — one entry point for `theme`, `state`, `doctor`, `vpn`, `firewall`, `pkg`, `update`, `wallpaper`, `query` (the launcher backend) and `agent` |
-| `phi-shell` | QML on Quickshell | The desktop shell: status bar, side panels, launcher, lock screen, settings, notifications, window overview, screenshot, magnifier, OSD |
-| `phi-packages` | PKGBUILD | Packaging: builds and signs `phi`, `phi-shell`, … into the private `[phi]` pacman repository served from `mini` |
+| `phios-dotfiles` | bash + text | Configuration: the install engine, per-host profiles, design tokens, `/etc` material (kept, never applied) |
+| `phi` | Go | The unified CLI — `theme`, `state`, `doctor`, `pkg`, `vpn`, `firewall`, `wallpaper`, `query`, `update`, `agent`, `fan` |
+| `phi-shell` | QML on Quickshell | The desktop shell: status bars, popouts, launcher, lock screen, settings, notifications, overview, screenshot, magnifier, OSD |
+| `phi-packages` | PKGBUILD | Packaging: builds the in-house packages into the private `[phi]` pacman repository |
 
-Each submodule is a full repository with its own history and a single
-remote named `origin` (`github.com/phiOS-git/<name>`).
+Each submodule is a full repository with its own history and a single remote
+named `origin` (`github.com/phiOS-git/<name>`). `apps/phi-notes` is a fifth,
+not yet started.
 
-## Orientation
+## How the pieces fit
 
-- **`PROGRESS.md`** (this folder) is the single, current description of what
-  exists, what is in flight, and what is not built yet. Read it first.
-- **`docs/archive/`** holds the original planning documents — master plan,
-  architecture, agent brief, the step backlog, the installation procedures.
-  They are **historical background only, not directives.** This project is
-  no longer driven by a step loop or a master plan; `PROGRESS.md` and these
-  `AGENTS.md` files are the whole contract.
-- **`references/`** holds screenshots and the Φ ASCII mark used as visual
-  reference for the shell.
-- **`docs/TODO.md`** is the user's running backlog; **`docs/VERIFICATION.md`**
-  is where you hand finished work back for sign-off. See *The TODO /
-  VERIFICATION loop* below.
+`phios-dotfiles/design/` holds every colour, font, size, radius and motion
+value as shell variables, in a dark and a light variant. `phi theme` renders
+those tokens through `design/adapters.txt` into each themed application's own
+config format — kitty, btop, yazi, nvim, GTK, Qt, and `phi-shell`'s
+`Config/Tokens.qml` and `Config/Colors.json`. Nothing else may contain such a
+literal, QML included.
 
-## How to work here
+`bin/phios-install` composes a host's profiles (`hosts/<host>.txt`), installs
+their packages, symlinks their `home/` trees and renders their templates. It
+is idempotent and reversible: everything it creates is recorded in a state
+manifest, anything it would overwrite is backed up first, and a path that
+leaves the repository is removed from `$HOME` on the next run unless it was
+hand-edited since.
 
-1. Run `scripts/sync.sh` first on any machine — it fast-forwards `main` and
-   `dev` for the superproject and every submodule.
-2. Work inside the relevant submodule, on a local branch off `dev`.
-3. Update `PROGRESS.md` in the same commit as the change it describes.
-4. Commit message: `<scope>: <imperative, lowercase>`, optional body for
-   what and why. No step trailers.
+`phi-shell` is one shell process for the whole session, not a set of
+independent components. It reads the generated tokens, calls `phi` for
+anything that is not presentation, and starts from Hyprland on login.
 
-## The TODO / VERIFICATION loop
+`phi-packages` builds `phi` and `phi-shell` from pinned git tags in a clean
+chroot and publishes them to the `[phi]` repository served from `mini`.
 
-`docs/TODO.md` is the user's backlog — they add to it freely; entries are
-grouped bullets. `docs/VERIFICATION.md` is where finished work is handed
-back for the user to check and sign off. This backlog is worked by more
-than one agent session at a time, plus the user directly — assume the
-remote has moved since your last fetch at every step below, and that
-fetch/push races and routine `docs/TODO.md` / `docs/VERIFICATION.md` merge
-conflicts are normal, not a sign something is wrong.
+## Design language and standing constraints
 
-**This loop applies whenever you are asked to work the TODO list, and also
-whenever you are asked to do a task *without* a TODO reference.** In the
-latter case, check `docs/TODO.md` for a matching entry before starting.
-If one exists, treat it as taken from the list — claim it (step 1) and
-follow the rest of this loop for it, rather than doing it as a one-off with
-no claim, no `[taken]` marker and no `docs/VERIFICATION.md` entry.
+One accent (pastel pink `#d3a0ac`), base16-style semantic tokens, mono + sans
++ a symbol-only font with a targeted Noto fallback — never a patched font — a
+bound motion taxonomy, and a single Φ identity mark. Two variants, dark and
+light, switchable live.
 
-1. **Fetch, claim, push — before writing any code.** `git fetch` the
-   superproject and confirm the entry is not already `[taken]`. Prefix the
-   bullet with `[taken]` — `- [taken] alt+tab does not work: …` — commit,
-   and **push the superproject's `dev` immediately**, before starting
-   implementation. This push is the only thing that makes the claim visible
-   to a parallel session. If it's rejected (remote moved), fetch, merge,
-   re-check the entry is still unclaimed, and push again. Claim only what
-   you are actually about to work on now.
-2. **Do the work** in the relevant submodule, on a **local branch off its
-   `dev`** (rule 1 below: never on `main`/`master`, and that local branch
-   never itself goes on a remote). A task touching more than one submodule
-   repeats this per submodule.
-3. **Land it, once committed, in this order:**
-   a. In the submodule: fast-forward local `dev` to `origin/dev`, merge the
-      local topic branch into it, delete the topic branch.
-   b. In the superproject: delete the entry from `docs/TODO.md`, add a
-      section to `docs/VERIFICATION.md` (newest first) using the template
-      below, and record the new submodule pointer — one commit.
-   c. `git fetch` again, then **push `dev` in every repository actually
-      touched — each submodule first, then the superproject.** The
-      superproject commit only records a pointer; it does not upload the
-      submodule's own commits, so a submodule push you skip leaves that
-      work invisible to the user on GitHub even though the superproject
-      looks finished.
-   d. Any push rejected: fetch and merge (never rebase — this history may
-      already be shared elsewhere), then push again. A `docs/TODO.md` /
-      `docs/VERIFICATION.md` conflict resolves by keeping both sides'
-      changes (each stays a "newest first" section). A submodule-pointer
-      (gitlink) conflict resolves by keeping whichever SHA is the
-      descendant (`git merge-base --is-ancestor <a> <b>`).
-4. **Leave it for the user.** They delete the `docs/VERIFICATION.md` entry
-   once they have verified it. Never edit or delete an entry you did not
-   write.
+These shape what gets built:
 
-A change with no matching TODO entry still gets a `docs/VERIFICATION.md`
-section — the file is the record of everything awaiting a human check,
-backlog-tracked or not. A one-line typo fix or a docs-only change does not.
+- **TUI over GUI.** A GUI is admitted only when it can be themed completely.
+- **Every feature names the problem it solves.** Nothing exists "for
+  completeness"; a module that duplicates another is removed.
+- **No colour, font or size literal anywhere.** Everything comes from
+  `design/`.
+- **Profiles decide what is installed; capability detection decides what is
+  shown.** The shell never asks "am I a laptop", it asks whether this host
+  reports a battery.
+- **Designed for N monitors** from the first line.
+- **One CLI entry point (`phi`), one visual identity (Φ).**
+- **`/etc` is versioned, never applied.** `profiles/*/system/` mirrors real
+  absolute paths; the user applies them by hand.
+- **Nothing proprietary**, and no other project's shell or dotfiles imported
+  as a base. Reading someone's code for reference is fine; copying it in is
+  not.
+- **Each custom app is permanent debt** — a real bar to clear before adding
+  one.
 
-**Partial completion never stays in `docs/TODO.md` as a note.** If only
-part of an entry's request was actually done — a workaround instead of a
-root-cause fix, one clause of a multi-part ask, a scope cut — the entry
-is still removed from `docs/TODO.md` in full, exactly as if it were
-completely done, and written up in `docs/VERIFICATION.md` the normal way.
-The write-up's own "What was done" / "Honest assessment" sections carry
-the nuance, with **what was NOT done from the original request marked in
-bold, in red** (e.g. `<span style="color:red">**NOT DONE:** ...</span>`)
-so the gap cannot be missed at a glance. If a genuine remainder of the
-original request is still open and worth tracking, re-add *that* to
-`docs/TODO.md` as its own clean, bare entry describing only the still-open
-task — never carrying a "was fixed"/"done as of"/"see VERIFICATION.md"
-annotation baked into its text. `docs/TODO.md` holds only entries that are
-`[taken]` or not yet handled at all; a record of what has already been
-finished belongs solely to `docs/VERIFICATION.md`, never to a note
-sitting alongside an open task.
+## Layout
 
-### VERIFICATION.md entry template
+- `docs/reworks/new-features.md` — the running backlog: what is wanted next,
+  what is queued, and known rough edges. The user owns it.
+- `references/` — screenshots and the Φ ASCII mark, visual reference for the
+  shell.
+- `scripts/sync.sh` — fast-forwards `main` and `dev` for the superproject and
+  every submodule. Run it first on any machine.
+- Each submodule has its own `AGENTS.md` describing that repository.
+  `CLAUDE.md` is a symlink to `AGENTS.md` everywhere.
 
-The title names the original issue — the problem as the user would describe
-it — never the fix or the implementation. Keep it to one short line; a
-title is not a changelog entry, the detail belongs in the sections below.
-(`Auto-start the phi agent a1 service when the agent panel opens` names the
-fix; `Agent panel requires a manual service start` names the issue — the
-latter is what a title should look like.)
+## Working here
 
-If the change touches the `phi` repo, add the **Requires phi rebuild**
-line naming the git tag — either one already pushed, or one that still
-needs creating (rule 3: an agent may create and push the tag; only the
-user builds, signs and publishes the package). Omit the line entirely for
-a change that doesn't touch `phi`.
+Run `scripts/sync.sh`, work inside the relevant submodule, and commit there
+first — the superproject commit only records a pointer, it does not upload a
+submodule's own commits. Push each submodule you touched, then the
+superproject.
 
-```
-## <short title naming the issue, not the fix>
+Commit messages are `<scope>: <imperative, lowercase>`, with an optional body
+for what and why.
 
-- **Date:** 2026-09-11
-- **Repo / branch:** phi-shell / dev
-- **Commits:** <hash> <subject line>   — one line per commit
-- **Original TODO:** <the entry verbatim, or "none — outside the backlog">
-- **Requires phi rebuild:** <tag, e.g. v0.17.0 — omit if this doesn't touch phi>
+## The rules
 
-### What was asked
-Restate the task in your own words so the user can confirm you understood it.
+1. **Only official Arch packages** — `core`, `extra`, `multilib`. No AUR, no
+   cloning and building someone's repository, no vendored binaries. Rootless
+   containers on the server are the sole exception. Anything outside this is
+   not accepted — ask first.
 
-### What was done
-The actual change: files touched, the approach, and any decision you made
-that the user did not spell out.
+2. **Releases belong to the user.** An agent may create and push a git tag
+   (`vX.Y.Z`) on a source repository. Only the user builds signed packages and
+   publishes them. The signing key never appears in any repository, in any
+   form.
 
-### Honest assessment
-Everything that is not clean: known issues, anything cut or deferred,
-questions you need answered, anything you could not verify (say why — e.g.
-needs hardware), anything you are unsure about. If it is all clean, say so
-plainly. If part of the original request was not done, lead with it in
-bold, in red (see *Partial completion* above) — never bury a real gap in
-ordinary prose.
+3. **Never touch a live machine.** No `pacman`, `makepkg` or `systemctl`, no
+   writes to `/etc`, `/usr` or `/var`, no connecting to `zotac`, `razer` or
+   `mini`. This holds whether or not the agent is running on one of them: work
+   only in this workspace, never against the files a running session is using.
+   `/etc` material is written **into** `phios-dotfiles/profiles/*/system/` and
+   applied by the user, by hand.
 
-### How to test it
-Step by step, assuming no prior context.
-- Every command in full and copy-pasteable, in the order to run them.
-- For a visual change: what should look different, where on screen, and
-  what it looked like before.
-- For a feature: the exact steps to exercise it and the correct result at
-  each step.
-Never write "as before", "the usual way", or anything that assumes the user
-remembers how it worked.
-```
+4. **`dev` is the only branch.** Never `main`, never a topic branch. Several
+   agents and the user often work at once, so assume the remote has moved:
+   fetch before pushing, and on a rejected push fetch and merge rather than
+   rebase. Never discard someone else's work — if a merge conflicts, keep both
+   sides unless they genuinely contradict, and never revert a change you did
+   not make.
 
-## Rules — every repository
-
-1. **Branch locally. Only `main` and `dev` go on a remote.** Feature work
-   lives on local branches and merges into `dev`; `main` is the known-good
-   state. Never push a topic branch. **`dev` is the only branch you touch
-   unless the user clearly asks to move changes onto `main`** — merging
-   `dev` into `main`, or committing on `main` directly, is a user decision,
-   not a default step of finishing a task.
-2. **Only official Arch packages** — `core`, `extra`, `multilib`. No AUR, no
-   manual builds, no vendored binaries. Rootless containers on the server
-   are the sole exception. Anything outside this is not accepted — ask
-   first.
-3. **`phi` package releases belong to the user.** An agent may create and
-   push git tags (`vX.Y.Z`) on a source repository. Only the user builds
-   signed packages and publishes them to the `[phi]` repo. The signing key
-   never appears in any repository, in any form.
-4. **The three machines are off-limits.** No `pacman` / `paru` / `makepkg`,
-   no `systemctl`, no writes to `/etc` `/usr` `/var`, no connecting to
-   `zotac` / `razer` / `mini`. `/etc` material is written **into**
-   `phios-dotfiles/profiles/*/system/` and applied by the user, by hand.
-5. **The remotes are public. No secrets** — keys, passwords, IP addresses,
-   overlay hostnames, notification topics — in any repository, ever.
-6. **Design tokens are the only source of colour, font, size, radius and
-   motion** (`phios-dotfiles/design/`). Nothing else may hardcode one, QML
-   included.
-7. **Do not import another project's shell or dotfiles as a base.** Reading
-   someone's code for reference is fine; copying it in is not.
+Because the remotes are public, no secrets ever enter a repository: keys,
+passwords, IP addresses, overlay hostnames, notification topics.
 
 ## Language
 
-Everything written into the repositories is English: code, identifiers,
-file names, commit messages, comments, UI strings, documentation. The user
-may write in Italian; reply in the language they used.
+Everything written into the repositories is English — code, identifiers, file
+names, commit messages, comments, UI strings, documentation. The user may
+write in Italian; reply in the language they used.

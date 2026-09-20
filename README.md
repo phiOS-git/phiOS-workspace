@@ -23,12 +23,8 @@ every submodule — run it first on any machine.
 
 ## Where to look
 
-- **`AGENTS.md`** — how the workspace is laid out and the rules that apply
-  to every repository. `CLAUDE.md` is a symlink to it.
-- **`PROGRESS.md`** — the single, current description of what phiOS is and
-  where each piece stands.
-- **`docs/TODO.md`** / **`docs/VERIFICATION.md`** — the running backlog and
-  the write-ups of finished work awaiting sign-off (see `AGENTS.md`).
-- **`docs/archive/`** — the original planning documents, kept as historical
-  background only.
+- **`AGENTS.md`** — what phiOS is, how the repositories fit together, and the
+  rules that apply to every one of them. `CLAUDE.md` is a symlink to it, and
+  each submodule has its own.
+- **`docs/reworks/new-features.md`** — the running backlog.
 - **`references/`** — screenshots and the Φ mark used as visual reference.
