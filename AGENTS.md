@@ -28,8 +28,7 @@ only records which commit of each is current.
 | `phi-packages` | PKGBUILD | Packaging: builds the in-house packages into the private `[phi]` pacman repository |
 
 Each submodule is a full repository with its own history and a single remote
-named `origin` (`github.com/phiOS-git/<name>`). `apps/phi-notes` is a fifth,
-not yet started.
+named `origin` (`github.com/phiOS-git/<name>`), carrying one branch: `dev`.
 
 ## How the pieces fit
 
@@ -87,7 +86,7 @@ These shape what gets built:
   what is queued, and known rough edges. The user owns it.
 - `references/` — screenshots and the Φ ASCII mark, visual reference for the
   shell.
-- `scripts/sync.sh` — fast-forwards `main` and `dev` for the superproject and
+- `scripts/sync.sh` — fast-forwards `dev` for the superproject and
   every submodule. Run it first on any machine.
 - Each submodule has its own `AGENTS.md` describing that repository.
   `CLAUDE.md` is a symlink to `AGENTS.md` everywhere.

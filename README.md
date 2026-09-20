@@ -18,7 +18,7 @@ git clone --recurse-submodules <this repo>
 ./scripts/sync.sh          # or, in an existing clone: git submodule update --init
 ```
 
-`scripts/sync.sh` fast-forwards `main` and `dev` for the superproject and
+`scripts/sync.sh` fast-forwards `dev` for the superproject and
 every submodule — run it first on any machine.
 
 ## Where to look
