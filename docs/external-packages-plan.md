@@ -9,6 +9,19 @@ submodule `AGENTS.md` files and delete it once the phases below are done.
 Policy lives in rule 1 of the workspace `AGENTS.md`. This document is the
 implementation of that rule, not a second copy of it.
 
+**Status.**
+
+| | |
+|---|---|
+| Rule 1 amended with the tier ladder | **done** |
+| Phase 0 — containment verified on `razer` | **done**, C-01..C-06 all pass |
+| Phases 1–4 | **not started** — no code written yet |
+
+Deliberately not done: Phase 0 was not run on `zotac`. `razer` is the primary
+machine and the checks are kernel-and-bubblewrap properties rather than
+per-host ones, so the result is taken as sufficient. If a T3 target later
+misbehaves on `zotac`, run `scripts/phios-contain-check.sh` there first.
+
 ---
 
 ## 1. The problem, restated
@@ -69,9 +82,16 @@ This plan is mostly wiring, not new machinery. Inventory, verified in the tree:
   `ManagerBlock` per manager, already showing the AppImage list and labelling
   npm/flatpak as placeholders. Declared **read-only** by design.
 
-Two corrections worth carrying forward: `~/.local/state/phios/` already exists
-(it holds the installer manifest), and `opencode` is already official — so the
-only non-official part of the agent rebuild is `pi`.
+Two facts that shape the plan: `~/.local/state/phios/` already exists (it holds
+the installer manifest), so new state files need no new namespace; and
+`opencode` is already an official package, so the only non-official part of the
+agent rebuild is `pi`.
+
+**The AI agent subsystem has never worked correctly and is to be rebuilt,
+possibly from scratch.** That is settled context, not speculation, and it is
+why this plan treats `phi-agent-contain` as a source to extract from rather
+than a behaviour to preserve (§3.3, Phase 2), and why `pi` is the last target
+rather than the first (§5.2).
 
 ---
 
@@ -156,8 +176,11 @@ Generalise `phi-agent-contain` rather than writing a second harness.
   the existing grammar unchanged.
 - A per-profile network mode: `host` | `none` | `proxy:<socket>` — which is
   exactly A1 / A2-without-bridge / A2 today, named instead of branched.
-- `phi-agent-contain` becomes a thin wrapper delegating to `phi-contain a1|a2`,
-  so agent behaviour is bit-for-bit what it is now.
+- `phi-agent-contain` is **not** preserved. Because the agent subsystem is
+  being rebuilt (§2), there is no working behaviour to keep bit-for-bit: the
+  harness is extracted cleanly and the old wrapper retires with the subsystem
+  it served. The new agent becomes a consumer of `phi-contain`, which is what
+  stops a second private copy of the harness growing inside it.
 
 > **Blocking caveat.** The harness's own header says it has *never run*, and
 > refers to verification passes "V-01..V-04" — **that document no longer
@@ -167,10 +190,11 @@ Generalise `phi-agent-contain` rather than writing a second harness.
 > anything phiOS owns. **Phase 0 is exactly this**: prove the containment
 > primitive before anything depends on it. Do not reorder.
 >
-> **Result (`razer`, bubblewrap 0.12.0): C-01..C-06 all pass.** `$HOME` is
+> **Result — `razer`, bubblewrap 0.12.0, C-01..C-06 all pass.** `$HOME` is
 > invisible by default, `--unshare-net` genuinely leaves no network, and the
-> unix-socket bridge crosses the namespace boundary — so T3 is real and the
-> proxied-egress shape is viable. `zotac` still to be run.
+> unix-socket bridge crosses the namespace boundary. T3 is therefore real, and
+> the proxied-egress shape (socat to a host whitelist) is viable. Not run on
+> `zotac` by choice; see the status table at the top.
 
 ### 3.4 Monitoring
 
@@ -281,7 +305,7 @@ the launcher are guarding the same door.
 
 | Phase | Repo | Deliverable |
 |---|---|---|
-| **0** | — | **User**: run Appendix A's `phios-contain-check` on `zotac` and on `razer`. **`razer`: all six passed (bubblewrap 0.12.0), C-06 included.** `zotac` still to run. Phase 1 is unblocked. |
+| **0** | — | **Done.** `scripts/phios-contain-check.sh` (Appendix A) passed C-01..C-06 on `razer`, bubblewrap 0.12.0. Not run on `zotac` by choice. Phase 1 is unblocked. |
 | **1a** | `phios-dotfiles` | `external.txt` format documented in `profiles/README.md`; `bin/lib/external.sh` parser; `--check` reporting. |
 | **1b** | `phi` | `internal/external` (parse, enumerate, diff, fingerprint); `internal/doctor/external.go`; amend `packageCategories`; `phi pkg audit` / `accept` / `--manager external`. Table-driven tests. |
 | **1c** | `phi` | `desktopEntryDirs()` gains the two Flatpak export directories; `.desktop` generation for T4 entries, manifest-recorded (§3.8). |
@@ -292,35 +316,41 @@ the launcher are guarding the same door.
 Phases 1a and 1b are independent and can run in parallel; 3 depends on 1b's
 JSON output; 4 depends on 2 for anything contained.
 
-### 4.1 Sequencing — two questions answered
+### 4.1 Sequencing decisions
 
-**Does the new agent have to be designed first? No, and coupling them would be
-a mistake.** The containment harness is agent-independent; the agent is one
-consumer of it. Because the agent is being rebuilt, building the generic
-harness *first* is what stops a second private copy of it from growing inside
-the new agent — the new agent inherits `phi-contain` instead of carrying its
-own. The agent design blocks exactly one thing: tiering `pi` in §5.2, which is
-Phase 4, the last step. Going the other way would also be circular, since the
-agent rework itself needs the declaration mechanism for its non-official parts.
+Two ordering questions were settled before this plan was written down. Both
+answers are "no", and the reasoning matters because it is easy to re-open them.
 
-This does simplify Phase 2: with the old agent being retired, there is no need
-to keep `phi-agent-contain`'s behaviour identical. Extract the harness cleanly
-and let the old wrapper retire with the subsystem it serves.
+**The new AI agent does not have to be designed first.** The containment
+harness is agent-independent — the agent is one consumer of it. Because the
+agent is being rebuilt (§2), building the generic harness *first* is precisely
+what stops a second private copy growing inside the new agent. The agent design
+blocks exactly one item, tiering `pi` in §5.2, which is Phase 4 and therefore
+last. The reverse order would also be circular: the agent rework itself needs
+the declaration mechanism for its own non-official parts.
 
-**Does the XDG relayout have to happen first? No — but one naming decision
-does.** The plan creates exactly two new paths that fall inside the umbrella
-question: the fingerprint file (§3.4) and the containment profiles (§3.3).
-Both are greenfield, so they can be written into whichever namespace is chosen
-at zero migration cost — *provided the choice is made before they are created*,
-otherwise they become two more things to migrate later.
+**The XDG relayout does not have to happen first.** The backlog carries a
+separate item to consolidate phiOS's XDG directories under a `phios/` umbrella.
+This plan creates exactly two new paths inside that question — the fingerprint
+file (§3.4) and the containment profiles (§3.3). Both are greenfield, so
+placing them correctly costs nothing, and the placement is **decided here**:
 
-The migration itself is better done **later, and mostly for free**: agent-owned
-paths are roughly half of all phiOS XDG references in the tree, and a
-from-scratch agent rebuild recreates them anyway. Migrating directories that
-are about to be deleted and recreated is wasted work. The one genuinely
-misfiled item, `dotfiles-root`, is self-contained but sits on the login-shell
-bootstrap path — worth folding into the next installer change rather than
-doing as a standalone task with its own risk.
+- `~/.local/state/phios/external-fingerprints`
+- `~/.config/phios/contain/<name>.paths`
+
+That needs no migration at all, because `~/.local/state/phios/` already exists
+and holds the installer manifest. New files land in an established directory,
+nothing moves, and if the full umbrella relayout happens later these are
+already where they belong.
+
+The relayout itself is better done later and mostly for free: agent-owned paths
+are roughly half of all phiOS XDG references in the tree, and a from-scratch
+agent rebuild recreates them anyway, so migrating them now would mean carefully
+moving directories that are about to be deleted. The one genuinely misfiled
+item — `dotfiles-root`, which `bin/lib/env.sh` itself documents as derived
+state while keeping it in `.config` — sits on the login-shell bootstrap path,
+so it is worth folding into the next installer change rather than doing
+standalone with its own risk of a shell that cannot find the checkout.
 
 ---
 
@@ -403,9 +433,13 @@ and prefer a single well-known publisher.
 
 ## 6. Risks and open questions
 
-1. **The containment base is unverified.** `phi-agent-contain` has never run,
-   and the verification passes it cites were deleted with `VERIFICATION.md`.
-   Appendix A replaces them. Phase 0 is not optional.
+1. ~~**The containment base is unverified.**~~ **Closed.** The primitive is
+   proven on `razer` (C-01..C-06, §3.3). Note that `phi-agent-contain` itself
+   has still never run, and the `V-01..V-04` and `V-08/V-09` identifiers in it
+   and in the agent README are dangling references to the deleted
+   `VERIFICATION.md` — strip them when the agent is reworked. What Phase 0
+   proved is the kernel and bubblewrap behaviour that `phi-contain` will
+   depend on, not that script.
 2. **`pi`'s distribution channel is unknown** and determines its tier. It is
    also downstream of an agent design that does not exist yet (§4.1), so it is
    the last target, not the first.
@@ -430,8 +464,9 @@ and prefer a single well-known publisher.
 - `phi pkg audit` reports drift, leaks and integrity, and `phi doctor`
   summarises it.
 - `packageCategories` asserts zero **undeclared**, not zero foreign.
-- `phi-contain` exists, the agent goes through it, and its `--dry-run` argv is
-  unchanged from `phi-agent-contain`'s.
+- `phi-contain` exists as a standalone harness with the `.paths` grammar and
+  named network modes, and `--dry-run` prints the argv it would execute so a
+  mount set can be inspected without running anything.
 - Settings has a Packages section with per-entry status and the two permitted
   actions, and `Updates.qml`'s rationale comment reflects the narrowed rule.
 - A T4 entry is launchable from the runner, and a Flatpak app appears there
@@ -448,14 +483,16 @@ kernel and bubblewrap, not anything phiOS owns, so it is valid regardless of
 what happens to the agent. It installs nothing, writes nothing outside a temp
 directory it removes, and needs no privileges.
 
-It lives at **`scripts/phios-contain-check.sh`** in this superproject, so
-`scripts/sync.sh` carries it to every machine. Run it on `zotac` and on
-`razer`; C-01..C-05 must pass, C-06 only matters if the proxied-egress shape is
-adopted. If it graduates to a permanent tool it belongs at
-`phios-dotfiles/bin/phios-contain-check`, beside `phios-capabilities`.
+It lives at **`scripts/phios-contain-check.sh`** in this superproject, so it
+reaches a machine with the rest of the repository. C-01..C-05 must pass; C-06
+only matters if the proxied-egress shape is adopted. If it graduates to a
+permanent tool it belongs at `phios-dotfiles/bin/phios-contain-check`, beside
+`phios-capabilities`.
 
-The copy below is kept in sync by hand and is here so the plan stays readable
-on its own.
+Already run on `razer` (bubblewrap 0.12.0): all six passed. Re-run it on any
+machine where a contained target misbehaves, before debugging the target.
+
+The copy below is kept in step by hand, so the plan stays readable on its own.
 
 ```bash
 #!/usr/bin/env bash
