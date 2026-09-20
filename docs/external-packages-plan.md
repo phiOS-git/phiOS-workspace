@@ -15,12 +15,20 @@ implementation of that rule, not a second copy of it.
 |---|---|
 | Rule 1 amended with the tier ladder | **done** |
 | Phase 0 — containment verified on `razer` | **done**, C-01..C-06 all pass |
-| Phases 1–4 | **not started** — no code written yet |
+| Phases 1–3 | **done and pushed** — see §4 for what landed |
+| Phase 4 — the test targets | **blocked on the user**, and on work that does not exist yet (§5) |
+| Phase 5 — verification on the machines | **waiting** — nothing below has run on Arch |
 
 Deliberately not done: Phase 0 was not run on `zotac`. `razer` is the primary
 machine and the checks are kernel-and-bubblewrap properties rather than
 per-host ones, so the result is taken as sufficient. If a T3 target later
 misbehaves on `zotac`, run `scripts/phios-contain-check.sh` there first.
+
+**Nothing in Phases 1–3 has run on Arch.** It was written and verified on a
+macOS build machine: Go builds, vets, cross-compiles to Linux and passes its
+tests; the bash is syntax-checked and exercised against an isolated `$HOME`
+with GNU coreutils; the QML was never executed, because no Quickshell exists
+there. Phase 5 is where it first meets a real machine.
 
 ---
 
@@ -303,18 +311,79 @@ the launcher are guarding the same door.
 
 ## 4. Work breakdown
 
-| Phase | Repo | Deliverable |
-|---|---|---|
-| **0** | — | **Done.** `scripts/phios-contain-check.sh` (Appendix A) passed C-01..C-06 on `razer`, bubblewrap 0.12.0. Not run on `zotac` by choice. Phase 1 is unblocked. |
-| **1a** | `phios-dotfiles` | `external.txt` format documented in `profiles/README.md`; `bin/lib/external.sh` parser; `--check` reporting. |
-| **1b** | `phi` | `internal/external` (parse, enumerate, diff, fingerprint); `internal/doctor/external.go`; amend `packageCategories`; `phi pkg audit` / `accept` / `--manager external`. Table-driven tests. |
-| **1c** | `phi` | `desktopEntryDirs()` gains the two Flatpak export directories; `.desktop` generation for T4 entries, manifest-recorded (§3.8). |
-| **2** | `phios-dotfiles` | Extract `phi-contain` as a standalone harness with the `.paths` grammar and named network modes. **Do not** preserve `phi-agent-contain` bit-for-bit — the agent is being rebuilt (§4.1), so the old wrapper is left alone and retired with it. |
-| **3** | `phi-shell` | Promote `Packages.qml` to its own section; external `ManagerBlock` with status; audit summary; the two permitted actions; **edit the `Updates.qml` rationale comment**. |
-| **4** | mixed | The four test targets, §5. |
+Three corrections were made to this document's own design during
+implementation. Each one blocked the plan as written; none is a preference.
 
-Phases 1a and 1b are independent and can run in parallel; 3 depends on 1b's
-JSON output; 4 depends on 2 for anything contained.
+**C-1. `.desktop` generation could not live in `phi` (§3.8).**
+`phios_manifest_write` rebuilds the manifest from `PHIOS_PLAN_*` alone and
+moves it over the old file, so a record written by any other program is erased
+on the next run. Once the record is gone, `phios_manifest_orphans` never
+yields it and `phios_plan_reconcile` never removes the file it names: a
+generated entry written by `phi` would have leaked into
+`~/.local/share/applications` permanently — the exact invariant this design
+exists to enforce. Generation therefore lives in the installer, as a third
+plan kind, `generate`, beside `link` and `render`. The installer is the only
+writer of the manifest for the same reason it is the only writer of a symlink.
+
+**C-2. `packageCategories` was left strict (§3.4, §7).** Amending it to "a
+violation only when undeclared" would have been a no-op dressed as a
+relaxation: `external.txt` starts at T2 and T0/T1 are declared in
+`packages.txt`, so nothing can ever legitimately declare a foreign pacman
+package. It still asserts zero foreign. The new `internal/doctor/external.go`
+covers the populations `pacman -Qm` never saw — Flatpak, `~/Applications`,
+`~/.local/opt`, containers and the leak paths — so "zero undeclared" holds
+across the union of the two checks rather than inside either one. Making a
+foreign pacman package declarable would be an amendment to rule 1, and is the
+user's to make.
+
+**C-3. Phase 2 adds, it does not move (§3.3).** §3.3 said the containment
+profiles move to `~/.config/phios/contain/`; the Phase 2 row said
+`phi-agent-contain` is left alone. Both could not hold — that script reads
+`$XDG_CONFIG_HOME/phi-agent/mounts` and refuses to start without it, and
+moving those files would make them manifest orphans the next apply deletes
+from the live machines. `phi-contain` and its config are new; the agent's
+harness is untouched until the agent rebuild retires it.
+
+| Phase | Repo | Deliverable | State |
+|---|---|---|---|
+| **0** | — | `scripts/phios-contain-check.sh` (Appendix A) passed C-01..C-06 on `razer`, bubblewrap 0.12.0. Not run on `zotac` by choice. | done |
+| **1a** | `phios-dotfiles` | `external.txt` format in `profiles/README.md`; `bin/lib/external.sh`; an `external` section in `--dry-run`/`--check`, with parse errors counting into drift. | done |
+| **1b** | `phi` | `internal/external` (parse, enumerate, diff, fingerprint, injected `Enumerator`); `internal/doctor/external.go`; `phi pkg audit` / `accept` / `list --manager external`. Table-driven tests. | done |
+| **1c** | `phios-dotfiles` + `phi` | The `generate` plan kind for T4 `.desktop` entries (moved here by C-1); `desktopEntryDirs()` gains the two Flatpak export directories. | done |
+| **2** | `phios-dotfiles` | `phi-contain`, `~/.config/phios/contain/{base.paths,deny}`, named network modes. `phi-agent-contain` untouched (C-3). | done |
+| **3** | `phi-shell` | `Packages.qml` as its own section; external `ManagerBlock` with tier and status; audit summary; the two permitted actions; the narrowed `Updates.qml` rationale. | done |
+| **4** | mixed | The four test targets, §5. | blocked — see §5 |
+| **5** | — | Verification on `razer`, `zotac` and `mini`. | the user's, and the only real proof |
+
+### What was verified, and how
+
+Two parsers against one format was the likeliest place for this to drift, so
+it was tested directly rather than assumed: the bash parser was run against
+the **same fixture file** that `phi`'s tests use
+(`phi/internal/external/testdata/external.valid.txt`), and both accept the
+same four records and reject the same eight, each reporting every bad record
+rather than dying on the first. `bash`'s `read -a` silently drops a trailing
+empty field, which would have made the bash side accept a 7-field line that Go
+rejects; the parser counts `|` separators before splitting for exactly that
+reason.
+
+The full declare → generate → undeclare → reconcile cycle was run against an
+isolated `$HOME`: the entry is created at mode 644, recorded in the manifest
+with its digest, and **removed** — not orphaned — when the declaration goes.
+That is the test C-1 exists for. The audit was likewise exercised end to end:
+a declared-but-absent artifact reports `missing`, and one whose bytes do not
+match its recorded checksum reports `changed` with an integrity finding.
+
+`phi-contain`'s three network modes were confirmed against a stub `bwrap`
+(`net host` leaves the namespace, `net none` and the default unshare it,
+`net proxy` unshares and binds the socket directory), `@WORKDIR@` lines are
+skipped when no `--workdir` is given, the deny list refuses `/etc` and
+`~/.ssh`, and the fail-closed preflight was proved to not run its command by
+giving it a command with a side effect and confirming the side effect never
+happened.
+
+Phases 1a and 1b are independent and ran in parallel; 3 depended on 1b's JSON
+output; 4 depends on 2 for anything contained.
 
 ### 4.1 Sequencing decisions
 
@@ -360,6 +429,14 @@ Deliberately one per tier, to exercise the whole ladder. None of these is added
 to the dotfiles yet — they are the acceptance test for the mechanism.
 
 ### 5.1 Neovim plugins — target tier **T1**
+
+**Premise check: there is no plugin set yet.** `profiles/base/home/.config/nvim`
+is the deliberately plugin-free configuration — `lazy.nvim` appears nowhere in
+the repository, and nothing git-clones anything at runtime today. The tier
+question belongs to the *future* `nvim-ide` and `nvim-notes` configurations the
+backlog describes, which do not exist. Packaging a plugin set now would be
+packaging nothing, so this target cannot start until those configurations do.
+What follows is the answer to apply when they arrive.
 
 The best answer, and the one that removes a dependency rather than adding one:
 **package the plugin set as `phi-nvim-plugins` in `phi-packages`**, with pinned
@@ -446,7 +523,9 @@ and prefer a single well-known publisher.
 3. **WiVRn's OpenXR runtime registration from a Flatpak** may not work for host
    applications; it decides T2 vs T4.
 4. **`mini`'s 4 GB** may not fit the intended *arr stack.
-5. **Plugin packaging friction** — §5.1's fallback exists for a reason.
+5. **Plugin packaging friction** — §5.1's fallback exists for a reason, but
+   the prior question is that no plugin set exists yet (§5.1): the target is
+   downstream of `nvim-ide`/`nvim-notes`, not of this plan.
 6. **Fingerprint noise.** Some roots legitimately churn. If re-baselining
    becomes routine, the fingerprint is worthless — measure this before relying
    on it, and narrow the hashed set rather than lowering the bar.
@@ -459,20 +538,23 @@ and prefer a single well-known publisher.
 ## 7. Definition of done
 
 - Rule 1 in `AGENTS.md` states the ladder and the per-host scope. *(done)*
-- `external.txt` is parsed by both the installer and `phi`, from one documented
-  format.
-- `phi pkg audit` reports drift, leaks and integrity, and `phi doctor`
-  summarises it.
-- `packageCategories` asserts zero **undeclared**, not zero foreign.
-- `phi-contain` exists as a standalone harness with the `.paths` grammar and
-  named network modes, and `--dry-run` prints the argv it would execute so a
-  mount set can be inspected without running anything.
-- Settings has a Packages section with per-entry status and the two permitted
-  actions, and `Updates.qml`'s rationale comment reflects the narrowed rule.
-- A T4 entry is launchable from the runner, and a Flatpak app appears there
-  without depending on how `XDG_DATA_DIRS` happens to be set.
-- The four targets in §5 are each tiered, declared, and installed by the user —
-  the end-to-end test of the mechanism.
+- *(done)* `external.txt` is parsed by both the installer and `phi`, from one
+  documented format — and the two parsers are tested against the same fixture.
+- *(done)* `phi pkg audit` reports drift, leaks and integrity, and `phi doctor`
+  summarises it through the same Go function, not a subprocess.
+- *(amended, §4 C-2)* `packageCategories` keeps asserting zero **foreign**;
+  "zero undeclared" holds across it and the new external check together.
+- *(done)* `phi-contain` exists as a standalone harness with the `.paths`
+  grammar and named network modes, and `--dry-run` prints the argv it would
+  execute so a mount set can be inspected without running anything.
+- *(done)* Settings has a Packages section with per-entry status and the two
+  permitted actions, and `Updates.qml`'s rationale comment reflects the
+  narrowed rule.
+- *(written, unproven)* A T4 entry is launchable from the runner, and a Flatpak
+  app appears there without depending on how `XDG_DATA_DIRS` happens to be set.
+  Both need a real session to confirm.
+- *(not started)* The four targets in §5 are each tiered, declared, and
+  installed by the user — the end-to-end test of the mechanism.
 
 ---
 
