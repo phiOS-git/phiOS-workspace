@@ -103,10 +103,48 @@ for what and why.
 
 ## The rules
 
-1. **Only official Arch packages** — `core`, `extra`, `multilib`. No AUR, no
-   cloning and building someone's repository, no vendored binaries. Rootless
-   containers on the server are the sole exception. Anything outside this is
-   not accepted — ask first.
+1. **Official first, and everything else declared.** `core`, `extra` and
+   `multilib` are the default and the preferred answer to every dependency.
+   Software that genuinely has no official package is admitted only through
+   the tier ladder below, and only when it is **declared, pinned and
+   monitored**. Undeclared software is the thing this rule forbids — not
+   non-official software as such. Still never accepted without asking: AUR
+   helpers, and anything installed by a command nobody recorded.
+
+   The ladder, highest to lowest. A candidate is pushed as high as it will go,
+   and the tier is justified in its declaration:
+
+   - **T0 — official.** `core`, `extra`, `multilib`. Always the first answer.
+   - **T1 — `[phi]`.** Built from a PKGBUILD in `phi-packages`, in a clean
+     chroot, signed by the user, served from `mini`. Anything that is a
+     permanent part of phiOS belongs here rather than in a language package
+     manager: it gets pacman tracking, a file list, and clean removal.
+   - **T2 — Flatpak.** The only tier with real sandboxing. Prefer verified
+     publishers, audit the portal permissions, and strip `filesystem=host`.
+   - **T3 — contained.** Anything else that can run under the bubblewrap
+     harness, with an explicit mount set and no ambient environment.
+   - **T4 — bare.** AppImages and unpacked binaries that cannot be contained.
+     Last resort, recorded with a checksum, and never on `mini`.
+   - **TC — rootless container.** A peer of T2 in isolation, and the right
+     answer for a *server service* rather than a reluctant exception. Pinned
+     by image digest, never by tag.
+
+   Where a thing is declared follows from its tier. **T0 and T1 go in
+   `profiles/*/packages.txt`** — a `[phi]` package comes from a configured sync
+   repository, so pacman already installs, tracks and removes it, and a second
+   path would be a mistake. **TC, T2, T3 and T4 go in
+   `profiles/*/external.txt`**, which is where the declaration, the pin, the
+   checksum and the reason live.
+
+   Scope is per host, and lives in the profiles. `mini` is **T0, T1 and TC
+   only** — no T2, T3 or T4. It still carries an `external.txt`, holding its
+   containers, because "nothing undeclared" has to hold on every host. Language package managers (`npm`,
+   `pip`, `cargo`, `go`) are for **project-local development only**: a global
+   or user-wide install is a policy violation on every host, and the paths
+   they would land in are asserted empty.
+
+   An agent still never installs anything (rule 3). It writes the declaration
+   and the tooling; the user installs.
 
 2. **Releases belong to the user.** An agent may create and push a git tag
    (`vX.Y.Z`) on a source repository. Only the user builds signed packages and

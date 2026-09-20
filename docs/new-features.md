@@ -15,7 +15,8 @@ Ordered. Each entry is a pointer; the detail lives in its own section.
 Outside the order: [#OpenQuestions] collects what is still undecided, and
 [#Ideas] holds proposals to discuss before any of them is implemented.
 
-[#ExternalPackages] is unanswered and blocks step 3 (plugin manager), step 2
+[#ExternalPackages] is answered and in progress [WIP] — see
+`docs/external-packages-plan.md`. It unblocks step 3 (plugin manager), step 2
 (the agent replacement) and parts of step 5 (extra-packages manager, WiVRn).
 
 # Consolidation
@@ -104,7 +105,10 @@ Do not split `phi`.
 Rebuild from scratch: a `pi` + `opencode` setup, keeping the option to plug in
 other engines such as Claude Code.
 
-- Depends on [#ExternalPackages] — the replacement is not a T0 package.
+- `opencode` is already a T0 package, so only `pi` is non-official. The
+  rebuild is smaller than it reads.
+- [WIP] `pi` is a test target of `docs/external-packages-plan.md`. Its
+  distribution channel has to be confirmed before it can be tiered.
 
 # Neovim
 
@@ -132,41 +136,48 @@ Two configurations over a shared core.
   Neovim knowledge and has to integrate with both nvim-ide and nvim-notes.
 - Spellchecking matters most here — see [#Additions].
 
-Blocked on [#ExternalPackages]: `lazy.nvim` git-clones plugins at runtime,
-which rule 1 forbids. Before assuming a plugin manager is needed, check what
-Arch ships in `extra` — `:packadd` over T0 packages keeps both the plugin-free
-property and rule 1 intact. The notes configuration is the one that will force
-the decision.
+[WIP] Plugin sourcing is a test target of `docs/external-packages-plan.md`.
+`lazy.nvim` git-clones plugins at runtime, so it needs a tier. Check what Arch
+ships in `extra` first — `:packadd` over T0 packages keeps the plugin-free
+property intact and needs no exception at all. The notes configuration is the
+one that will force the decision.
 
-# ExternalPackages
+# ExternalPackages [WIP]
 
-UNANSWERED — requirements stated, mechanism not yet chosen.
+ANSWERED. The policy is rule 1 in `AGENTS.md`; the implementation plan is
+`docs/external-packages-plan.md`. Everything below is settled — kept here
+because other sections point at it.
 
-Requirement: monitored installations. Nothing is installed unmonitored, and
-the system reports unwanted folders and changes wherever it can. Safety is
-prioritised over convenience; bad practices are avoided by hand, but the
-system must not depend on that.
-
-Scenarios to cover:
-
-- `npm`, `pip` and similar, for development work.
-- AppImage and comparable formats, for software required by school or work
-  that has no alternative.
-- Specific wanted software: WiVRn, Claude Code.
-- Non-T0 packages referenced from the dotfiles, once the AI agent is replaced
-  with the `pi` coding-agent setup — see [#AiAgent].
-
-Constraints already in place:
-
-- Rule 1 in `AGENTS.md` currently forbids all of this and says to ask first, so
-  the rule has to be amended deliberately, with its scope written into it.
-- `phi doctor`'s package check asserts zero foreign packages today. Whatever
-  replaces it must substitute a new invariant, not drop the old one.
-- `phi pkg` already categorises T0 / AUR / T4 / phi-packages.
-- Scope belongs per host: `mini` stays T0-only.
-
-Open: the declaration format, the install roots, what `phi doctor` checks, and
-whether monitoring is polled or continuous.
+- Official first. A candidate is pushed as high up the tier ladder as it will
+  go: T0 official, T1 `[phi]`, T2 Flatpak, T3 contained, T4 bare, plus TC for
+  rootless containers on the server.
+- T0 and T1 are declared in `packages.txt` as usual; only TC, T2, T3 and T4 go
+  in `external.txt`. `mini` carries one too, holding its containers.
+- Anything permanent to phiOS goes in `[phi]` as a signed package rather than
+  a language package manager. That is the single largest simplification.
+- Everything non-T0 is declared in `profiles/*/external.txt` with a source, a
+  pinned reference, a checksum where one applies, and a reason. Never "latest".
+- `npm`, `pip`, `cargo` and `go` are project-local only. A global or user-wide
+  install is a violation on every host, and their landing paths are asserted
+  empty.
+- The invariant becomes zero **undeclared** rather than zero foreign. Drift is
+  reported in both directions, plus leak checks and checksum verification.
+- Change detection is a polled fingerprint stored in the state manifest, with a
+  re-baseline action. No watcher daemon — real tamper detection is a
+  file-integrity tool's job and a separate decision.
+- Containment reuses `phi-agent-contain`, generalised. bubblewrap is already a
+  declared package and already the agent's containment mechanism, so T3 costs
+  no new dependency. Whether a given target can actually run contained is
+  answered per target, not assumed.
+- `mini` stays T0 and rootless containers only.
+- Nothing is implemented per ecosystem until a real need appears. The npm and
+  Flatpak listers stay the placeholders they already are; the mechanism is what
+  gets built.
+- Monitoring and management need a visual, interactive surface in the settings
+  panel, not only a CLI command. The existing Updates section's Packages group
+  is the place. Its current read-only rule is narrowed rather than dropped: the
+  panel may perform non-interactive, non-privileged actions, and still hands
+  interactive privileged transactions to a terminal.
 
 # Server
 
@@ -216,13 +227,16 @@ whether monitoring is polled or continuous.
   design deliberately has no window bar (work is mostly tiled). See the
   draggable window wrapper in [#Additions] — the imv wrapper is a first,
   incomplete implementation.
-- Extra-packages manager for AppImage, repos, AUR, npm, Flathub and similar —
-  see [#ExternalPackages].
+- [WIP] Extra-packages manager for AppImage, repos, AUR, npm, Flathub and
+  similar — see [#ExternalPackages] and `docs/external-packages-plan.md`. It is
+  the settings-panel surface over the declaration and monitoring mechanism,
+  not a second package manager.
 - Add the `~/Cloud` folder.
 
 # Extras
 
-- WiVRn. Depends on [#ExternalPackages].
+- [WIP] WiVRn. A test target of `docs/external-packages-plan.md`. Needs GPU
+  and headset access, so whether it can run contained is answered there.
 - LocalSend, handoff, shared clipboard.
 
 # StyleDirectives
@@ -518,8 +532,9 @@ whole while keeping coherence and avoiding unoriginal concepts.
 
 Still undecided. Answer here, or on the entry the question points at.
 
-- [#ExternalPackages] — the whole mechanism for non-T0 software. The largest
-  open item, and it blocks several others.
+- Prowlarr stack on `mini` — rootless containers, greenfield, no
+  `profiles/server/packages.txt` exists yet. [WIP] as a test target of
+  `docs/external-packages-plan.md`; what the stack contains is still open.
 - Should empty workspaces shift automatically, so they are always in order?
 - Which sound feedbacks are actually worth adding, beyond differentiating
   battery-full from connecting and disconnecting power? See [#Desktop].
