@@ -89,7 +89,6 @@ Do not split `phi`.
 
 ## Shell cleanup
 
-- Rename Overview to AppSwitcher.
 - Clean up Dialogs.
 - Clean up Popout.
 - Decide whether the wallpaper belongs as a background: Thunar's "set
@@ -100,7 +99,7 @@ Do not split `phi`.
   reminders and the rest.
 - Clear the settings panel of useless settings — see [#OpenQuestions].
 
-# AiAgent
+# AiAgent [TBD]
 
 Rebuild from scratch: a `pi` + `opencode` setup, keeping the option to plug in
 other engines such as Claude Code.
@@ -110,7 +109,7 @@ other engines such as Claude Code.
 - [WIP] `pi` is a test target of `docs/external-packages-plan.md`. Its
   distribution channel has to be confirmed before it can be tiered.
 
-# Neovim
+# Neovim [TBD]
 
 Two configurations over a shared core.
 
@@ -196,11 +195,8 @@ because other sections point at it.
 
 # Desktop
 
-- Media Fn keys.
 - Colour picker — possibly a secondary mode of Magnifier.
-- Launcher ranking: avoid deep `fd` results and system folders until they match
-  strongly, or until the query is longer than a few letters.
-- Gestures: add a two-finger edge swipe and four-finger inward and outward
+- Gestures (touchpad): add a two-finger edge swipe and four-finger inward and outward
   gestures, as on macOS.
 - Sound feedback: more of it, and configurable. Battery-full currently sounds
   the same as connecting or disconnecting power, and plugging in and out are
@@ -233,11 +229,16 @@ because other sections point at it.
   not a second package manager.
 - Add the `~/Cloud` folder.
 
+- Fullscreen: when a window goes fullscreen, it should get its own workspace, inserted at the index position between its starting workspace and the next one (shifting all the others).
+    - When the fullscreen is disabled, it should return to the starting workspace index
+    - the StatusBar in Workspaces.qml shouls show the icon of the window next to the number when it's dedicated to a fullscreen window
+
 # Extras
 
 - [WIP] WiVRn. A test target of `docs/external-packages-plan.md`. Needs GPU
   and headset access, so whether it can run contained is answered there.
-- LocalSend, handoff, shared clipboard.
+
+- LocalSend, handoff, shared clipboard. [TBD]
 
 # StyleDirectives
 
@@ -245,132 +246,57 @@ To discuss first: a complete overhaul of the style — how to improve it as a
 whole while keeping coherence and avoiding unoriginal concepts.
 
 ## Widgets
-
-- Select (dropdown) widget is missing. Use it for single-option items in the
-  settings panel (for example sounds), and build it to allow multi-selection
-  too.
-- Switch:
-    - On and off states should have the same opacity. Use different colours to
-      make the state obvious; thumb and borders cannot change colour.
-    - Opacity is reserved for the disabled state.
-    - Remove the delay between the colour change and the thumb movement.
-    - Add a hover transition on the thumb.
-- Label element (add if missing): focuses its related switch or input on both
-  hover and activation, and shows a pointer cursor. Integrate everywhere,
-  keeping the current spacing.
-- Button — TBD.
-- Remove the informative text that fills the panels. Keep a status line only
-  where an option or state genuinely needs explaining, and make it minimal and
-  clear; much of it is obvious AI-work residue. Text that reports a TODO or a
-  placeholder stays, but in a warn colour.
-- Many informative elements, especially in settings and popouts, have a hover
-  effect and pointer cursor but no click interaction.
-- Do not add a setting when there is nothing to configure. Chroma's "power
-  button range" is the example: the power button is a single key, and only that
-  one should change colour for the battery.
-- Roll `Widgets/ContextMenu.qml` out to more elements that would benefit from
-  one. Clipboard entries (restore, pin, delete) and the empty-desktop
-  right-click (run, terminal, files, browser, settings) use it so far.
-  Candidates not yet wired: notification cards (per-entry delete, mute this
-  app), the other overlay lists, and settings rows whose reset action is buried
-  behind a small button. Each site needs its own judgment on which actions
-  belong in the menu rather than staying a visible control — not a mechanical
-  copy of an existing menu's rows.
-
 ## Status bar and popouts
-
-- Line separators in status bars should use the full colour rather than a
-  shade, and be taller.
-- Unify the hover and active states across every status bar item. Workspaces
-  are the only exception, with their width change; nothing else changes size.
-- Add right-click actions to the status bar items: night mode on the display
-  icon, DND on the notification icon, mute on the sound icon, low power mode on
-  the battery icon.
-- Stats popout:
-    - Move disk usage into the usage section.
-    - Temperature should use dotted bars, with CPU and GPU inverted in
-      direction (see btop).
-    - Only one mounted disk is shown — see [#KnownBugs].
-- Speedtest element should use bars (btop dotted bars).
-- NetworkPopout:
-    - The speedtest graph should be visible on Ethernet too, as long as there
-      is an internet connection.
-    - Use dotted bar graphs, not lines (see btop).
-- Notification popout:
-    - Group by time range first, then by source.
-    - Clicking opens the source and deletes the notification.
-- Notification toast:
-    - An x button to close.
-    - Clicking clears it and opens the source.
-    - A two-finger swipe closes it.
-    - Animation: the icon first, then the text with expansion, with in and out
-      animations and configurable on-screen timing.
-- System modal: rework.
-- Scratchpad should slide in and out from the bottom.
-- AppSwitcher:
-    - The selection is indistinguishable.
-    - Workspaces should be larger, have a background, show a clear selection
-      state, and list their windows as small icons.
-    - Windows should be — TBD; consider changing or adding macOS overview
-      behaviour.
-
 ## Runner bar
-
-- Add colour and glyph properties to tags — the words that activate a custom
-  ranking, such as `app`, `file`, `ask`, `web`, `phi`, `run`, `yt`, `wiki`,
-  `arch`. When a tag is activated:
-    - The tag in the runner is highlighted with its colour.
-    - The runner bar transitions to that colour.
-    - The phi glyph changes, with a transition.
-    - Deleting stops before the tag. Removing it takes a double backspace, or a
-      first press that selects it.
-- Runner bar text can overflow. It stays on one line normally, but with the
-  `ask` tag active the field extends vertically while typing to fit the
-  content, with vertical scrolling past a limit.
 
 ## Applications
 
 - Terminal: add a "header" and autocompletion.
-- Thunar: customisations do not work.
-- Librefox: https://www.reddit.com/r/unixporn/comments/1dl1xzx/oc_shyfox_theme_for_firefox_i_made/
-- Plymouth and TTY.
-- fastfetch:
-    - Redesign coherently — fewer penguins, more phi.
-    - Avoid wrapping, or make sure it fits the smaller terminals.
-    - Apply the phi ASCII mark with colours.
+
+- Thunar: customisations do not work. While the theme colors are applied, none of the other style rules are used. The GUI should be coherent with the rest of the system, and it should also improve the overall feel of the thunar GUI to a modern file manager GUI. I provided some references: `references/filemanager1.jpg` (this is the best example), `references/filemanager2.webp`, `references/filemanager3.jpeg`, `references/filemanager4.png`. Here are some features i want
+    - remove the text-based status bar, all menus should still be available
+    - view icons: icons to change the view style, like on macos
+    - split view icon
+    - color-based separation between the side bar and the body
+    - great use of colors and icons for folder and file types, prefering outlines over filled icons
+    - visually distinct separation for sections in the sidebar (see the reference 1, it has logic order, separation, diifferent icon usage, etc: for example the trash is separated from quick directories, syste directories are separated from bookmarks, devices are on top and visually distinct (with even extra informations), etc.)
+    - features should have transitions, hover and active states, etc.
+    - selection in the sidebar is blue while selection in the body uses the accent. (see the section #Colour to see how different shades of the accent should be used)
+
+- Librefox: it should be way more modern, taking strong inspiration from Arc or Zen browsers. This is a great exammple: https://github.com/Naezr/ShyFox ( https://www.reddit.com/r/unixporn/comments/1dl1xzx/oc_shyfox_theme_for_firefox_i_made/ ). I want:
+    - sidebar
+    - transitions
+    - all GUI elements disappear to provide a larger area for the actual browsing
+    - *TBD many features: spit view
+
+- Plymouth and TTY * TBD: i want to improve them, not sure how yet
 
 ## Lock screen and screensavers
 
 - Lock screen:
-    - Reference: https://unixporn-dots.github.io/assets/dotfiles/rklyz_dotfiles/thumbnail.png
-    - Pre-input state: mouse or keyboard input enables the password field.
     - Improve validation animations.
+        - specifically the plasma effect currently has some diagonal lines appearing for all effects, that should be completely removed, instead the blobs should have a "ripple" effect and use strong color change for errors and such
     - Improve the lock and unlock transition.
     - Improve the screensave effects.
-- Screensavers:
-    - Lava lamp: complete rework. The current one is entirely wrong and must be
-      deleted. Reference: https://github.com/AngelJumbo/lavat
-    - Improve the customisable properties of the existing screensavers.
 
 ## Icons and motion
 
-- Icons rework: replace the whole set with better hand-picked icons. It must be
-  coherent, and has to be discussed first.
-- Animated transitions for the important multi-state icons: DND, volume change
-  and toggle, brightness, night mode toggle, Bluetooth toggle, VPN and firewall
-  animating in and out.
-- Add spawn animations for launch and unlock.
+- Icons rework: replace the whole set with better hand-picked icons.
+    - TUI / Tech style with elegant feel, no "fun" or "pop" icon. A great source is https://iconoir.com
+    - avoid common-looking icons
+    - prefer elegant/detailed icons
+    - The sun/moon for brightness should have a sun and fool moon (with craters) icons
+    - icons in panels should use outline style rather then filled style, icons in the status bar instead prefer filled icons
+    - the wifi icon is horrible
+    - icons often seem to have different sizes due to how they occupy their box, this is where coherence is essential, icons from different packages should be carefully handpicked while using icons from the same pack is encouraged
 
 ## Colour
 
-- Infatuation colour code.
+- Infatuation colour code. You can check the `references/infatuation-color-theme.json` which is a vsc theme that uses pink shades exactly the way i'd like to see, however black shades are not great in that reference (i want to keep the "monochrome" effect in phiOS).
 
 # Keybindings
 
-- Decide the general Fn usage.
-- CursorSpotlight should trigger on SUPER+SUPER held, and disable on SUPER
-  release.
-- Move the status popup keybindings to Fn (nice to have):
+- Move the status popup keybindings to Fn (nice to have): TBD as FN keys are not allowed currently
     - status: `fn+s`
     - clipboard: `fn+v`
     - notifications: `fn+n`
@@ -379,154 +305,151 @@ whole while keeping coherence and avoiding unoriginal concepts.
 
 # KnownBugs
 
-- Magnifier zooms on a static image of the screen; it should work at runtime.
-  If that is not achievable in Quickshell, other options can be considered. The
-  result should be as close as possible to https://github.com/Horizon0427/Glasscope
+- TTY logo repeats in few seconds from startup. Probably agetty reprinting on network events.
+
+- The Magnifier zooms on a static "screenshott", it should work at runtime instead. If that is not achievable in Quickshell, other options can be considered. The result should be as close as possible to https://github.com/Horizon0427/Glasscope
+
 - CursorSpotlight:
     - Dim mode is performance-heavy and laggy.
-    - Flashlight shows lit bottom and right borders of the square at medium and
-      small sizes.
-    - Crosshair lines are not always visible (black on dark); it should check
-      the background at each position.
-    - Ring should animate a circle shrinking to the cursor, not repeating.
-- Hibernation freezes the screen, then spins the fans to maximum, then turns
-  off. The freeze can last 30 seconds. Sometimes it blanks the screen, turns it
-  on again frozen, then finally hibernates. Fix the broken behaviour and add a
-  loading state to hide it — which can become a shell item for other uses.
-- After hibernating the laptop, the touchpad does not always come back; the
-  touchscreen always does.
-- MediaControls:
-    - The title marquee does not move slowly — it jumps and sticks at the end.
-    - The title is shown twice (title, then author and title). The second row
-      should show author and album.
-- Hovering a tab should allow scrolling in it without focus.
-- The stats popout only shows one mounted disk.
-- System modal:
-    - The touchscreen does not work.
-    - Tab should cycle, enter and space should select.
-- `phi theme set dark` should ask for confirmation when "Automatic" is set,
-  and disable Auto mode if confirmed.
+
 - NotificationPopout:
-    - Clearing notifications still does not remove them visually.
-    - Remove the confirmation dialog when clearing notifications.
-    - The toast seems to appear only on the first notification of a session —
-      the pattern is unclear, but it is definitely not every notification.
-- AppSwitcher (renamed from Overview):
-    - The clickable area is only the icon.
-    - Releasing the alt key should trigger the selection.
-    - Changing workspace with a three-finger swipe should update the
-      AppSwitcher's selected workspace and window, following system focus.
-- SpeedTest returns unreliable values. It should measure internet speed, not
-  local speed, and should not be capped.
-- Dynamic Wallpaper has no transition on change.
-- ClipboardPopout: the right-click context menu shows an empty, unselectable
-  padding-only square. It should offer delete, copy, and pin/unpin.
-- `WindowList.qml`: the selected state is unrecognisable — it has no hover and
-  no visible background — and the other entries do not change focus.
-- Night mode set to automatic turns itself back on at every minute check
-  whenever the time condition is met, even after being disabled by hand. A
-  manual disable should hold until the end of the schedule. Battery saving mode
-  has the same problem.
-- After hibernation, the screen suspends again about a minute after waking,
-  which is far too soon. A restart is needed to restore normal suspend
-  behaviour.
-- Chroma:
-    - Single key does not work.
-    - Notification integration does not work.
-    - Power integration does not work, and it blocks every chroma feature in an
-      error loop — even the static colour changes stop responding.
-- In fullscreen the status bar does not appear when the cursor moves to the top
-  or bottom edge.
-- The scratchpad icon in the top status bar has no active state.
+    - Clearing notifications still does not remove them visually from the NotificationPopout.
+
+
+- CursorSpotlight
+    - currently the double click of SUPER perfectly works, however if i press any other key before releasing the second click (SUPER PRESS -> RELEASE -> SUPER PRESS -> "A" PRESS -> SUPER RELEASE, it does not matter if i release "A" or SUPER before), the spotlight stays on when i release the SUPER key. It only works if nothing gets pressed while the key is down. Having the spotlight on does not stop any other input and any release of the SUPER key is eligible to stop the spotlight.
+
+- Notification Toast:
+    - they don't stack, newer notifications are not shown if an older one is still showing. TBD: should have a limit and stack OR jsut show the latest?
+
+- Context menu:
+    - when the context menu is open, clicking on other shells do not closes it. Not only on interaction areas, clicking the status bar for example should close it: basically any input that's not on the context menu always closes it (withtout stopping that input propagation)
+
+- Thunar: many default behaviours seem to require configuration like those examples, configure them:
+    - imv: opening an image from thunar (or other third party software) does not use the imv wrapper and so the window closes as soon as any input (even mouse movement) is triggered.
+    - terminal: running "Open terminal window here" in thunar fails with: `Failed to launch preferred application for category "Terminal emulator"`
+
+## Hibernation
+
+- it freezes the screen, then spins the fans to maximum, then turns off. The freeze can last up to 30 seconds. Sometimes the screen turns off, then on again frozen, then finally hibernates. Fix the broken behaviour, you can add a loading state to hide it — which can become a shell item for other uses.
+- After hibernating the laptop, the touchpad does not always come back; the touchscreen always work instead.
+- After hibernation, the screen suspends after about 30 seconds of inactivity, which is far too soon. A restart is required to restore normal suspend behaviour.
+
+- The network graph shows unreliable values. It must measure internet speed, and must not be capped. Generally it seems that it's not really having a continuos speedtest and overall it has many concerning issues both of fake looking informations and it's unstable:
+    - after some time it measure correctly, then it goes back to 1Kb/s (might be due to the timings of speedtest-cli, but the graph should never show false data)
+
+## AppSwitcher
+
+- [NOT_WORKING] Releasing the alt key should trigger the selection, currently it does not (only pressing enter or clicking triggers the selected item).
+- [NOT_WORKING]: neither Alt release nor Enter selects; only a click does.
+- [NOT_WORKING] Changing workspace with a three-finger swipe works, however it's not possible to swipe to change workspace while ALT is held down. 3 finger swipe fails while Alt is held; likely the keybinding, not the gesture.
+
+## Chroma
+
+- Single key does not work.
+    - the "editor" does not show (and the logic does not work either)
+- Notification integration does not work.
+- Power integration does not work, and it blocks every chroma feature in an error loop — even the static colour changes stop responding.
+- nvim integration should have instant transition, instead it eases
+
+## Settings:
+
+- Remove the file picker for new wallpapers (they automatically read the wallpaper folder)
+    - currently if the theme section is open it's required to close it and reopen it to refresh the wallpaper list
+    - dynamic wallaper loading show a black element, instead it should show a state (loading and failed as well)
+- there are no options for the user profile image and other user's informations:
+    - Editable fields only where they are safe to change.
+    - User image (with a file picker)
+    - Password change, using a custom system dialogue with animated live validation.
+
+    - Option to invert the scrolling direction (only for the touchpad / mouse, not the touchscreen)
+
+    - Buttons/links to quickly open config files and folders in the system file manager
+        - also add a section with a list of all configurable softwares to quickly edit the right file/open the directory
+
+- the panel sometimes takes a long time loading (especially the theme section, which can even turn on the fans as it's way too heavy). It correctly shows the skeleton loading but might take too long. loadings can be applied to singe sections and specific for the heavier items like previews. Lazy loading can improve the performances as well.
+
+- the index should appear on the side of the settings panel with some spacing, without taking out space from the body of the settings panel
+
+- the indexes can group items better (eg. wallpapers has 3 consecutive sections that can be grouped in the index as "wallpaper")
+
+- Many options should be removed, both visually and in the logic. Chroma's "power button range" is the main example: the power button is a single key, and only that one should change colour for the battery, so having extra options makes no sense. Many other options seem to be there just to "fill space". i want an advance study on the current settings panel (as in the previous point)
+
+- many options should be aligned better or change layout: * THOSE ARE INDICATIONS, A WIDE AND DETAILED STUDY ON THE CURRENT LAYOUT SHOULD BE MADE TO OPTIMISE USABILITY AND NAVIGATION AT ITS BEST. WHAT I REQUIRE IS A FULL STUDY THAT SHOULD RESULT IN A LOT MORE TASKS TO IMPROVE THE UI/UX AND PERFORMANCES
+    - Theme should have options "dark", "light", "automatic" on the same line. Only if automatic is selected editor schedule hour is shown with a toggle "use custom hours" and the 2 time input can stay on the same line. the "Automatic window" text can be completely removed
+    - The colour preview can be removed
+    - Colours can be grouped in the index and can be layed out better. The accent color should be the main option (as it's the one that will get changed more often, those are the type of UI/UX reasoning i require in decisions for the settings layout design)
+    - the "edited" state should be signaled with a dot next to the option title
+    - the "wallpaper base" section should show only when it's actually active, and it can be part of the wallpaper macro-section
+    - static and dynamic wallapers should be grouped, separated by titles, this way all other fields and option for the wallpaper can appear after the wallapeper gallery (dynamic wallpaper options visible only when active)
+    - in the many sections the "reset" button has a whole line instead of being in the header (spaced from the title to the right side)
+    - the typography section uses space terribly, especially the previews do not need their whole line, they can have multiple lines to fit in less width and align to a more compact selection of the fonts
+    - "shape & spacing", "animations", "clock", "lock screen", "cursor spotlight", "screen magnifier" (and many other sections in the whole panel) all have the same probles regarding having a full line per option, when they could easily lay them out well and with context on less lines, using space and alignment better
+    - large elements can be aligned to multiple row of options. For example the transition preview and editor can be aligned horizontally with all the 4 following options on the right, occupying 50% width and 4 rows of height (and even have the preview and text bazier below the editor to align everything better, considering those elements require more width then height)
+    - the "hide preview" button is not in the header, like "resets" button this makes no sense
+    - the screensaver shoud use a select to optimise space
+    - the screensaver preview shouldn't be a section by itself, it's part of the screensaver (the same should be applied to many sections, that are separated for no apparent reason)
+    - "per app rules" does not align entries and flags buttons
+    - there is a "chroma" section for notification that takes so much space for a single switch. (even if the feature is separated, the settings panel should group and order everyhting coherently, with optionals for settings that are not always available)
+    - the "ringtone" section aligns select and message on multiple lines for no reason, with volume and test taking up space as well. Why is there even a label "Test" for the verbose button "Test ringtone"? Just set a button and don't take up a whole line. there are many such cases
+    - etc. A CASE STUDY MUST BE MADE TO DEFINE HOW TO PERFECTLY IMPROVE THE LAYOUT
 
 # Additions
 
 - Smooth scrolling with the touchpad in the shells. Touchscreen and mouse drag
   already behave that way. Leave the scroll wheel as it is, with a comment —
   how to handle it will be decided in time.
-- Interactive index panel for the settings panel: appears on the right with
-  some spacing, aligned to the top of the content body, showing the mapped
-  inner sections.
-    - The active section has a highlighter effect; inactive ones have a hover
-      opacity effect.
-    - They follow the scroll position automatically and can be clicked to
-      activate and scroll to position.
-    - It must work with the existing search bar.
-    - Make it easy to configure which panels have it, and normalise how
-      sections are mapped. Only Theme, Connectivity and Devices use it today.
-- Draggable window wrapper for floating windows — currently used as an imv
-  wrapper, usable for general floating windows or other processes.
-    - Small padding left, top and right.
-    - Header at the bottom: app title, a draggable area with a grab cursor, and
-      extra content passed as a property.
-- Quick Note feature:
-    - HotCorner shell item: can be set at anchors and has a callback. The quick
-      note corner sits at the bottom right of the screen, regardless of the
-      status bar.
-    - On hover it shows a small expanding square to hint the interaction.
-    - It is invisible until hovered — 0px, or 1px if 0 does not work.
-    - On activation it opens the latest file in `phios/quick_notes/` in
-      nvim-notes.
-    - The view is wrapped in the draggable floating window, with a "new" button
-      and a note selector in the header.
-    - New notes are named `timestamp_customName`, where customName is the first
-      line or word.
-- Music client:
-    - Set up with Navidrome if possible: https://rmpc.mierak.dev — otherwise
-      something similar.
-    - Lyrics — probably needs server-side work too.
-    - A built-in way to add music to the library, triggering the server
-      indexer.
-- Media centre client:
-    - TUI or GUI.
-    - Hidden library switch: swaps the UI completely between the public and
-      hidden libraries, changing visible content, search history, suggestions,
-      categories, actors and so on. Requires a password.
-    - An interface to interact with the indexers.
-    - Video and audio download from source — a GUI over the API.
-- Spellchecking, for normal use (browser and the rest) and above all for
-  nvim-notes. It should be possible to disable it by hand from the status bar.
-  Whether it is worth running a central service on the server is open.
-- App-permission detection and enforcement backend. `Services/SensorPermissions.qml`
-  and its UI — bar icons, overlays, the settings group, the three-choice prompt
-  — are built and real, but nothing populates `activeUsers`, so the prompt
-  never appears on its own. It needs a reactive detect-then-kill design: no
-  OS-level prior-restraint mechanism exists on a non-sandboxed desktop, so this
-  is not the same shape as Flatpak or portal permissions. Microphone detection
-  goes through Pipewire capture-stream nodes, where `AudioBridge.qml`'s
-  existing `micInUse` mechanism is the proven starting point; camera detection
-  means scanning `/proc/*/fd` for open `/dev/video*` handles, with no precedent
-  anywhere in this codebase. Also needs a decision on where `rules` and
-  `activeUsers` persist across restarts — they are session-only today.
-- Calendar: events, TODOs and reminders.
-    - Add to the calendar popout.
-    - Notifications.
-    - Runner implementation.
-    - AI agent implementation.
-    - Server sync — mostly useful if synced with the phone, otherwise of
-      limited value for now.
 
-## RequiredSettings
+- Touchscreen gesture: add some gesture with the touchscreen:
+    - 3-fingers left/right swipe: change workspace
+    - 3-fingers top/down swipe: open/close AppSwitcher
+    - 4-finger inward: same as in touchpad, etc.
+    - generally, all gestures applied to the touchpad should work on the touchscree as well
+    - the MX Master should map the "gesture" to the thumb key, allowing to change workspace and open the overview by pressing it and sliding the mouse
 
-- Option to invert the scrolling direction, without interfering with the
-  touchscreen.
-- User information:
-    - Editable fields only where they are safe to change.
-    - User image.
-    - Password change, using the system dialogue with animated live validation.
-- Buttons to quickly open config files and folders.
-- A file picker for wallpapers, the user image and anything similar.
+- Spellchecking [TBD], for normal use (browser and the rest) and above all for nvim-notes. It should be possible to disable it by hand from the status bar. Whether it is worth running a central service on the server is open.
+  
+- App-permission detection and enforcement backend. `Services/SensorPermissions.qml` and its UI — bar icons, overlays, the settings group, the three-choice prompt — are built and real, but nothing populates `activeUsers`, so the prompt never appears on its own. It needs a reactive detect-then-kill design: no OS-level prior-restraint mechanism exists on a non-sandboxed desktop, so this is not the same shape as Flatpak or portal permissions. Microphone detection goes through Pipewire capture-stream nodes, where `AudioBridge.qml`'s existing `micInUse` mechanism is the proven starting point; camera detection means scanning `/proc/*/fd` for open `/dev/video*` handles, with no precedent anywhere in this codebase. Also needs a decision on where `rules` and `activeUsers` persist across restarts — they are session-only today.
 
-## NiceToHave
+## Quick Note
+
+- HotCorner shell item: can be set at anchors and has a callback. The quick note corner sits at the bottom right of the screen, regardless of the status bar.
+- On hover it shows a small expanding square to hint the interaction.
+- It is invisible until hovered — 0px, or 1px if 0 does not work.
+- On activation it opens the latest file in `phios/quick_notes/` in nvim-notes.
+- The view is wrapped in the draggable floating window, with a "new" button and a note selector in the header.
+- New notes are named `timestamp_customName`, where customName is the first line or word.
+
+## Music Client [TBD]
+- Set up with Navidrome if possible: https://rmpc.mierak.dev — otherwise something similar.
+- Lyrics — probably needs server-side work too.
+- A built-in way to add music to the library, triggering the server
+    indexer.
+
+## Media centre client [TBD]
+- TUI or GUI.
+- Hidden library switch: swaps the UI completely between the public and hidden libraries, changing visible content, search history, suggestions, categories, actors and so on. Requires a password.
+- An interface to interact with the indexers.
+- Video and audio download from source — a GUI over the API.
+
+
+## Calendar: events, TODOs and reminders. [TBD]
+- Add to the calendar popout.
+- Notifications.
+- Runner implementation.
+- AI agent implementation.
+- Server sync — mostly useful if synced with the phone, otherwise of
+limited value for now.
+
+## NiceToHave [TBD]
 
 - Settings and theme profiles: home, work, school.
-- Weather app: either use https://github.com/ashuttl/linecast or clone its
-  forecast logic for the week, the day, and rain percentage over the map. Moon,
-  sunshine and sky are not needed but would be nice.
-- New screensaver: a weather-based terminal, using the weather app backend.
-  Storm example: https://github.com/rmaake1/terminal-rain-lightning
-- Hide the cursor while typing in a terminal or in nvim, restoring it on input,
-  to avoid misclicks on the touchpad — but allow the touchscreen.
+
+- Weather app: either use https://github.com/ashuttl/linecast or clone its forecast logic for the week, the day, and rain percentage over the map. Moon, sunshine and sky are not needed but would be nice.
+
+- New screensaver: a weather-based terminal, using the weather app backend. Storm example: https://github.com/rmaake1/terminal-rain-lightning (password verification in all states should have coherent reactions)
+
+- Hide the cursor while typing in a terminal or in nvim, restoring it on input, to avoid misclicks on the touchpad — but allow the touchscreen.
 
 # OpenQuestions
 
@@ -535,9 +458,13 @@ Still undecided. Answer here, or on the entry the question points at.
 - Prowlarr stack on `mini` — rootless containers, greenfield, no
   `profiles/server/packages.txt` exists yet. [WIP] as a test target of
   `docs/external-packages-plan.md`; what the stack contains is still open.
+
 - Should empty workspaces shift automatically, so they are always in order?
-- Which sound feedbacks are actually worth adding, beyond differentiating
-  battery-full from connecting and disconnecting power? See [#Desktop].
+    - Answer: yes, this should also be working with the fullscreen behavior described in [Desktop]
+
+- Which sound feedbacks are actually worth adding, beyond differentiating battery-full from connecting and disconnecting power? See [#Desktop]. 
+    - Answer: taking a screenshot, adding an element to the clipboard history, startup, shutdown, input detection, etc. All those are possible sounds. You should make your own consideration on what makes sense that has a sound feedback, and have them all singularly switchable and configurable.
+
 - Which settings in the settings panel are useless and should be removed?
 
 # Ideas
