@@ -1,6 +1,6 @@
 # Agent panel rework — design study and contract
 
-Status: implemented in phi v0.25.0, phi-shell `dev`, phios-dotfiles `dev`.
+Status: implemented — phi v0.25.0, phi-shell `dev`, phios-dotfiles `dev`.
 Scope: `phi-shell` agent panel (`Components/AgentPanel/`, `Services/Agent*.qml`),
 Settings › AI Agent, the `phi agent serve` API and CLI verbs it needs, and one
 first-party pi extension.
@@ -424,6 +424,7 @@ and must reconnect and refetch.
 | `thinking.delta` | index, text | `thinking_delta` (coalesced) |
 | `block.end` | index, block, text? (final), tool? (ToolBlock without result) | `text_end`, `thinking_end`, `toolcall_end` |
 | `message.done` | usage (Usage), stopReason, error?, model, provider | assistant `message_end` |
+| `message.user` | text, images | user `message_end` (a sent, steered or queued message reaching the model) |
 | `tool.start` | callId, name, args, summary | `tool_execution_start` |
 | `tool.update` | callId, name, partial: {text, details?} | `tool_execution_update` (throttled) |
 | `tool.end` | callId, name, isError, result: {text, truncated, details?} | `tool_execution_end` |
@@ -599,17 +600,18 @@ spawn (RPC and TUI chat profiles).
 
 New CLI verbs (all with `--json`):
 
-- `phi agent prefs get | set KEY VALUE` (dotted keys: `models.general`,
+- `phi agent prefs get [KEY] | set KEY VALUE` (dotted keys: `models.general`,
   `scheduler.enabled`, …).
 - `phi agent usage [--days N]`.
 - `phi agent schedule list | add --json-body JSON | set ID --json-body JSON | rm ID | run ID`.
-- `phi agent project attachment list NAME | add NAME PATH | remove NAME FILE`.
-- `phi agent memory read --level system|profile|project [--profile P] [--project N]`
+- `phi agent attachment list NAME | add NAME PATH | remove NAME FILE`.
+- `phi agent memory-read --level system|profile|project [--profile P] [--project N]`
   → `{"text","path"}`.
 - `phi agent status` → units, keys present, models.json providers per
   profile, whitelist entry count, broker config summary (no secrets) — what
-  Settings used to read with `sh`.
-- `phi agent session prune [--older-than DAYS]` — deletes ended terminal
+  Settings needs without reading files itself.
+- `phi agent broker-requests [--instance a1|a2] [--limit N]`.
+- `phi agent session-prune [--older-than DAYS]` — deletes ended terminal
   session records (never transcripts).
 
 ---
@@ -689,14 +691,14 @@ Flat JSON at `Paths.agentPrefsFile` (`<stateDir>/agent.json`):
 
 ```
 AgentPanel.qml                 dock, header, tabs, status pill, keys, IPC
-modules/Timeline.qml           ListView over a rows model; props: model, readOnly, live
+modules/Timeline.qml           ListView over a rows model; props: model, readOnly, busy, activity, sessionId
 modules/rows/UserRow.qml  TextRow.qml  ThinkingRow.qml  ToolRow.qml
 modules/rows/PlanCard.qml  SubagentCard.qml  DialogRow.qml  TurnEndRow.qml
-modules/rows/MarkerRow.qml     compaction, notice, error, bash, custom
-modules/ChatSection.qml        sidebar + conversation + inspector layout
-modules/ChatSidebar.qml  ChatHeader.qml  Composer.qml  Inspector.qml
+modules/rows/MarkerRow.qml     error, compaction, notice, bash, custom
+modules/ChatSection.qml        sidebar + conversation + inspector layout, drawers
+modules/ChatSidebar.qml  ChatHeader.qml  Composer.qml  Inspector.qml  OfflineCard.qml
 modules/CodeSection.qml        running/ended cards, launcher, timeline viewer
-modules/ProjectsSection.qml    list + detail (ProjectDetail.qml)
+modules/ProjectsSection.qml    list + new-project form; ProjectDetail.qml
 modules/OverviewSection.qml    health, running, needs-you, usage, schedule, errors
 modules/ScheduleEditor.qml     job form
 modules/ProposalReview.qml     literal diff review, shared by Overview and Projects
